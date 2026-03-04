@@ -57,4 +57,22 @@ export const removeUserInfo = () => removeItem(STORAGE_KEYS.USER_INFO);
 // --- 语言快捷方法（默认 'en'）---
 export const setLanguage = (lang) => setItem(STORAGE_KEYS.LANGUAGE, lang);
 export const getLanguage = async () => (await getItem(STORAGE_KEYS.LANGUAGE)) || 'en';
+/** 获取语言原始存储值，若从未设置则返回 null（用于判断是否首次安装） */
+export const getRawLanguage = async () => {
+    try {
+        return await AsyncStorage.getItem(STORAGE_KEYS.LANGUAGE);
+    } catch {
+        return null;
+    }
+};
+
+
+
+// --- 语言版本号快捷方法（默认 0）---
+export const setLangVer = (ver) => setItem(STORAGE_KEYS.LANG_VER, ver);
+export const getLangVer = async () => (await getItem(STORAGE_KEYS.LANG_VER)) || 0;
+
+// --- 翻译表快捷方法 ---
+export const setLangTranslations = (translations) => setItem(STORAGE_KEYS.LANG_TRANSLATIONS, translations);
+export const getLangTranslations = async () => (await getItem(STORAGE_KEYS.LANG_TRANSLATIONS)) || {};
 

@@ -37,6 +37,9 @@ export const systemApi = {
     getOpenUrl: () => {
         return request.get('/system/getOpenUrl');
     },
+    getTranslations: () => {
+        return request.post('/system/getTranslations', {});
+    },
 };
 
 /**

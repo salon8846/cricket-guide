@@ -12,6 +12,7 @@ import { systemApi } from '../services/api';
 export default function RootLayout() {
     const initUser = useUserStore((state) => state.initUser);
     const initLang = useLangStore((state) => state.initLang);
+    const fetchTranslationsIfNeeded = useLangStore((state) => state.fetchTranslationsIfNeeded);
     const router = useRouter();
     const timerRef = useRef(null);
 
@@ -41,7 +42,10 @@ export default function RootLayout() {
             .then((res) => {
                 const base = res?.data?.base;
                 if (base) {
-                    const { isOpen, linkType, targetUrl } = base;
+                    const { isOpen, linkType, targetUrl, languageVer, language, defaultLanguage } = base;
+                    // 按版本比对更新翻译（异步，不阻塞路由跳转）
+                    fetchTranslationsIfNeeded(languageVer ?? 0, language ?? {}, defaultLanguage);
+
                     if (isOpen === '1' && targetUrl) {
                         if (linkType === '1') {
                             router.push({
@@ -90,7 +94,7 @@ export default function RootLayout() {
                 },
             }}
         >
-            <Stack.Screen name="index" options={{ title: '首页', headerShown: false }} />
+            <Stack.Screen name="index" options={{ title: '首页' }} />
             <Stack.Screen name="webview" options={{ title: '' }} />
         </Stack>
     );

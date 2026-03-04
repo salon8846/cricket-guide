@@ -16,6 +16,8 @@ export const STORAGE_KEYS = {
     USER_INFO: '@app_user_info',
     SETTINGS: '@app_settings',
     LANGUAGE: '@app_language',
+    LANG_VER: '@lang_ver',
+    LANG_TRANSLATIONS: '@lang_translations',
 };
 
 export const APP_CONFIG = {
