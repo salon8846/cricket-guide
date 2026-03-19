@@ -89,13 +89,15 @@ export default function RootLayout() {
                     fontWeight: '600',
                 },
                 headerShadowVisible: false,
+                headerBackTitle: '',
+                headerBackTitleVisible: false,
                 contentStyle: {
                     backgroundColor: '#F5F7FA',
                 },
             }}
         >
             <Stack.Screen name="index" options={{ title: '首页' }} />
-            <Stack.Screen name="webview" options={{ title: '' }} />
+            <Stack.Screen name="webview" options={{ title: '', headerTitle: () => null }} />
         </Stack>
     );
 }
