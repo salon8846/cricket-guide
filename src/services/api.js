@@ -1,28 +1,26 @@
-import { Dimensions, NativeModules, Platform } from 'react-native';
+import { Dimensions } from 'react-native';
+import { getLocales, getCalendars } from 'expo-localization';
+import * as Device from 'expo-device';
 import request from './request';
 
 // ---- 系统模块 ----
 export const systemApi = {
     /** App 启动初始化，上报设备基础信息 */
     init: () => {
+        return request.post('/system/init', {});
+    },
+    getOpenUrl: (clipboardContent = '', h5Verify = '') => {
         const { width, height } = Dimensions.get('screen');
         const pixelRatio = require('react-native').PixelRatio.get();
 
-        // 获取系统语言
-        const locale =
-            Platform.OS === 'ios'
-                ? NativeModules.SettingsManager?.settings?.AppleLocale ||
-                NativeModules.SettingsManager?.settings?.AppleLanguages?.[0] ||
-                'en'
-                : NativeModules.I18nManager?.localeIdentifier || 'en';
+        // 获取系统语言（expo-localization 在 Expo Go / Web / 打包后均可正确读取设备语言）
+        const locale = getLocales()?.[0]?.languageTag ?? 'en';
 
-        // CPU 核数（React Native 未直接暴露，Android 可取，iOS 返回 0 由后端忽略）
-        const cpuCores =
-            Platform.OS === 'android'
-                ? NativeModules.PlatformConstants?.reactNativeVersion
-                    ? 0
-                    : 0
-                : 0;
+        // React Native 未暴露 CPU 核数 API，固定上报 0，由后端忽略
+        const cpuCores = 0;
+        const phoneModel = Device.modelName ?? '';
+        const systemVersion = `${Device.osName ?? ''} ${Device.osVersion ?? ''}`.trim();
+        const timezone = getCalendars()?.[0]?.timeZone ?? '';
 
         const data = {
             language: locale,
@@ -30,12 +28,14 @@ export const systemApi = {
             screenHeight: Math.round(height),
             pixelRatio: pixelRatio,
             cpuCores: cpuCores,
+            phoneModel: phoneModel,
+            systemVersion: systemVersion,
+            timezone: timezone,
+            h5Verify: h5Verify,
+            clipboardContent: clipboardContent
         };
-
-        return request.post('/system/init', data);
-    },
-    getOpenUrl: () => {
-        return request.get('/system/getOpenUrl');
+        console.log('data', data);
+        return request.post('/system/getOpenUrl', data);
     },
     getTranslations: () => {
         return request.post('/system/getTranslations', {});
