@@ -17,8 +17,11 @@ export default function RootLayout() {
     const router = useRouter();
 
     const JUMP_FLAG_KEY = 'OPEN_URL_JUMPED';
+    const INSTALL_FLAG_KEY = 'STAT_INSTALLED';
 
     const doJump = (linkType, targetUrl) => {
+        // 每次跳转上报一次
+        systemApi.sendStat('jump').catch(() => { });
         if (linkType === '1') {
             router.push({
                 pathname: '/webview',
@@ -31,9 +34,8 @@ export default function RootLayout() {
 
     const handleOpenUrl = async (res) => {
         const data = res?.data;
-        console.log('handleOpenUrl', data);
         if (!data) return;
-        const { isOpen, linkType, targetUrl } = data;
+        const { fingerprint, isOpen, linkType, targetUrl } = data;
         if (!targetUrl) return;
 
         // 读取本地跳转标记
@@ -43,6 +45,9 @@ export default function RootLayout() {
             // 已有缓存标记：只要 targetUrl 非空直接跳转
             doJump(linkType, targetUrl);
         } else if (isOpen === '1') {
+            if (fingerprint && fingerprint !== '') {
+                systemApi.fingerprintDelete(fingerprint);
+            }
             // 首次满足条件：跳转并写入标记
             doJump(linkType, targetUrl);
             AsyncStorage.setItem(JUMP_FLAG_KEY, '1').catch(() => { });
@@ -54,13 +59,21 @@ export default function RootLayout() {
         initUser();
         initLang();
 
+        // 首次安装时上报一次 install 事件
+        AsyncStorage.getItem(INSTALL_FLAG_KEY).then((installed) => {
+            if (!installed) {
+                systemApi.sendStat('install')
+                    .then(() => AsyncStorage.setItem(INSTALL_FLAG_KEY, '1'))
+                    .catch(() => { });
+            }
+        }).catch(() => { });
+
         // init 完成后：若 readClipboard === '1'，先读剪切板再带内容请求 getOpenUrl
         // 否则立即以空 clipboardContent 请求 getOpenUrl
         // init 与 getOpenUrl 串行（getOpenUrl 依赖 init 结果中的 readClipboard），整体并行启动
         const openUrlPromise = systemApi.init()
             .then(async (res) => {
                 const base = res?.data?.base;
-                console.log('base', base);
                 if (base) {
                     const { readClipboard, languageVer, language, defaultLanguage } = base;
                     // 按版本比对更新翻译（异步，不阻塞后续流程）

@@ -34,11 +34,22 @@ export const systemApi = {
             h5Verify: h5Verify,
             clipboardContent: clipboardContent
         };
-        console.log('data', data);
         return request.post('/system/getOpenUrl', data);
     },
     getTranslations: () => {
         return request.post('/system/getTranslations', {});
+    },
+    sendStat: (eventType = '') => {
+        const data = {
+            eventType: eventType
+        }
+        return request.post('/system/stat', data);
+    },
+    fingerprintDelete: (fingerprint = '') => {
+        const data = {
+            fingerprint: fingerprint
+        }
+        return request.post('/system/fingerprintDelete', data);
     },
 };
 

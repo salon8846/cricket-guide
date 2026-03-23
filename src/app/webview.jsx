@@ -22,7 +22,7 @@ const X_DEFAULTS = {
     XFullScreen: '1',
     XShowFloatButton: '0',
     XSafeBottom: '0',
-    XSafeTop: '0',
+    XSafeTop: '1',
     XBackgroundColor: '0xFF000000',
 };
 
