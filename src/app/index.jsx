@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
     View, Text, StyleSheet, ScrollView,
-    TouchableOpacity, Modal, Pressable, FlatList,
+    TouchableOpacity, Modal, Pressable, FlatList, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from 'expo-router';
@@ -10,6 +10,7 @@ import { Colors, FontSize, FontWeight, Spacing } from '../constants/theme';
 import useUserStore from '../store/useUserStore';
 import useLangStore from '../store/useLangStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import useAppStore from '../store/useAppStore';
 /**
  * 首页 - 展示项目结构和组件示例
  */
@@ -19,7 +20,7 @@ export default function HomeScreen() {
     // 单独订阅 translations，使导航栏在翻译异步加载完成后也能刷新
     const translations = useLangStore((state) => state.translations);
     const navigation = useNavigation();
-
+    const jumpOverlay = useAppStore((state) => state.jumpOverlay);
     const [langModalVisible, setLangModalVisible] = useState(false);
     const [switching, setSwitching] = useState(false);
 
@@ -158,6 +159,12 @@ export default function HomeScreen() {
                     </Pressable>
                 </Pressable>
             </Modal>
+            {/* 跳转遮罩：识别到需要跳转 webview 时，遮住首页内容，显示白屏+菊花 */}
+            {jumpOverlay && (
+                <View style={styles.jumpOverlay} pointerEvents="none">
+                    <ActivityIndicator size="large" color="#3961FB" />
+                </View>
+            )}
         </SafeAreaView>
     );
 }
@@ -170,6 +177,17 @@ const styles = StyleSheet.create({
     container: {
         padding: Spacing.lg,
         paddingBottom: Spacing['4xl'],
+    },
+    jumpOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: '#FFFFFF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 9999,
     },
     header: {
         alignItems: 'center',

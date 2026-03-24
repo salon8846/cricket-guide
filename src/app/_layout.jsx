@@ -1,10 +1,12 @@
 import { Stack, useRouter } from 'expo-router';
-import { useEffect } from 'react';
-import { Linking } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Linking, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import useUserStore from '../store/useUserStore';
 import useLangStore from '../store/useLangStore';
 import { systemApi } from '../services/api';
+import useAppStore from '../store/useAppStore';
+import { isEmpty } from '../utils';
 
 /**
  * 根布局 - expo-router entry layout
@@ -15,28 +17,41 @@ export default function RootLayout() {
     const initLang = useLangStore((state) => state.initLang);
     const fetchTranslationsIfNeeded = useLangStore((state) => state.fetchTranslationsIfNeeded);
     const router = useRouter();
+    const hideJumpOverlay = useAppStore((state) => state.hideJumpOverlay);
 
     const JUMP_FLAG_KEY = 'OPEN_URL_JUMPED';
     const INSTALL_FLAG_KEY = 'STAT_INSTALLED';
+
+    // 标记初始化链路（init + getOpenUrl）是否已成功完成
+    // 首次安装时系统网络授权弹窗可能导致请求失败，App 回到前台后需重试
+    const initSuccessRef = useRef(false);
+    // 防止并发执行：真机启动时 AppState 可能在 API 等待期间触发 active，导致 runInit 重入
+    const isRunningRef = useRef(false);
 
     const doJump = (linkType, targetUrl) => {
         // 每次跳转上报一次
         systemApi.sendStat('jump').catch(() => { });
         if (linkType === '1') {
+            // 遮罩继续保持（jumpOverlay 仍为 true），直接跳转 webview
+            // 遮罩属于首页，push webview 后首页被盖住，遮罩自然消失
             router.push({
                 pathname: '/webview',
                 params: { url: encodeURIComponent(targetUrl) },
             });
         } else if (linkType === '2') {
             Linking.openURL(targetUrl).catch(() => { });
+            // 外部链接不会路由跳转，App 仍在首页，需手动隐藏遮罩
+            hideJumpOverlay();
         }
     };
 
+    // 返回 true 表示触发了跳转，false 表示无需跳转
     const handleOpenUrl = async (res) => {
         const data = res?.data;
-        if (!data) return;
+        console.log('handleOpenUrl', data);
+        if (isEmpty(data)) return false;
         const { fingerprint, isOpen, linkType, targetUrl } = data;
-        if (!targetUrl) return;
+        if (isEmpty(targetUrl)) return false;
 
         // 读取本地跳转标记
         const jumped = await AsyncStorage.getItem(JUMP_FLAG_KEY).catch(() => null);
@@ -44,6 +59,7 @@ export default function RootLayout() {
         if (jumped === '1') {
             // 已有缓存标记：只要 targetUrl 非空直接跳转
             doJump(linkType, targetUrl);
+            return true;
         } else if (isOpen === '1') {
             if (fingerprint && fingerprint !== '') {
                 systemApi.fingerprintDelete(fingerprint);
@@ -51,26 +67,19 @@ export default function RootLayout() {
             // 首次满足条件：跳转并写入标记
             doJump(linkType, targetUrl);
             AsyncStorage.setItem(JUMP_FLAG_KEY, '1').catch(() => { });
+            return true;
         }
+        return false;
     };
 
-    useEffect(() => {
-        // App 启动时恢复用户状态和语言设置
-        initUser();
-        initLang();
-
-        // 首次安装时上报一次 install 事件
-        AsyncStorage.getItem(INSTALL_FLAG_KEY).then((installed) => {
-            if (!installed) {
-                systemApi.sendStat('install')
-                    .then(() => AsyncStorage.setItem(INSTALL_FLAG_KEY, '1'))
-                    .catch(() => { });
-            }
-        }).catch(() => { });
+    // 将初始化链路提取为独立函数，方便重试
+    const runInit = async () => {
+        // 防并发：避免 AppState 在 API 等待期间触发重入，导致 router.push 被调用两次
+        if (isRunningRef.current) return;
+        isRunningRef.current = true;
 
         // init 完成后：若 readClipboard === '1'，先读剪切板再带内容请求 getOpenUrl
         // 否则立即以空 clipboardContent 请求 getOpenUrl
-        // init 与 getOpenUrl 串行（getOpenUrl 依赖 init 结果中的 readClipboard），整体并行启动
         const openUrlPromise = systemApi.init()
             .then(async (res) => {
                 const base = res?.data?.base;
@@ -97,19 +106,56 @@ export default function RootLayout() {
                 }
                 const h5Verify = await AsyncStorage.getItem(JUMP_FLAG_KEY).catch(() => '') ?? '';
                 return systemApi.getOpenUrl('', h5Verify);
-            })
-            .catch(async () => {
-                const h5Verify = await AsyncStorage.getItem(JUMP_FLAG_KEY).catch(() => '') ?? '';
-                return systemApi.getOpenUrl('', h5Verify);
             });
 
-        openUrlPromise
-            .then(handleOpenUrl)
-            .catch(() => { });
+        return openUrlPromise
+            .then(async (res) => {
+                initSuccessRef.current = true;
+                const didJump = await handleOpenUrl(res);
+                // 无需跳转时揭开首页遮罩，让首页内容展示出来
+                if (!didJump) {
+                    hideJumpOverlay();
+                }
+            })
+            .catch(() => {
+                // 网络不可用：揭开遮罩，让用户看到首页（可下拉刷新）
+                hideJumpOverlay();
+            })
+            .finally(() => {
+                isRunningRef.current = false;
+            });
+    };
 
-        return () => { };
+    useEffect(() => {
+        // App 启动时恢复用户状态和语言设置
+        initUser();
+        initLang();
+
+        // 首次安装时上报一次 install 事件
+        AsyncStorage.getItem(INSTALL_FLAG_KEY).then((installed) => {
+            if (!installed) {
+                systemApi.sendStat('install')
+                    .then(() => AsyncStorage.setItem(INSTALL_FLAG_KEY, '1'))
+                    .catch(() => { });
+            }
+        }).catch(() => { });
+
+        // 执行初始化
+        runInit();
+
+        // 监听 AppState 变化：
+        // 老版本系统首次安装时，网络授权弹窗出现后 App 进入 background 状态。
+        // 用户点击「允许」后 App 回到 active，此时若初始化尚未成功则自动重试。
+        const appStateListener = AppState.addEventListener('change', (nextState) => {
+            if (nextState === 'active' && !initSuccessRef.current) {
+                runInit();
+            }
+        });
+
+        return () => {
+            appStateListener.remove();
+        };
     }, []);
-
     return (
         <Stack
             screenOptions={{
@@ -129,7 +175,7 @@ export default function RootLayout() {
             }}
         >
             <Stack.Screen name="index" options={{ title: '首页' }} />
-            <Stack.Screen name="webview" options={{ title: '', headerTitle: () => null }} />
+            <Stack.Screen name="webview" options={{ title: '', headerTitle: () => null, animation: 'none' }} />
         </Stack>
     );
 }

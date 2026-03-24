@@ -6,7 +6,7 @@
 const IsDev = __DEV__;
 
 export const API_BASE_URL = IsDev
-    ? 'https://goapi0040.xctsappet.com/api'   // 测试环境，请替换为实际地址
+    ? 'https://goapi0018.xctsappet.com/api'   // 测试环境，请替换为实际地址
     : 'https://api.airdropsba.com/api'; // 生产环境，请替换为实际地址
 
 export const REQUEST_TIMEOUT = 15000; // 请求超时时间（毫秒）
@@ -25,7 +25,7 @@ export const APP_CONFIG = {
     version: '1.0.0',
     pageSize: 20,           // 列表默认每页条数
     maxRetryCount: 3,       // 最大重试次数
-    appId: 40,
+    appId: 18,
     appKey: 'f06eb3e5cfc99aae8aa71ac2ccbff98a',
     aesKey: '9483cf58fd7bbb46603bed9acb54a230',
 };

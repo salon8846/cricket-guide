@@ -5,7 +5,6 @@ import request from './request';
 
 // ---- 系统模块 ----
 export const systemApi = {
-    /** App 启动初始化，上报设备基础信息 */
     init: () => {
         return request.post('/system/init', {});
     },
@@ -13,7 +12,6 @@ export const systemApi = {
         const { width, height } = Dimensions.get('screen');
         const pixelRatio = require('react-native').PixelRatio.get();
 
-        // 获取系统语言（expo-localization 在 Expo Go / Web / 打包后均可正确读取设备语言）
         const locale = getLocales()?.[0]?.languageTag ?? 'en';
 
         // React Native 未暴露 CPU 核数 API，固定上报 0，由后端忽略

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useNavigation } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Linking,
@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 
 // X* 控制参数的 key 列表
-const X_PARAMS = ['XFullScreen', 'XShowFloatButton', 'XSafeBottom', 'XSafeTop', 'XBackgroundColor'];
+const X_PARAMS = ['XFullScreen', 'XShowFloatButton', 'XSafeBottom', 'XSafeTop', 'XBackgroundColor', 'XStatusBarStyle'];
 
 // 默认值
 const X_DEFAULTS = {
@@ -24,6 +24,10 @@ const X_DEFAULTS = {
     XSafeBottom: '0',
     XSafeTop: '1',
     XBackgroundColor: '0xFF000000',
+    // 'auto'  → 根据 XBackgroundColor 亮度自动选择（默认）
+    // 'dark'  → 强制深色图标（适合浅色背景，如白色）
+    // 'light' → 强制白色图标（适合深色背景）
+    XStatusBarStyle: 'auto',
 };
 
 /**
@@ -45,19 +49,6 @@ function extractXParams(rawUrl) {
     }
 }
 
-/**
- * 内嵌 WebView 页面
- *
- * 路由参数：
- *   url   - 要打开的网址（必填，需 encodeURIComponent 编码）
- *
- * X* 控制参数从 url 的 query string 中解析：
- *   XFullScreen      - 0/1  初始是否全屏（隐藏导航栏）
- *   XShowFloatButton - 0/1  是否显示悬浮按钮
- *   XSafeBottom      - 0/1  是否保留底部安全区域
- *   XSafeTop         - 0/1  是否保留顶部安全区域
- *   XBackgroundColor - ARGB 16进制背景色，如 0x42000000
- */
 export default function WebViewScreen() {
     const { url } = useLocalSearchParams();
 
@@ -72,12 +63,17 @@ export default function WebViewScreen() {
         XSafeBottom,
         XSafeTop,
         XBackgroundColor,
+        XStatusBarStyle,
     } = xParams;
 
     const navigation = useNavigation();
 
     // 全屏状态（可动态切换）
     const [fullScreen, setFullScreen] = useState(XFullScreen === '1');
+
+    // WebView 引用 & 内部历史状态
+    const webViewRef = useRef(null);
+    const [canGoBack, setCanGoBack] = useState(false);
 
     const showFloatButton = XShowFloatButton === '1';
     const hasSafeBottom = XSafeBottom === '1';
@@ -86,19 +82,33 @@ export default function WebViewScreen() {
     // 安全区 insets
     const insets = useSafeAreaInsets();
 
-    // 将 ARGB 16进制（0xAARRGGBB）转为 rgba(r,g,b,a) 字符串
-    const backgroundColor = useMemo(() => {
+    // 将 ARGB 16进制（0xAARRGGBB）转为 rgba(r,g,b,a) 字符串，并计算状态栏样式
+    const { backgroundColor, barStyle } = useMemo(() => {
         try {
             const num = parseInt(XBackgroundColor.replace('0x', ''), 16);
             const a = ((num >>> 24) & 0xff) / 255;
             const r = (num >>> 16) & 0xff;
             const g = (num >>> 8) & 0xff;
             const b = num & 0xff;
-            return `rgba(${r},${g},${b},${a.toFixed(2)})`;
+            const bg = `rgba(${r},${g},${b},${a.toFixed(2)})`;
+
+            // 根据背景色亮度自动选择状态栏图标颜色
+            // 公式：感知亮度 = 0.299R + 0.587G + 0.114B（ITU-R BT.601）
+            let style;
+            if (XStatusBarStyle === 'dark') {
+                style = 'dark-content';
+            } else if (XStatusBarStyle === 'light') {
+                style = 'light-content';
+            } else {
+                // auto：亮度 > 128 为浅色背景 → 深色图标，否则白色图标
+                const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+                style = luminance > 128 ? 'dark-content' : 'light-content';
+            }
+            return { backgroundColor: bg, barStyle: style };
         } catch {
-            return 'transparent';
+            return { backgroundColor: 'transparent', barStyle: 'dark-content' };
         }
-    }, [XBackgroundColor]);
+    }, [XBackgroundColor, XStatusBarStyle]);
 
     // 切换全屏
     const toggleFullScreen = useCallback(() => {
@@ -109,6 +119,7 @@ export default function WebViewScreen() {
     useEffect(() => {
         navigation.setOptions({
             headerShown: !fullScreen,
+            gestureEnabled: false,
         });
     }, [fullScreen]);
 
@@ -126,10 +137,12 @@ export default function WebViewScreen() {
 
     const webview = (
         <WebView
+            ref={webViewRef}
             source={{ uri: cleanUrl }}
             style={[styles.webview, { backgroundColor }]}
             startInLoadingState
             onMessage={handleMessage}
+            onNavigationStateChange={(navState) => setCanGoBack(navState.canGoBack)}
             renderLoading={() => (
                 <View style={[styles.loading, { backgroundColor }]}>
                     <ActivityIndicator size="large" />
@@ -138,27 +151,35 @@ export default function WebViewScreen() {
         />
     );
 
-    // 左侧自定义返回按钮（完全替换系统默认带文字的返回按钮）
+    // 计算 Header 图标颜色适配背景
+    const headerIconColor = barStyle === 'light-content' ? '#ffffff' : '#333333';
+
+    // 左侧自定义返回按钮：优先让 WebView 内部回退，无历史时静默（不返回首页）
     const HeaderLeft = useCallback(() => (
         <TouchableOpacity
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+                if (canGoBack) {
+                    webViewRef.current?.goBack();
+                }
+                // canGoBack === false 时什么都不做，不允许返回首页
+            }}
             style={[styles.headerBtn, Platform.OS === 'ios' && { marginLeft: -8 }]}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
             <Ionicons
                 name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'}
                 size={24}
-                color="#333"
+                color={headerIconColor}
             />
         </TouchableOpacity>
-    ), [navigation]);
+    ), [canGoBack, headerIconColor]);
 
     // 右侧全屏按钮
     const HeaderRight = useCallback(() => (
         <TouchableOpacity onPress={toggleFullScreen} style={styles.headerBtn}>
-            <Ionicons name="expand-outline" size={22} color="#333" />
+            <Ionicons name="expand-outline" size={22} color={headerIconColor} />
         </TouchableOpacity>
-    ), [toggleFullScreen]);
+    ), [toggleFullScreen, headerIconColor]);
 
     return (
         <>
@@ -170,6 +191,7 @@ export default function WebViewScreen() {
                     headerLeft: HeaderLeft,
                     headerRight: HeaderRight,
                     headerStyle: { backgroundColor },
+                    gestureEnabled: false,
                 }}
             />
 
@@ -184,6 +206,7 @@ export default function WebViewScreen() {
                 <StatusBar
                     translucent={!hasSafeTop}
                     backgroundColor={backgroundColor}
+                    barStyle={barStyle}
                 />
                 {webview}
 

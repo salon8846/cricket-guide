@@ -31,7 +31,15 @@
     },
     "plugins": [
       "expo-router",
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff",
+          "image": "./assets/icon-splash.png",
+          "imageWidth": 100
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
