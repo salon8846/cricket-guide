@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 
 // X* 控制参数的 key 列表
-const X_PARAMS = ['XFullScreen', 'XShowFloatButton', 'XSafeBottom', 'XSafeTop', 'XBackgroundColor', 'XStatusBarStyle'];
+const X_PARAMS = ['XFullScreen', 'XShowFloatButton', 'XSafeBottom', 'XSafeTop', 'XBackgroundColor', 'XStatusBarStyle', 'XSafeBottomStatus', 'XSafeTopStatus'];
 
 // 默认值
 const X_DEFAULTS = {
@@ -28,6 +28,8 @@ const X_DEFAULTS = {
     // 'dark'  → 强制深色图标（适合浅色背景，如白色）
     // 'light' → 强制白色图标（适合深色背景）
     XStatusBarStyle: 'auto',
+    XSafeBottomStatus: '0',
+    XSafeTopStatus: '0',
 };
 
 /**
@@ -50,13 +52,24 @@ function extractXParams(rawUrl) {
 }
 
 export default function WebViewScreen() {
-    const { url } = useLocalSearchParams();
+    // expo-router splits unencoded `&` in the inner URL into top-level route params.
+    // e.g. `/webview?url=https://h5.com?XSafeTopStatus=1&XSafeBottomStatus=1`
+    // becomes { url: 'https://h5.com?XSafeTopStatus=1', XSafeBottomStatus: '1' }
+    // So we must also read X* from the raw route params and merge them in.
+    const rawParams = useLocalSearchParams();
+    const { url } = rawParams;
 
     // 从 URL query string 中解析 X* 控制参数，同时得到干净的 URL
-    const { cleanUrl, xParams } = useMemo(
-        () => extractXParams(decodeURIComponent(url)),
-        [url],
-    );
+    const { cleanUrl, xParams } = useMemo(() => {
+        const result = extractXParams(decodeURIComponent(url));
+        // Merge any X* params that expo-router placed at route level
+        X_PARAMS.forEach((key) => {
+            if (rawParams[key] !== undefined) {
+                result.xParams[key] = String(rawParams[key]);
+            }
+        });
+        return result;
+    }, [url, rawParams]);
     const {
         XFullScreen,
         XShowFloatButton,
@@ -64,6 +77,8 @@ export default function WebViewScreen() {
         XSafeTop,
         XBackgroundColor,
         XStatusBarStyle,
+        XSafeBottomStatus,
+        XSafeTopStatus,
     } = xParams;
 
     const navigation = useNavigation();
@@ -130,15 +145,46 @@ export default function WebViewScreen() {
             if (action === 'openBrowser' && params?.url) {
                 Linking.openURL(params.url);
             }
+            // H5 调用：window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'getSafeArea' }))
+            // 响应：window 上触发 CustomEvent('nativeSafeArea')，detail 为 { safeTop, safeBottom }
+            if (action === 'getSafeArea') {
+                const safeTop = Math.round(insets.top);
+                const safeBottom = Math.round(insets.bottom);
+                const js = `
+                    (function() {
+                        var e = new CustomEvent('nativeSafeArea', {
+                            detail: { safeTop: ${safeTop}, safeBottom: ${safeBottom} }
+                        });
+                        window.dispatchEvent(e);
+                    })();
+                    true;
+                `;
+                webViewRef.current?.injectJavaScript(js);
+            }
         } catch (e) {
             console.warn('WebView message parse error:', e);
         }
-    }, []);
+    }, [insets.top, insets.bottom]);
 
+    // 将安全区像素值注入到 URL，供 H5 页面读取
+    const finalUrl = useMemo(() => {
+        try {
+            const parsed = new URL(cleanUrl);
+            if (XSafeTopStatus === '1') {
+                parsed.searchParams.set('safeTop', String(Math.round(insets.top)));
+            }
+            if (XSafeBottomStatus === '1') {
+                parsed.searchParams.set('safeBottom', String(Math.round(insets.bottom)));
+            }
+            return parsed.toString();
+        } catch {
+            return cleanUrl;
+        }
+    }, [cleanUrl, XSafeTopStatus, XSafeBottomStatus, insets.top, insets.bottom]);
     const webview = (
         <WebView
             ref={webViewRef}
-            source={{ uri: cleanUrl }}
+            source={{ uri: finalUrl }}
             style={[styles.webview, { backgroundColor }]}
             startInLoadingState
             onMessage={handleMessage}

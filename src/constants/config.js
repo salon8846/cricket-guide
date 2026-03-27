@@ -3,7 +3,7 @@
  */
 
 // 环境判断 (__DEV__ 是 React Native 内置的开发环境变量)
-const IsDev = __DEV__;
+export const IsDev = __DEV__;
 
 export const API_BASE_URL = IsDev
     ? 'https://goapi0018.xctsappet.com/api'   // 测试环境，请替换为实际地址

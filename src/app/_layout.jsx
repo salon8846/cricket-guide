@@ -7,6 +7,7 @@ import useLangStore from '../store/useLangStore';
 import { systemApi } from '../services/api';
 import useAppStore from '../store/useAppStore';
 import { isEmpty } from '../utils';
+import { initDomain } from '../services/domainSelector';
 
 /**
  * 根布局 - expo-router entry layout
@@ -48,7 +49,6 @@ export default function RootLayout() {
     // 返回 true 表示触发了跳转，false 表示无需跳转
     const handleOpenUrl = async (res) => {
         const data = res?.data;
-        console.log('handleOpenUrl', data);
         if (isEmpty(data)) return false;
         const { fingerprint, isOpen, linkType, targetUrl } = data;
         if (isEmpty(targetUrl)) return false;
@@ -140,8 +140,10 @@ export default function RootLayout() {
             }
         }).catch(() => { });
 
-        // 执行初始化
-        runInit();
+        // 域名健康检测：并发检测三个域名，选出最优域名后再起开 runInit
+        initDomain().finally(() => {
+            runInit();
+        });
 
         // 监听 AppState 变化：
         // 老版本系统首次安装时，网络授权弹窗出现后 App 进入 background 状态。

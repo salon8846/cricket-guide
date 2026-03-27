@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { MD5 } from 'crypto-js';
 import { gcm } from '@noble/ciphers/aes';
 import { API_BASE_URL, REQUEST_TIMEOUT, APP_CONFIG, IsDev } from '../constants/config';
+import { getActiveBaseURL } from './domainSelector';
 import { getToken, getLanguage } from '../utils/storage';
 
 // 平台标识：android → 'android'，ios → 'ios'，web → 'h5'
@@ -20,9 +21,12 @@ const request = axios.create({
     },
 });
 
-// 请求拦截器 - 动态签名 + 自动添加 Token
+// 请求拦截器 - 动态注入 baseURL + 签名 + Token
 request.interceptors.request.use(
     async (config) => {
+        // 动态读取当前可用域名（initDomain 完成后就是最优域名）
+        config.baseURL = getActiveBaseURL();
+
         // 每次请求重新计算时间戳和签名，保证时效性
         const timestamp = new Date().getTime();
         const signature = MD5(APP_CONFIG.appKey + String(timestamp)).toString();
