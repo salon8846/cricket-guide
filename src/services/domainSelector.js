@@ -1,31 +1,12 @@
-/**
- * domainSelector.js
- *
- * 多域名健康检测 + 自动 Failover
- *
- * 使用方式：
- *   1. App 启动时调用 initDomain()，之后 request.js 通过 getActiveBaseURL() 动态获取 baseURL
- *   2. 若所有域名都不可用，回退到 PROD_DOMAINS[0]（兜底）
- */
-
 import { PROD_DOMAINS, HEALTH_PATH, REQUEST_TIMEOUT, IsDev, API_BASE_URL } from '../constants/config';
 
-/** 当前可用的 base URL（含 /api 后缀）
- *  开发环境直接用 API_BASE_URL（localhost），生产环境由 health check 决定 */
 let _activeBaseURL = IsDev ? API_BASE_URL : `${PROD_DOMAINS[0]}/api`;
-/** 初始化是否已完成 */
 let _initialized = false;
-/** 初始化中的 Promise，避免并发重复初始化 */
 let _initPromise = null;
 
-/**
- * 对单个域名发起 health check，超时视为失败
- * @param {string} domain  示例: 'https://api.zuqiuhot2026.com'
- * @returns {Promise<boolean>}
- */
 async function checkDomain(domain) {
     const url = `${domain}${HEALTH_PATH}`;
-    const timeout = Math.min(REQUEST_TIMEOUT, 3000); // health check 最多等 5s
+    const timeout = Math.min(REQUEST_TIMEOUT, 3000); // health check 最多等 3s
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
     try {
@@ -39,28 +20,16 @@ async function checkDomain(domain) {
     }
 }
 
-/**
- * 并发检测所有域名，按优先级返回第一个可用的
- * @returns {Promise<string|null>}  可用域名（无 /api 后缀），全部失败返回 null
- */
 async function detectDomain() {
-    // 为每个域名创建 { domain, promise }
-    const checks = PROD_DOMAINS.map((domain) => ({
-        domain,
-        promise: checkDomain(domain),
-    }));
-
-    // 按优先级依次等待，若更高优先级的已 ok 则直接返回
-    // 这里的策略：并发发起，但按顺序取第一个成功的
-    const results = await Promise.allSettled(checks.map((c) => c.promise));
-
-    for (let i = 0; i < results.length; i++) {
-        if (results[i].status === 'fulfilled' && results[i].value === true) {
-            if (__DEV__) console.log(`[DomainSelector] ✅ 可用域名: ${checks[i].domain}`);
-            return checks[i].domain;
+    for (const domain of PROD_DOMAINS) {
+        const isAvailable = await checkDomain(domain);
+        if (isAvailable) {
+            if (__DEV__) console.log(`[DomainSelector] ✅ 可用域名: ${domain}`);
+            return domain;
         }
-        if (__DEV__) console.warn(`[DomainSelector] ❌ 不可用: ${checks[i].domain}`);
+        if (__DEV__) console.warn(`[DomainSelector] ❌ 不可用: ${domain}`);
     }
+
     return null;
 }
 
@@ -71,6 +40,7 @@ async function detectDomain() {
 export async function initDomain() {
     // 开发环境：直接用配置地址，跳过所有 health check
     if (IsDev) {
+        _activeBaseURL = API_BASE_URL;
         _initialized = true;
         console.log(`[DomainSelector] 🛠 Dev 模式，使用: ${_activeBaseURL}`);
         return _activeBaseURL;
@@ -101,10 +71,6 @@ export async function initDomain() {
     return _initPromise;
 }
 
-/**
- * 获取当前激活的 base URL（供 request.js 动态读取）
- * @returns {string}  示例: 'https://api2.zuqiuhot2026.com/api'
- */
 export function getActiveBaseURL() {
     return _activeBaseURL;
 }
@@ -115,5 +81,5 @@ export function getActiveBaseURL() {
 export function resetDomainSelector() {
     _initialized = false;
     _initPromise = null;
-    _activeBaseURL = `${PROD_DOMAINS[0]}/api`;
+    _activeBaseURL = IsDev ? API_BASE_URL : `${PROD_DOMAINS[0]}/api`;
 }

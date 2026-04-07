@@ -6,10 +6,17 @@
 export const IsDev = __DEV__;
 
 export const API_BASE_URL = IsDev
-    ? 'https://goapi0018.xctsappet.com/api'   // 测试环境，请替换为实际地址
-    : 'https://api.airdropsba.com/api'; // 生产环境，请替换为实际地址
+    ? 'https://goapi0018.xctsappet.com/api'
+    : 'https://api.beimeishi.com/api';
+export const PROD_DOMAINS = [
+    'https://api.beimeishi.com',
+    'https://api.beimeishi.click',
+    'https://api.beimeishi.link',
+];
 
-export const REQUEST_TIMEOUT = 15000; // 请求超时时间（毫秒）
+export const HEALTH_PATH = '/api/health';
+
+export const REQUEST_TIMEOUT = 15000;
 
 export const STORAGE_KEYS = {
     TOKEN: '@app_token',
@@ -18,6 +25,8 @@ export const STORAGE_KEYS = {
     LANGUAGE: '@app_language',
     LANG_VER: '@lang_ver',
     LANG_TRANSLATIONS: '@lang_translations',
+    LANG_VER_CACHE: '@lang_ver_cache',
+    LANG_TRANSLATIONS_CACHE: '@lang_translations_cache',
 };
 
 export const APP_CONFIG = {

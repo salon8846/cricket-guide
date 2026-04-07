@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { setLanguage, getLanguage, getRawLanguage, setLangVer, getLangVer, setLangTranslations, getLangTranslations } from '../utils/storage';
+import { setLanguage, getLanguage, getRawLanguage, getLangCache, setLangCache } from '../utils/storage';
 import { systemApi } from '../services/api';
 
 /**
@@ -8,7 +8,7 @@ import { systemApi } from '../services/api';
  * 用法：
  *   const { lang, t, switchLang } = useLangStore();
  *   t('当前状态')  // => 'Current Status'（当 lang 为 'en' 时）
- *   switchLang('zh'); // 切换语言并重新拉取翻译
+ *   switchLang('zh'); // 切换语言并优先使用本地缓存
  */
 const useLangStore = create((set, get) => ({
     // 当前语言，默认 'en'
@@ -25,11 +25,8 @@ const useLangStore = create((set, get) => ({
 
     /** App 启动时从本地恢复语言设置、翻译表、版本号，返回是否有本地保存的语言 */
     initLang: async () => {
-        const [lang, ver, translations] = await Promise.all([
-            getLanguage(),
-            getLangVer(),
-            getLangTranslations(),
-        ]);
+        const lang = await getLanguage();
+        const { ver, translations } = await getLangCache(lang, true);
         set({ lang, languageVer: ver, translations });
     },
 
@@ -45,44 +42,48 @@ const useLangStore = create((set, get) => ({
 
         // 若本地从未保存过语言偏好，使用服务端 defaultLanguage
         const savedRaw = await getRawLanguage();
+        let activeLang = await getLanguage();
         if (savedRaw === null && defaultLanguage) {
             await setLanguage(defaultLanguage);
-            set({ lang: defaultLanguage });
+            activeLang = defaultLanguage;
         }
 
-        const { languageVer } = get();
+        const { ver: languageVer, translations } = await getLangCache(activeLang, true);
+        set({ lang: activeLang, languageVer, translations });
+
         if (serverVer > languageVer) {
             try {
                 const res = await systemApi.getTranslations();
                 const t = res?.data?.language || {};
                 const newVer = res?.data?.language_ver ?? serverVer;
-                await Promise.all([
-                    setLangTranslations(t),
-                    setLangVer(newVer),
-                ]);
-                set({ translations: t, languageVer: newVer });
+                await setLangCache(activeLang, newVer, t);
+                if (get().lang === activeLang) {
+                    set({ translations: t, languageVer: newVer });
+                }
             } catch (e) {
                 console.warn('[LangStore] fetchTranslations 失败，继续使用本地缓存', e);
             }
         }
     },
 
-    /** 手动切换语言并重新拉取翻译 */
+    /** 手动切换语言，优先使用本地缓存，仅在本地无缓存时首次拉取 */
     switchLang: async (lang) => {
+        const { ver, translations } = await getLangCache(lang);
         await setLanguage(lang);
-        set({ lang, translations: {}, languageVer: 0 });
-        // 语言切换后强制从服务端拉取新翻译（版本号传一个极大值触发更新）
+        set({ lang, translations, languageVer: ver });
+
+        if (ver > 0 || Object.keys(translations).length > 0) {
+            return;
+        }
+
         try {
             const res = await systemApi.getTranslations();
             const t = res?.data?.language || {};
             const newVer = res?.data?.language_ver ?? 0;
-            await Promise.all([
-                setLangTranslations(t),
-                setLangVer(newVer),
-            ]);
+            await setLangCache(lang, newVer, t);
             set({ translations: t, languageVer: newVer });
         } catch (e) {
-            console.warn('[LangStore] switchLang 拉取翻译失败', e);
+            console.warn('[LangStore] switchLang 本地无缓存且拉取失败', e);
         }
     },
 

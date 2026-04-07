@@ -9,10 +9,12 @@ import {
     StyleSheet,
     TouchableOpacity,
     View,
+    Text
 } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
+import NetworkErrorScreen from '../components/common/NetworkErrorScreen';
 
 // X* 控制参数的 key 列表
 const X_PARAMS = ['XFullScreen', 'XShowFloatButton', 'XSafeBottom', 'XSafeTop', 'XBackgroundColor', 'XStatusBarStyle', 'XSafeBottomStatus', 'XSafeTopStatus'];
@@ -89,6 +91,9 @@ export default function WebViewScreen() {
     // WebView 引用 & 内部历史状态
     const webViewRef = useRef(null);
     const [canGoBack, setCanGoBack] = useState(false);
+    const [showInitOverlay, setShowInitOverlay] = useState(true);
+    const [showLoadError, setShowLoadError] = useState(false);
+    const [retryingLoad, setRetryingLoad] = useState(false);
 
     const showFloatButton = XShowFloatButton === '1';
     const hasSafeBottom = XSafeBottom === '1';
@@ -186,14 +191,26 @@ export default function WebViewScreen() {
             ref={webViewRef}
             source={{ uri: finalUrl }}
             style={[styles.webview, { backgroundColor }]}
-            startInLoadingState
             onMessage={handleMessage}
+            onLoadStart={() => {
+                setShowLoadError(false);
+                setShowInitOverlay(true);
+            }}
+            onLoadEnd={() => {
+                setShowInitOverlay(false);
+                setRetryingLoad(false);
+            }}
+            onError={() => {
+                setShowInitOverlay(false);
+                setShowLoadError(true);
+                setRetryingLoad(false);
+            }}
+            onHttpError={() => {
+                setShowInitOverlay(false);
+                setShowLoadError(true);
+                setRetryingLoad(false);
+            }}
             onNavigationStateChange={(navState) => setCanGoBack(navState.canGoBack)}
-            renderLoading={() => (
-                <View style={[styles.loading, { backgroundColor }]}>
-                    <ActivityIndicator size="large" />
-                </View>
-            )}
         />
     );
 
@@ -255,7 +272,12 @@ export default function WebViewScreen() {
                     barStyle={barStyle}
                 />
                 {webview}
-
+                {showInitOverlay && (
+                    <View style={styles.initOverlay} pointerEvents="none">
+                        <ActivityIndicator size="large" color="#FFFFFF" />
+                        <Text style={styles.jumpOverlayText}>Please wait, loading...</Text>
+                    </View>
+                )}
                 {/* 全屏时显示悬浮退出按钮（受 showFloatButton 控制） */}
                 {fullScreen && showFloatButton && (
                     <Animated.View
@@ -269,6 +291,17 @@ export default function WebViewScreen() {
                     </Animated.View>
                 )}
             </View>
+            {showLoadError && (
+                <NetworkErrorScreen
+                    loading={retryingLoad}
+                    onPress={() => {
+                        setRetryingLoad(true);
+                        setShowLoadError(false);
+                        setShowInitOverlay(true);
+                        webViewRef.current?.reload();
+                    }}
+                />
+            )}
         </>
     );
 }
@@ -280,10 +313,21 @@ const styles = StyleSheet.create({
     webview: {
         flex: 1,
     },
-    loading: {
-        flex: 1,
+    initOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: '#1A1D26',
         justifyContent: 'center',
         alignItems: 'center',
+        zIndex: 9999,
+    },
+    jumpOverlayText: {
+        marginTop: 12,
+        color: '#FFFFFF',
+        fontSize: 14,
     },
     headerBtn: {
         paddingHorizontal: 12,

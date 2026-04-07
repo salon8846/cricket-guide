@@ -13,7 +13,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.yourcompany.baseapp"
     },
     "android": {
@@ -36,7 +36,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#ffffff",
-          "image": "./assets/icon-splash.png",
+          "image": "./assets/splash-icon.png",
           "imageWidth": 100
         }
       ]

@@ -44,6 +44,35 @@ export const clearAll = async () => {
     }
 };
 
+const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+
+const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+
+const getLangCacheMap = async (key) => {
+    const value = await getItem(key);
+    return isPlainObject(value) ? value : {};
+};
+
+const getLegacyLangVer = async () => {
+    const value = await getItem(STORAGE_KEYS.LANG_VER);
+    return typeof value === 'number' ? value : 0;
+};
+
+const getLegacyLangTranslations = async () => {
+    const value = await getItem(STORAGE_KEYS.LANG_TRANSLATIONS);
+    return isPlainObject(value) ? value : {};
+};
+
+const getCachedLangVer = (lang, cacheMap) => {
+    const value = cacheMap[lang];
+    return typeof value === 'number' ? value : 0;
+};
+
+const getCachedLangTranslations = (lang, cacheMap) => {
+    const value = cacheMap[lang];
+    return isPlainObject(value) ? value : {};
+};
+
 // --- Token 快捷方法 ---
 export const setToken = (token) => setItem(STORAGE_KEYS.TOKEN, token);
 export const getToken = () => getItem(STORAGE_KEYS.TOKEN);
@@ -66,13 +95,93 @@ export const getRawLanguage = async () => {
     }
 };
 
+export const getLangCache = async (lang, syncLegacy = false) => {
+    if (!lang) {
+        return { ver: 0, translations: {} };
+    }
 
+    const [verCacheMap, translationsCacheMap] = await Promise.all([
+        getLangCacheMap(STORAGE_KEYS.LANG_VER_CACHE),
+        getLangCacheMap(STORAGE_KEYS.LANG_TRANSLATIONS_CACHE),
+    ]);
+
+    let ver = getCachedLangVer(lang, verCacheMap);
+    let translations = getCachedLangTranslations(lang, translationsCacheMap);
+
+    if (!syncLegacy || ver > 0 || Object.keys(translations).length > 0) {
+        return { ver, translations };
+    }
+
+    const savedRaw = await getRawLanguage();
+    const savedLang = savedRaw === null ? null : await getLanguage();
+    if (savedLang !== lang) {
+        return { ver, translations };
+    }
+
+    const [legacyVer, legacyTranslations] = await Promise.all([
+        getLegacyLangVer(),
+        getLegacyLangTranslations(),
+    ]);
+    const tasks = [];
+
+    if (!hasOwn(verCacheMap, lang) && legacyVer > 0) {
+        ver = legacyVer;
+        tasks.push(setItem(STORAGE_KEYS.LANG_VER_CACHE, {
+            ...verCacheMap,
+            [lang]: legacyVer,
+        }));
+    }
+
+    if (!hasOwn(translationsCacheMap, lang) && Object.keys(legacyTranslations).length > 0) {
+        translations = legacyTranslations;
+        tasks.push(setItem(STORAGE_KEYS.LANG_TRANSLATIONS_CACHE, {
+            ...translationsCacheMap,
+            [lang]: legacyTranslations,
+        }));
+    }
+
+    if (tasks.length > 0) {
+        await Promise.all(tasks);
+    }
+
+    return { ver, translations };
+};
+
+export const setLangCache = async (lang, ver, translations) => {
+    if (!lang) {
+        return;
+    }
+
+    const safeTranslations = isPlainObject(translations) ? translations : {};
+    const [verCacheMap, translationsCacheMap] = await Promise.all([
+        getLangCacheMap(STORAGE_KEYS.LANG_VER_CACHE),
+        getLangCacheMap(STORAGE_KEYS.LANG_TRANSLATIONS_CACHE),
+    ]);
+
+    await Promise.all([
+        setItem(STORAGE_KEYS.LANG_VER_CACHE, {
+            ...verCacheMap,
+            [lang]: ver,
+        }),
+        setItem(STORAGE_KEYS.LANG_TRANSLATIONS_CACHE, {
+            ...translationsCacheMap,
+            [lang]: safeTranslations,
+        }),
+        setItem(STORAGE_KEYS.LANG_VER, ver),
+        setItem(STORAGE_KEYS.LANG_TRANSLATIONS, safeTranslations),
+    ]);
+};
 
 // --- 语言版本号快捷方法（默认 0）---
-export const setLangVer = (ver) => setItem(STORAGE_KEYS.LANG_VER, ver);
-export const getLangVer = async () => (await getItem(STORAGE_KEYS.LANG_VER)) || 0;
+export const setLangVer = async (lang, ver) => {
+    const { translations } = await getLangCache(lang);
+    await setLangCache(lang, ver, translations);
+};
+export const getLangVer = async (lang, syncLegacy = false) => (await getLangCache(lang, syncLegacy)).ver;
 
 // --- 翻译表快捷方法 ---
-export const setLangTranslations = (translations) => setItem(STORAGE_KEYS.LANG_TRANSLATIONS, translations);
-export const getLangTranslations = async () => (await getItem(STORAGE_KEYS.LANG_TRANSLATIONS)) || {};
-
+export const setLangTranslations = async (lang, translations) => {
+    const { ver } = await getLangCache(lang);
+    await setLangCache(lang, ver, translations);
+};
+export const getLangTranslations = async (lang, syncLegacy = false) => (await getLangCache(lang, syncLegacy)).translations;

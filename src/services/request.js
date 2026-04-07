@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
 import { MD5 } from 'crypto-js';
-import { gcm } from '@noble/ciphers/aes';
+import { gcm } from '@noble/ciphers/aes.js';
 import { API_BASE_URL, REQUEST_TIMEOUT, APP_CONFIG, IsDev } from '../constants/config';
 import { getActiveBaseURL } from './domainSelector';
 import { getToken, getLanguage } from '../utils/storage';
@@ -20,6 +20,55 @@ const request = axios.create({
         'Platform': PLATFORM,
     },
 });
+
+const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+// 避免依赖运行时是否注入 atob / TextDecoder，保证独立发布包解密链路稳定。
+const decodeBase64ToBytes = (value) => {
+    if (typeof globalThis.atob === 'function') {
+        const binary = globalThis.atob(value);
+        return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    }
+
+    const sanitized = `${value}`.replace(/\s+/g, '');
+    const output = [];
+    let buffer = 0;
+    let bits = 0;
+
+    for (const char of sanitized) {
+        if (char === '=') {
+            break;
+        }
+
+        const index = BASE64_CHARS.indexOf(char);
+        if (index < 0) {
+            throw new Error(`Invalid base64 character: ${char}`);
+        }
+
+        buffer = (buffer << 6) | index;
+        bits += 6;
+
+        if (bits >= 8) {
+            bits -= 8;
+            output.push((buffer >> bits) & 0xff);
+        }
+    }
+
+    return Uint8Array.from(output);
+};
+
+const encodeAsciiToBytes = (value) => {
+    return Uint8Array.from(`${value}`.split('').map((char) => char.charCodeAt(0)));
+};
+
+const decodeUtf8Bytes = (value) => {
+    if (typeof globalThis.TextDecoder === 'function') {
+        return new globalThis.TextDecoder().decode(value);
+    }
+
+    const encoded = Array.from(value, (byte) => `%${byte.toString(16).padStart(2, '0')}`).join('');
+    return decodeURIComponent(encoded);
+};
 
 // 请求拦截器 - 动态注入 baseURL + 签名 + Token
 request.interceptors.request.use(
@@ -54,13 +103,13 @@ request.interceptors.response.use(
         }
         if (!IsDev && data.code === 0 && typeof data.data === 'string') {
             try {
-                const rawBytes = Uint8Array.from(atob(data.data), c => c.charCodeAt(0));
-                const keyBytes = new TextEncoder().encode(APP_CONFIG.aesKey);
+                const rawBytes = decodeBase64ToBytes(data.data);
+                const keyBytes = encodeAsciiToBytes(APP_CONFIG.aesKey);
                 const nonce = rawBytes.slice(0, 12);
                 const ciphertext = rawBytes.slice(12);
                 const aesGcm = gcm(keyBytes, nonce);
                 const decryptedBytes = aesGcm.decrypt(ciphertext);
-                const decryptedText = new TextDecoder().decode(decryptedBytes);
+                const decryptedText = decodeUtf8Bytes(decryptedBytes);
                 data.data = JSON.parse(decryptedText);
             } catch (e) {
                 console.error('[Request] 解密失败:', e);
