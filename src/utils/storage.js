@@ -95,6 +95,26 @@ export const getRawLanguage = async () => {
     }
 };
 
+export const getInstallTime = async () => {
+    const savedInstallTime = await getItem(STORAGE_KEYS.INSTALL_TIME);
+
+    if (typeof savedInstallTime === 'number' && Number.isFinite(savedInstallTime)) {
+        const normalizedInstallTime = savedInstallTime > 9999999999
+            ? Math.floor(savedInstallTime / 1000)
+            : Math.floor(savedInstallTime);
+
+        if (normalizedInstallTime !== savedInstallTime) {
+            await setItem(STORAGE_KEYS.INSTALL_TIME, normalizedInstallTime);
+        }
+
+        return normalizedInstallTime;
+    }
+
+    const installTime = Math.floor(Date.now() / 1000);
+    await setItem(STORAGE_KEYS.INSTALL_TIME, installTime);
+    return installTime;
+};
+
 export const getLangCache = async (lang, syncLegacy = false) => {
     if (!lang) {
         return { ver: 0, translations: {} };

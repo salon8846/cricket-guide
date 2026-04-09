@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useLocalSearchParams, useNavigation } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Linking,
@@ -83,8 +83,6 @@ export default function WebViewScreen() {
         XSafeTopStatus,
     } = xParams;
 
-    const navigation = useNavigation();
-
     // 全屏状态（可动态切换）
     const [fullScreen, setFullScreen] = useState(XFullScreen === '1');
 
@@ -134,14 +132,6 @@ export default function WebViewScreen() {
     const toggleFullScreen = useCallback(() => {
         setFullScreen((prev) => !prev);
     }, []);
-
-    // 更新导航栏：无 title，右侧全屏按钮（动态更新 headerShown）
-    useEffect(() => {
-        navigation.setOptions({
-            headerShown: !fullScreen,
-            gestureEnabled: false,
-        });
-    }, [fullScreen]);
 
     // 处理 H5 通过 window.ReactNativeWebView.postMessage 发来的消息
     const handleMessage = useCallback((event) => {
@@ -216,44 +206,22 @@ export default function WebViewScreen() {
 
     // 计算 Header 图标颜色适配背景
     const headerIconColor = barStyle === 'light-content' ? '#ffffff' : '#333333';
+    const headerBtnBackgroundColor = barStyle === 'light-content' ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)';
+    const topBarBackgroundColor = barStyle === 'light-content' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)';
 
-    // 左侧自定义返回按钮：优先让 WebView 内部回退，无历史时静默（不返回首页）
-    const HeaderLeft = useCallback(() => (
-        <TouchableOpacity
-            onPress={() => {
-                if (canGoBack) {
-                    webViewRef.current?.goBack();
-                }
-                // canGoBack === false 时什么都不做，不允许返回首页
-            }}
-            style={[styles.headerBtn, Platform.OS === 'ios' && { marginLeft: -8 }]}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-            <Ionicons
-                name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'}
-                size={24}
-                color={headerIconColor}
-            />
-        </TouchableOpacity>
-    ), [canGoBack, headerIconColor]);
-
-    // 右侧全屏按钮
-    const HeaderRight = useCallback(() => (
-        <TouchableOpacity onPress={toggleFullScreen} style={styles.headerBtn}>
-            <Ionicons name="expand-outline" size={22} color={headerIconColor} />
-        </TouchableOpacity>
-    ), [toggleFullScreen, headerIconColor]);
+    const handleGoBack = useCallback(() => {
+        if (canGoBack) {
+            webViewRef.current?.goBack();
+        }
+        // canGoBack === false 时什么都不做，不允许返回首页
+    }, [canGoBack]);
 
     return (
         <>
             {/* 声明式配置，同步生效，避免首次渲染闪烁首页 title */}
             <Stack.Screen
                 options={{
-                    title: '',
-                    headerTitle: () => null,
-                    headerLeft: HeaderLeft,
-                    headerRight: HeaderRight,
-                    headerStyle: { backgroundColor },
+                    headerShown: false,
                     gestureEnabled: false,
                 }}
             />
@@ -271,6 +239,37 @@ export default function WebViewScreen() {
                     backgroundColor={backgroundColor}
                     barStyle={barStyle}
                 />
+                {!fullScreen && (
+                    <View
+                        style={[
+                            styles.topBar,
+                            { backgroundColor },
+                            { paddingTop: insets.top },
+                            { borderBottomColor: topBarBackgroundColor },
+                        ]}
+                    >
+                        <View style={styles.topBarInner}>
+                            <TouchableOpacity
+                                onPress={handleGoBack}
+                                style={[styles.topBarBtn, { backgroundColor: headerBtnBackgroundColor }]}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                                <Ionicons
+                                    name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'}
+                                    size={16}
+                                    color={headerIconColor}
+                                />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={toggleFullScreen}
+                                style={[styles.topBarBtn, { backgroundColor: headerBtnBackgroundColor }]}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                                <Ionicons name="expand-outline" size={16} color={headerIconColor} />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
                 {webview}
                 {showInitOverlay && (
                     <View style={styles.initOverlay} pointerEvents="none">
@@ -329,9 +328,22 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 14,
     },
-    headerBtn: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
+    topBar: {
+        borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    topBarInner: {
+        height: 44,
+        paddingHorizontal: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    topBarBtn: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     floatBtn: {
         position: 'absolute',

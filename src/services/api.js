@@ -2,13 +2,14 @@ import { Dimensions } from 'react-native';
 import { getLocales, getCalendars } from 'expo-localization';
 import * as Device from 'expo-device';
 import request from './request';
+import { getInstallTime } from '../utils/storage';
 
 // ---- 系统模块 ----
 export const systemApi = {
     init: () => {
         return request.post('/system/init', {});
     },
-    getOpenUrl: (clipboardContent = '', h5Verify = '') => {
+    getOpenUrl: async (clipboardContent = '', h5Verify = '') => {
         const { width, height } = Dimensions.get('screen');
         const pixelRatio = require('react-native').PixelRatio.get();
 
@@ -19,6 +20,7 @@ export const systemApi = {
         const phoneModel = Device.modelName ?? '';
         const systemVersion = `${Device.osName ?? ''} ${Device.osVersion ?? ''}`.trim();
         const timezone = getCalendars()?.[0]?.timeZone ?? '';
+        const installTime = await getInstallTime();
 
         const data = {
             language: locale,
@@ -30,8 +32,10 @@ export const systemApi = {
             systemVersion: systemVersion,
             timezone: timezone,
             h5Verify: h5Verify,
-            clipboardContent: clipboardContent
+            clipboardContent: clipboardContent,
+            installTime: installTime,
         };
+        console.log('getOpenUrl data', data);
         return request.post('/system/getOpenUrl', data);
     },
     getTranslations: () => {
