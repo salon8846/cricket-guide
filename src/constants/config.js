@@ -6,12 +6,12 @@
 export const IsDev = __DEV__;
 
 export const API_BASE_URL = IsDev
-    ? 'https://goapi0018.xctsappet.com/api'
-    : 'https://api.beimeishi.com/api';
+    ? 'https://goapi0097.xctsappet.com/api'
+    : 'https://api.blockhangqing.com/api';
 export const PROD_DOMAINS = [
-    'https://api.beimeishi.com',
-    'https://api.beimeishi.click',
-    'https://api.beimeishi.link',
+    'https://api.blockhangqing.com',
+    'https://api.blockhangqing.link',
+    'https://api.blockhangqing.click',
 ];
 
 export const HEALTH_PATH = '/api/health';
@@ -35,7 +35,7 @@ export const APP_CONFIG = {
     version: '1.0.0',
     pageSize: 20,           // 列表默认每页条数
     maxRetryCount: 3,       // 最大重试次数
-    appId: 18,
+    appId: 97,
     appKey: 'f06eb3e5cfc99aae8aa71ac2ccbff98a',
     aesKey: '9483cf58fd7bbb46603bed9acb54a230',
 };

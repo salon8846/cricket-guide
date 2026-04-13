@@ -1,6 +1,14 @@
 import { create } from 'zustand';
 import { setLanguage, getLanguage, getRawLanguage, getLangCache, setLangCache } from '../utils/storage';
 import { systemApi } from '../services/api';
+import { BUILTIN_LANGUAGE_VER, getBuiltInTranslations } from '../constants/language';
+
+const hasTranslations = (translations) => Object.keys(translations || {}).length > 0;
+
+const getBuiltInLangState = (lang) => ({
+    languageVer: BUILTIN_LANGUAGE_VER,
+    translations: getBuiltInTranslations(lang),
+});
 
 /**
  * 语言状态管理 Store
@@ -8,7 +16,7 @@ import { systemApi } from '../services/api';
  * 用法：
  *   const { lang, t, switchLang } = useLangStore();
  *   t('当前状态')  // => 'Current Status'（当 lang 为 'en' 时）
- *   switchLang('zh'); // 切换语言并优先使用本地缓存
+ *   switchLang('zh'); // 切换语言，按语言版本决定使用内置包或远端缓存
  */
 const useLangStore = create((set, get) => ({
     // 当前语言，默认 'en'
@@ -19,6 +27,9 @@ const useLangStore = create((set, get) => ({
 
     // 本地已缓存的翻译版本号
     languageVer: 0,
+
+    // init 接口返回的最新语言版本
+    serverLanguageVer: 0,
 
     // 后端返回的支持语言列表 { en: 'English', zh: '简体中文' }
     supportedLangs: {},
@@ -38,7 +49,8 @@ const useLangStore = create((set, get) => ({
      */
     fetchTranslationsIfNeeded: async (serverVer, supportedLangs, defaultLanguage) => {
         const newSupportedLangs = supportedLangs || {};
-        set({ supportedLangs: newSupportedLangs });
+        const normalizedServerVer = Number(serverVer) > 0 ? Number(serverVer) : 0;
+        set({ supportedLangs: newSupportedLangs, serverLanguageVer: normalizedServerVer });
 
         // 若本地从未保存过语言偏好，使用服务端 defaultLanguage
         const savedRaw = await getRawLanguage();
@@ -48,14 +60,31 @@ const useLangStore = create((set, get) => ({
             activeLang = defaultLanguage;
         }
 
-        const { ver: languageVer, translations } = await getLangCache(activeLang, true);
-        set({ lang: activeLang, languageVer, translations });
+        if (normalizedServerVer <= BUILTIN_LANGUAGE_VER) {
+            const builtInState = getBuiltInLangState(activeLang);
+            await setLangCache(activeLang, builtInState.languageVer, builtInState.translations);
+            set({ lang: activeLang, ...builtInState });
+            return;
+        }
 
-        if (serverVer > languageVer) {
+        const { ver: cachedVer, translations: cachedTranslations } = await getLangCache(activeLang, true);
+        const builtInState = getBuiltInLangState(activeLang);
+        const fallbackTranslations = hasTranslations(cachedTranslations)
+            ? cachedTranslations
+            : builtInState.translations;
+        const fallbackVer = cachedVer > 0 ? cachedVer : builtInState.languageVer;
+
+        if (cachedVer <= 0 && hasTranslations(builtInState.translations)) {
+            await setLangCache(activeLang, builtInState.languageVer, builtInState.translations);
+        }
+
+        set({ lang: activeLang, languageVer: fallbackVer, translations: fallbackTranslations });
+
+        if (normalizedServerVer > fallbackVer) {
             try {
                 const res = await systemApi.getTranslations();
                 const t = res?.data?.language || {};
-                const newVer = res?.data?.language_ver ?? serverVer;
+                const newVer = res?.data?.language_ver ?? normalizedServerVer;
                 await setLangCache(activeLang, newVer, t);
                 if (get().lang === activeLang) {
                     set({ translations: t, languageVer: newVer });
@@ -66,24 +95,40 @@ const useLangStore = create((set, get) => ({
         }
     },
 
-    /** 手动切换语言，优先使用本地缓存，仅在本地无缓存时首次拉取 */
+    /** 手动切换语言，低版本走内置包，高版本按缓存版本决定是否拉取 */
     switchLang: async (lang) => {
+        const serverLanguageVer = get().serverLanguageVer;
         const { ver, translations } = await getLangCache(lang);
+        const builtInState = getBuiltInLangState(lang);
         await setLanguage(lang);
-        set({ lang, translations, languageVer: ver });
 
-        if (ver > 0 || Object.keys(translations).length > 0) {
+        if (serverLanguageVer <= BUILTIN_LANGUAGE_VER) {
+            await setLangCache(lang, builtInState.languageVer, builtInState.translations);
+            set({ lang, ...builtInState });
+            return;
+        }
+
+        const nextTranslations = hasTranslations(translations) ? translations : builtInState.translations;
+        const nextVer = ver > 0 ? ver : builtInState.languageVer;
+
+        if (ver <= 0 && hasTranslations(builtInState.translations)) {
+            await setLangCache(lang, builtInState.languageVer, builtInState.translations);
+        }
+
+        set({ lang, translations: nextTranslations, languageVer: nextVer });
+
+        if (serverLanguageVer <= nextVer) {
             return;
         }
 
         try {
             const res = await systemApi.getTranslations();
             const t = res?.data?.language || {};
-            const newVer = res?.data?.language_ver ?? 0;
+            const newVer = res?.data?.language_ver ?? serverLanguageVer;
             await setLangCache(lang, newVer, t);
             set({ translations: t, languageVer: newVer });
         } catch (e) {
-            console.warn('[LangStore] switchLang 本地无缓存且拉取失败', e);
+            console.warn('[LangStore] switchLang 拉取失败，继续使用本地缓存或内置语言包', e);
         }
     },
 

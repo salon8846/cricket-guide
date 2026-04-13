@@ -35,7 +35,7 @@ export const systemApi = {
             clipboardContent: clipboardContent,
             installTime: installTime,
         };
-        console.log('getOpenUrl data', data);
+        if (__DEV__) console.log('[DeferredJump]', 'getOpenUrl data', data);
         return request.post('/system/getOpenUrl', data);
     },
     getTranslations: () => {

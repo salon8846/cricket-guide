@@ -274,7 +274,7 @@ export default function WebViewScreen() {
                 {showInitOverlay && (
                     <View style={styles.initOverlay} pointerEvents="none">
                         <ActivityIndicator size="large" color="#FFFFFF" />
-                        <Text style={styles.jumpOverlayText}>Please wait, loading...</Text>
+                        <Text style={styles.jumpOverlayText}>Loading...</Text>
                     </View>
                 )}
                 {/* 全屏时显示悬浮退出按钮（受 showFloatButton 控制） */}

