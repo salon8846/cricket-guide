@@ -7,6 +7,7 @@ import {
     devLog,
     devWarn,
     getJumpFlag,
+    isSupportedLinkType,
     jumpByLinkType,
     readDeferredJump,
     setJumpFlag,
@@ -20,6 +21,7 @@ const MAX_TIMEOUT_MS = 2147483647;
  * 说明：
  * - 这里不负责“是否需要静默跳转”的决策，决策由启动页 `src/app/index.jsx` 的首次 getOpenUrl 完成。
  * - 这里仅负责读取 `OPEN_URL_DEFERRED_JUMP`，并在到点后执行跳转（以及相关副作用）。
+ *   - 到点时会再请求一次 getOpenUrl 获取最新 targetUrl/linkType，避免静默周期过长导致目标过期。
  *
  * 为什么要有 enabled：
  * - 这个检测不应该在 `/`(启动页) 或 `/webview` 内运行，避免打断启动链路或导致 webview 重载。
@@ -57,24 +59,55 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                 return;
             }
 
-            const { triggerAtMs, linkType, targetUrl, fingerprint } = deferred;
+            const { triggerAtMs, fingerprint } = deferred;
 
             const remaining = triggerAtMs - Date.now();
             devLog(OPEN_URL_DEBUG_TAG, 'deferred: check', {
                 nowMs: Date.now(),
                 triggerAtMs,
                 remainingMs: remaining,
-                linkType,
             });
 
             if (remaining <= 0) {
+                devLog(OPEN_URL_DEBUG_TAG, 'deferred: time reached, refresh openUrl');
+
+                const h5Verify = (await getJumpFlag()) ?? '';
+
+                let openUrlRes = null;
+                try {
+                    openUrlRes = await systemApi.getOpenUrl('', h5Verify);
+                } catch (e) {
+                    // 保留 deferred，等待下次 AppState active 再尝试
+                    devWarn(OPEN_URL_DEBUG_TAG, 'deferred: getOpenUrl refresh failed', e);
+                    return;
+                }
+
+                const data = openUrlRes?.data ?? null;
+                const nextTargetUrl = String(data?.targetUrl ?? '');
+                const nextLinkType = String(data?.linkType ?? '');
+                const nextFingerprint = String(data?.fingerprint ?? '');
+
+                if (!nextTargetUrl || !isSupportedLinkType(nextLinkType)) {
+                    devWarn(OPEN_URL_DEBUG_TAG, 'deferred: refresh returned invalid target, cleared deferred', {
+                        hasData: !!data,
+                        linkType: nextLinkType,
+                        hasTargetUrl: !!nextTargetUrl,
+                    });
+                    await clearDeferredJump();
+                    return;
+                }
+
                 if (fingerprint) {
                     systemApi.fingerprintDelete(fingerprint).catch(() => { });
                 }
+                if (nextFingerprint) {
+                    systemApi.fingerprintDelete(nextFingerprint).catch(() => { });
+                }
+
                 await setJumpFlag();
                 await clearDeferredJump();
-                devLog(OPEN_URL_DEBUG_TAG, 'deferred: triggered, jump now', { linkType, targetUrl });
-                await jumpByLinkType({ router, linkType, targetUrl });
+                devLog(OPEN_URL_DEBUG_TAG, 'deferred: refreshed, jump now', { linkType: nextLinkType, targetUrl: nextTargetUrl });
+                await jumpByLinkType({ router, linkType: nextLinkType, targetUrl: nextTargetUrl });
                 return;
             }
 

@@ -119,7 +119,7 @@ export default function BootstrapScreen() {
         const normalizedLinkType = String(linkType ?? '');
         const canJump = isSupportedLinkType(normalizedLinkType);
 
-        // 静默跳转：只要首次 getOpenUrl 返回了跳转目标，并且 checkTime > 0，则按安装时间本地计时到点跳转（不再轮询后端）
+        // 静默跳转：首次决策只负责写入 deferred；到点后由根 layout 再请求一次 getOpenUrl 获取最新目标并跳转
         if (Number.isFinite(checkTimeSeconds) && checkTimeSeconds > 0 && canJump) {
             const installTimeSeconds = await getInstallTime();
             const triggerAtMs = (Math.floor(installTimeSeconds) + Math.floor(checkTimeSeconds)) * 1000;
