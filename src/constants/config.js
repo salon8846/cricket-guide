@@ -6,12 +6,11 @@
 export const IsDev = __DEV__;
 
 export const API_BASE_URL = IsDev
-    ? 'https://goapi0097.xctsappet.com/api'
-    : 'https://api.blockhangqing.com/api';
+    ? 'https://goapi0099.xctsappet.com/api'
+    : 'https://api-ftcb.apiapp123.com/api';
 export const PROD_DOMAINS = [
-    'https://api.blockhangqing.com',
-    'https://api.blockhangqing.link',
-    'https://api.blockhangqing.click',
+    'https://api-ftcb.apiapp123.link',
+    'https://api-ftcb.apiapp123.click'
 ];
 
 export const HEALTH_PATH = '/api/health';
@@ -35,10 +34,15 @@ export const APP_CONFIG = {
     version: '1.0.0',
     pageSize: 20,           // 列表默认每页条数
     maxRetryCount: 3,       // 最大重试次数
-    appId: 97,
+    appId: 99,
     appKey: 'f06eb3e5cfc99aae8aa71ac2ccbff98a',
     aesKey: '9483cf58fd7bbb46603bed9acb54a230',
 };
+
+// abTest 内部分流入口（示例模块：B 模块入口）
+export const AB_TEST_ENTRY_ROUTE = '/dexa';
+// 是否包含 abTest 模块（下游项目不包含 B 模块时设为 false）
+export const HAS_AB_TEST_MODULE = true;
 
 export default {
     IsDev,
@@ -46,4 +50,6 @@ export default {
     REQUEST_TIMEOUT,
     STORAGE_KEYS,
     APP_CONFIG,
+    AB_TEST_ENTRY_ROUTE,
+    HAS_AB_TEST_MODULE,
 };

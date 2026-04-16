@@ -2,13 +2,9 @@ import { Stack } from 'expo-router';
 import useBootstrapTranslations from '../../hooks/useBootstrapTranslations';
 
 /**
- * 业务页面布局
- *
- * 约定：
- * - 这里只承载业务路由壳与通用 UI（header 样式等）
- * - 启动策略与静默跳转检测不应放在业务组内（见 `src/app/index.jsx` 与 `src/app/_layout.jsx`）
+ * B 模块路由壳（与 main 模块解耦）
  */
-export default function MainLayout() {
+export default function BModuleLayout() {
     useBootstrapTranslations();
 
     return (
@@ -29,7 +25,7 @@ export default function MainLayout() {
                 },
             }}
         >
-            <Stack.Screen name="home" options={{ title: '首页' }} />
+            <Stack.Screen name="index" options={{ title: 'B模块' }} />
         </Stack>
     );
 }

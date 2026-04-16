@@ -22,6 +22,7 @@ import {
     saveDeferredJump,
     setJumpFlag,
 } from '../services/openUrlJump';
+import { resolveInternalEntryRoute } from '../services/internalEntryRoute';
 
 const INSTALL_FLAG_KEY = 'STAT_INSTALLED';
 
@@ -33,6 +34,7 @@ const INSTALL_FLAG_KEY = 'STAT_INSTALLED';
  * 2) 选择域名
  * 3) 请求 init
  * 4) 请求 getOpenUrl（首次决策是否跳转）
+ * 5) 未命中 OpenUrl 跳转时，按 getOpenUrl 返回的 abTest 进入 App 内部落地页（/home 或 B 模块入口）
  *
  * 决策优先级：
  * - OPEN_URL_JUMPED=1：认为已命中过跳转，后续只要返回 targetUrl 就直接跳
@@ -75,24 +77,25 @@ export default function BootstrapScreen() {
         return systemApi.getOpenUrl('', h5Verify);
     }, []);
 
-    const finishToHome = useCallback(() => {
+    const finishToInternalEntry = useCallback(async (abTest) => {
         initSuccessRef.current = true;
-        devLog(OPEN_URL_DEBUG_TAG, 'route: replace /home');
-        router.replace('/home');
+        const route = await resolveInternalEntryRoute(abTest);
+        devLog(OPEN_URL_DEBUG_TAG, 'route: replace internal entry', { route, abTest: String(abTest ?? '') });
+        router.replace(route);
     }, [router]);
 
-    const doJump = useCallback(async (linkType, targetUrl) => {
+    const doJump = useCallback(async (linkType, targetUrl, abTest) => {
         const type = await jumpByLinkType({ router, linkType, targetUrl });
         if (type === 'webview') {
             initSuccessRef.current = true;
             return true;
         }
         if (type === 'external') {
-            finishToHome();
+            await finishToInternalEntry(abTest);
             return true;
         }
         return false;
-    }, [finishToHome, router]);
+    }, [finishToInternalEntry, router]);
 
     const handleOpenUrl = useCallback(async (res, base) => {
         const data = res?.data;
@@ -101,7 +104,7 @@ export default function BootstrapScreen() {
             return false;
         }
 
-        const { fingerprint, isOpen, linkType, targetUrl } = data;
+        const { fingerprint, isOpen, linkType, targetUrl, abTest } = data;
         if (isEmpty(targetUrl)) {
             devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: empty targetUrl', { isOpen, linkType });
             return false;
@@ -112,7 +115,7 @@ export default function BootstrapScreen() {
         if (jumped === '1') {
             // 本地已有命中标记时，只要返回 targetUrl 就直接分流
             devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: jumped=1, jump now', { linkType, targetUrl });
-            return doJump(linkType, targetUrl);
+            return doJump(linkType, targetUrl, abTest);
         }
 
         const checkTimeSeconds = Number(base?.checkTime ?? 0);
@@ -140,6 +143,7 @@ export default function BootstrapScreen() {
                     linkType: normalizedLinkType,
                     targetUrl,
                     fingerprint: fingerprint ?? '',
+                    abTest,
                 });
                 devLog(OPEN_URL_DEBUG_TAG, 'saved deferred jump', { triggerAtMs, linkType: normalizedLinkType, targetUrl });
                 return false;
@@ -151,7 +155,7 @@ export default function BootstrapScreen() {
             }
             await setJumpFlag();
             devLog(OPEN_URL_DEBUG_TAG, 'silent decision: time reached, jump now', { linkType: normalizedLinkType, targetUrl });
-            return doJump(normalizedLinkType, targetUrl);
+            return doJump(normalizedLinkType, targetUrl, abTest);
         }
 
         // 非静默：仍沿用 isOpen === '1' 才立即跳转
@@ -166,7 +170,7 @@ export default function BootstrapScreen() {
             }
             await setJumpFlag();
             devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: isOpen=1 immediate, jump now', { linkType: normalizedLinkType, targetUrl });
-            return doJump(normalizedLinkType, targetUrl);
+            return doJump(normalizedLinkType, targetUrl, abTest);
         }
 
         devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: isOpen!=1, no jump', { isOpen, linkType });
@@ -206,8 +210,8 @@ export default function BootstrapScreen() {
                 // 已有静默跳转决策时，不需要重复请求 getOpenUrl
                 const deferred = await readDeferredJump();
                 if (deferred) {
-                    devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: deferred exists, skip getOpenUrl and go home', deferred);
-                    finishToHome();
+                    devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: deferred exists, skip getOpenUrl and go internal', deferred);
+                    await finishToInternalEntry(deferred?.abTest ?? null);
                     return;
                 }
             }
@@ -225,7 +229,7 @@ export default function BootstrapScreen() {
             devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: decision done', { didJump });
             if (!didJump) {
                 // 未命中任何策略时，才进入 App 内部首页
-                finishToHome();
+                await finishToInternalEntry(openUrlRes?.data?.abTest ?? null);
             }
         } catch (e) {
             devWarn(OPEN_URL_DEBUG_TAG, 'bootstrap: failed, show error', e);
@@ -235,7 +239,7 @@ export default function BootstrapScreen() {
             setRetrying(false);
             devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: end');
         }
-    }, [finishToHome, handleOpenUrl, initLang, initUser, requestOpenUrl, setBootstrapBase]);
+    }, [finishToInternalEntry, handleOpenUrl, initLang, initUser, requestOpenUrl, setBootstrapBase]);
 
     useEffect(() => {
         devLog(OPEN_URL_DEBUG_TAG, 'BootstrapScreen: mount');

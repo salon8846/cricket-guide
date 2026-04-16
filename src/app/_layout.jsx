@@ -1,5 +1,6 @@
 import { Stack, usePathname, useRouter } from 'expo-router';
 import useDeferredOpenUrlJump from '../hooks/useDeferredOpenUrlJump';
+import { HAS_AB_TEST_MODULE } from '../constants/config';
 
 /**
  * 根布局 - 路由壳 + 策略挂载点（不做首次决策）
@@ -25,6 +26,9 @@ export default function RootLayout() {
         >
             <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
             <Stack.Screen name="(main)" options={{ headerShown: false, animation: 'none' }} />
+            {HAS_AB_TEST_MODULE && (
+                <Stack.Screen name="dexa" options={{ headerShown: false, animation: 'none' }} />
+            )}
             <Stack.Screen name="webview" options={{ title: '', headerTitle: () => null, animation: 'none' }} />
         </Stack>
     );

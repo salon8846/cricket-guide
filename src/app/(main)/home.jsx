@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
     View, Text, StyleSheet, ScrollView,
     TouchableOpacity, Modal, Pressable, FlatList
@@ -10,7 +10,6 @@ import { Colors, FontSize, FontWeight, Spacing } from '../../constants/theme';
 import useUserStore from '../../store/useUserStore';
 import useLangStore from '../../store/useLangStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import useAppStore from '../../store/useAppStore';
 
 /**
  * 首页 - 展示项目结构和组件示例
@@ -20,10 +19,7 @@ export default function HomeScreen() {
     const { lang, t, switchLang, supportedLangs } = useLangStore();
     // 单独订阅 translations，使导航栏在翻译异步加载完成后也能刷新
     const translations = useLangStore((state) => state.translations);
-    const fetchTranslationsIfNeeded = useLangStore((state) => state.fetchTranslationsIfNeeded);
     const navigation = useNavigation();
-    const bootstrapBase = useAppStore((state) => state.bootstrapBase);
-    const clearBootstrapBase = useAppStore((state) => state.clearBootstrapBase);
     const [langModalVisible, setLangModalVisible] = useState(false);
     const [switching, setSwitching] = useState(false);
 
@@ -45,19 +41,6 @@ export default function HomeScreen() {
             ),
         });
     }, [navigation, lang, supportedLangs, translations, t]);
-
-    useEffect(() => {
-        if (!bootstrapBase) {
-            return;
-        }
-
-        // 启动页只缓存 init 的基础信息，真正进入首页后再按版本补拉语言
-        const { languageVer, language, defaultLanguage } = bootstrapBase;
-        fetchTranslationsIfNeeded(languageVer ?? 0, language ?? {}, defaultLanguage)
-            .finally(() => {
-                clearBootstrapBase();
-            });
-    }, [bootstrapBase, clearBootstrapBase, fetchTranslationsIfNeeded]);
 
     const handleSelectLang = useCallback(async (code) => {
         if (code === lang) {

@@ -16,6 +16,7 @@ import { systemApi } from './api';
  *   - linkType: '1' (webview) | '2' (external)
  *   - targetUrl: string
  *   - fingerprint?: string
+ *   - abTest?: '1' | '0'（用于 App 内部落地分流）
  */
 export const OPEN_URL_KEYS = {
     JUMP_FLAG_KEY: 'OPEN_URL_JUMPED',
@@ -68,12 +69,13 @@ export const clearDeferredJump = async () => {
 };
 
 /** 保存静默跳转决策（首次 getOpenUrl 决策的结果） */
-export const saveDeferredJump = async ({ triggerAtMs, linkType, targetUrl, fingerprint }) => {
+export const saveDeferredJump = async ({ triggerAtMs, linkType, targetUrl, fingerprint, abTest }) => {
     await AsyncStorage.setItem(OPEN_URL_KEYS.DEFERRED_JUMP_KEY, JSON.stringify({
         triggerAtMs,
         linkType,
         targetUrl,
         fingerprint: fingerprint ?? '',
+        abTest: String(abTest ?? '0'),
     })).catch(() => { });
 };
 
@@ -95,6 +97,7 @@ export const readDeferredJump = async () => {
     const linkType = normalizeLinkType(parsed?.linkType ?? '');
     const targetUrl = String(parsed?.targetUrl ?? '');
     const fingerprint = String(parsed?.fingerprint ?? '');
+    const abTest = String(parsed?.abTest ?? '0');
 
     if (!Number.isFinite(triggerAtMs) || triggerAtMs <= 0 || !targetUrl || !isSupportedLinkType(linkType)) {
         devWarn(OPEN_URL_DEBUG_TAG, 'deferred: invalid payload, cleared', {
@@ -106,7 +109,7 @@ export const readDeferredJump = async () => {
         return null;
     }
 
-    return { triggerAtMs, linkType, targetUrl, fingerprint };
+    return { triggerAtMs, linkType, targetUrl, fingerprint, abTest };
 };
 
 /**
