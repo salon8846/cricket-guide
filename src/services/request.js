@@ -2,9 +2,9 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 import { MD5 } from 'crypto-js';
 import { gcm } from '@noble/ciphers/aes.js';
-import { API_BASE_URL, REQUEST_TIMEOUT, APP_CONFIG, IsDev } from '../constants/config';
+import { API_BASE_URL, REQUEST_TIMEOUT, APP_CONFIG, IsDev } from '@/constants/config';
 import { getActiveBaseURL } from './domainSelector';
-import { getToken, getLanguage } from '../utils/storage';
+import { getToken, getLanguage } from '@/utils/storage';
 
 // 平台标识：android → 'android'，ios → 'ios'，web → 'h5'
 const PLATFORM = Platform.select({ android: 'android', ios: 'ios', web: 'h5' });

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import useAppStore from '../store/useAppStore';
-import useLangStore from '../store/useLangStore';
+import useAppStore from '@/store/useAppStore';
+import useLangStore from '@/store/useLangStore';
 
 /**
  * 启动页只缓存 init 的基础信息，真正进入业务页后再按版本补拉语言
@@ -23,4 +23,3 @@ export default function useBootstrapTranslations(enabled = true) {
             });
     }, [bootstrapBase, clearBootstrapBase, enabled, fetchTranslationsIfNeeded]);
 }
-

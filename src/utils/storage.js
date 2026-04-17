@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { STORAGE_KEYS } from '../constants/config';
+import { STORAGE_KEYS } from '@/constants/config';
 
 /**
  * 通用存储工具，对 AsyncStorage 进行封装

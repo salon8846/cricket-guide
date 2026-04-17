@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { getUserInfo, setUserInfo, removeToken, removeUserInfo } from '../utils/storage';
+import { getUserInfo, setUserInfo, removeToken, removeUserInfo } from '@/utils/storage';
 
 /**
  * 用户状态管理 Store

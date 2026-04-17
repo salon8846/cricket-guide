@@ -1,4 +1,4 @@
-import rawBuiltInTranslations from '../locales/builtin-language.json';
+import rawBuiltInTranslations from '@/locales/builtin-language.json';
 
 export const BUILTIN_LANGUAGE_VER = 1;
 

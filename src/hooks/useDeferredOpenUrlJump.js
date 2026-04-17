@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
-import { systemApi } from '../services/api';
+import { systemApi } from '@/services/api';
 import {
     OPEN_URL_DEBUG_TAG,
     clearDeferredJump,
@@ -11,7 +11,7 @@ import {
     jumpByLinkType,
     readDeferredJump,
     setJumpFlag,
-} from '../services/openUrlJump';
+} from '@/services/openUrlJump';
 
 const MAX_TIMEOUT_MS = 2147483647;
 

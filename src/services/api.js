@@ -2,7 +2,7 @@ import { Dimensions } from 'react-native';
 import { getLocales, getCalendars } from 'expo-localization';
 import * as Device from 'expo-device';
 import request from './request';
-import { getInstallTime } from '../utils/storage';
+import { getInstallTime } from '@/utils/storage';
 
 // ---- 系统模块 ----
 export const systemApi = {

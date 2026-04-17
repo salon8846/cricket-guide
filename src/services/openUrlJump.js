@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Linking } from 'react-native';
-import { systemApi } from './api';
+import { systemApi } from '@/services/api';
 
 /**
  * OpenUrl 启动策略公共能力（不包含“是否跳转”的业务决策）

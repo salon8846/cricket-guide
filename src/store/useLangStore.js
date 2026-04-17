@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import { setLanguage, getLanguage, getRawLanguage, getLangCache, setLangCache } from '../utils/storage';
-import { systemApi } from '../services/api';
-import { BUILTIN_LANGUAGE_VER, getBuiltInTranslations } from '../constants/language';
+import { setLanguage, getLanguage, getRawLanguage, getLangCache, setLangCache } from '@/utils/storage';
+import { systemApi } from '@/services/api';
+import { BUILTIN_LANGUAGE_VER, getBuiltInTranslations } from '@/constants/language';
 
 const hasTranslations = (translations) => Object.keys(translations || {}).length > 0;
 

@@ -1,6 +1,6 @@
 import { Stack, usePathname, useRouter } from 'expo-router';
-import useDeferredOpenUrlJump from '../hooks/useDeferredOpenUrlJump';
-import { HAS_AB_TEST_MODULE } from '../constants/config';
+import useDeferredOpenUrlJump from '@/hooks/useDeferredOpenUrlJump';
+import { HAS_AB_TEST_MODULE } from '@/constants/config';
 
 /**
  * 根布局 - 路由壳 + 策略挂载点（不做首次决策）

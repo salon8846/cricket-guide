@@ -5,10 +5,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from 'expo-router';
-import Button from '../../components/common/Button';
-import { Colors, FontSize, FontWeight, Spacing } from '../../constants/theme';
-import useUserStore from '../../store/useUserStore';
-import useLangStore from '../../store/useLangStore';
+import Button from '@/components/common/Button';
+import { Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
+import useUserStore from '@/store/useUserStore';
+import useLangStore from '@/store/useLangStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**

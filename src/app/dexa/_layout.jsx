@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import useBootstrapTranslations from '../../hooks/useBootstrapTranslations';
+import useBootstrapTranslations from '@/hooks/useBootstrapTranslations';
 
 /**
  * B 模块路由壳（与 main 模块解耦）

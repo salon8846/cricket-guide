@@ -2,14 +2,14 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, AppState, StyleSheet, View } from 'react-native';
-import NetworkErrorScreen from '../components/common/NetworkErrorScreen';
-import { initDomain } from '../services/domainSelector';
-import { systemApi } from '../services/api';
-import useAppStore from '../store/useAppStore';
-import useLangStore from '../store/useLangStore';
-import useUserStore from '../store/useUserStore';
-import { isEmpty } from '../utils';
-import { getInstallTime } from '../utils/storage';
+import NetworkErrorScreen from '@/components/common/NetworkErrorScreen';
+import { initDomain } from '@/services/domainSelector';
+import { systemApi } from '@/services/api';
+import useAppStore from '@/store/useAppStore';
+import useLangStore from '@/store/useLangStore';
+import useUserStore from '@/store/useUserStore';
+import { isEmpty } from '@/utils';
+import { getInstallTime } from '@/utils/storage';
 import {
     OPEN_URL_DEBUG_TAG,
     OPEN_URL_KEYS,
@@ -21,8 +21,8 @@ import {
     readDeferredJump,
     saveDeferredJump,
     setJumpFlag,
-} from '../services/openUrlJump';
-import { resolveInternalEntryRoute } from '../services/internalEntryRoute';
+} from '@/services/openUrlJump';
+import { resolveInternalEntryRoute } from '@/services/internalEntryRoute';
 
 const INSTALL_FLAG_KEY = 'STAT_INSTALLED';
 

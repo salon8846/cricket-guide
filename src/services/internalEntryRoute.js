@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AB_TEST_ENTRY_ROUTE, HAS_AB_TEST_MODULE } from '../constants/config';
+import { AB_TEST_ENTRY_ROUTE, HAS_AB_TEST_MODULE } from '@/constants/config';
 
 export const INTERNAL_ENTRY_KEYS = {
     STICKY_B_KEY: 'AB_TEST_STICKY_B',

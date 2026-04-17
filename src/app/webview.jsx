@@ -14,7 +14,7 @@ import {
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
-import NetworkErrorScreen from '../components/common/NetworkErrorScreen';
+import NetworkErrorScreen from '@/components/common/NetworkErrorScreen';
 
 // X* 控制参数的 key 列表
 const X_PARAMS = ['XFullScreen', 'XShowFloatButton', 'XSafeBottom', 'XSafeTop', 'XBackgroundColor', 'XStatusBarStyle', 'XSafeBottomStatus', 'XSafeTopStatus'];

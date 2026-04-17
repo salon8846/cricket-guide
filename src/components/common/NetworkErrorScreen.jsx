@@ -1,8 +1,8 @@
 import { ActivityIndicator, Image, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import useLangStore from '../../store/useLangStore';
+import useLangStore from '@/store/useLangStore';
 
-const imgNetworkError = require('../../../assets/images/networkError.png');
+const imgNetworkError = require('@/assets/images/networkError.png');
 
 export default function NetworkErrorScreen({
     title = '请求失败，请重试!',

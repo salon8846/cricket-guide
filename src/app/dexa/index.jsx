@@ -1,8 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import Button from '../../components/common/Button';
-import { Colors, FontSize, FontWeight, Spacing } from '../../constants/theme';
+import Button from '@/components/common/Button';
+import { Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
 
 /**
  * B 模块示例页（abTest=1 时落地）

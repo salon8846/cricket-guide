@@ -6,7 +6,7 @@ import {
     StyleSheet,
     View,
 } from 'react-native';
-import { Colors, FontSize, FontWeight, BorderRadius, Spacing } from '../../constants/theme';
+import { Colors, FontSize, FontWeight, BorderRadius, Spacing } from '@/constants/theme';
 
 /**
  * 通用 Button 组件

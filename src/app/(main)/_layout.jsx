@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import useBootstrapTranslations from '../../hooks/useBootstrapTranslations';
+import useBootstrapTranslations from '@/hooks/useBootstrapTranslations';
 
 /**
  * 业务页面布局

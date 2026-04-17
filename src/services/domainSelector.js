@@ -1,4 +1,4 @@
-import { PROD_DOMAINS, HEALTH_PATH, REQUEST_TIMEOUT, IsDev, API_BASE_URL } from '../constants/config';
+import { PROD_DOMAINS, HEALTH_PATH, REQUEST_TIMEOUT, IsDev, API_BASE_URL } from '@/constants/config';
 
 let _activeBaseURL = IsDev ? API_BASE_URL : `${PROD_DOMAINS[0]}/api`;
 let _initialized = false;
