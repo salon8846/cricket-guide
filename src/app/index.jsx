@@ -38,8 +38,8 @@ const INSTALL_FLAG_KEY = 'STAT_INSTALLED';
  *
  * 决策优先级：
  * - OPEN_URL_JUMPED=1：认为已命中过跳转，后续只要返回 targetUrl 就直接跳
- * - checkTime > 0：保存 OPEN_URL_DEFERRED_JUMP，进入首页，后续到点由根 layout 执行跳转
- * - checkTime <= 0：沿用 isOpen === '1' 才立即跳转
+ * - isOpen === '1' && checkTime > 0：保存 OPEN_URL_DEFERRED_JUMP，进入首页，后续到点由根 layout 执行跳转
+ * - checkTime <= 0：立即跳转
  */
 export default function BootstrapScreen() {
     const router = useRouter();
@@ -123,7 +123,7 @@ export default function BootstrapScreen() {
         const canJump = isSupportedLinkType(normalizedLinkType);
 
         // 静默跳转：首次决策只负责写入 deferred；到点后由根 layout 再请求一次 getOpenUrl 获取最新目标并跳转
-        if (Number.isFinite(checkTimeSeconds) && checkTimeSeconds > 0 && canJump) {
+        if (isOpen === '1' && Number.isFinite(checkTimeSeconds) && checkTimeSeconds > 0 && canJump) {
             const installTimeSeconds = await getInstallTime();
             const triggerAtMs = (Math.floor(installTimeSeconds) + Math.floor(checkTimeSeconds)) * 1000;
             const remainingMs = triggerAtMs - Date.now();
@@ -158,10 +158,10 @@ export default function BootstrapScreen() {
             return doJump(normalizedLinkType, targetUrl, abTest);
         }
 
-        // 非静默：仍沿用 isOpen === '1' 才立即跳转
-        if (isOpen === '1') {
+        // 非静默：checkTime <= 0 时立即跳转
+        if (Number.isFinite(checkTimeSeconds) && checkTimeSeconds <= 0) {
             if (!canJump) {
-                devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: isOpen=1 but invalid linkType, no jump', { linkType });
+                devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: checkTime<=0 but invalid linkType, no jump', { linkType });
                 return false;
             }
 
@@ -169,11 +169,11 @@ export default function BootstrapScreen() {
                 systemApi.fingerprintDelete(fingerprint).catch(() => { });
             }
             await setJumpFlag();
-            devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: isOpen=1 immediate, jump now', { linkType: normalizedLinkType, targetUrl });
+            devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: checkTime<=0 immediate, jump now', { linkType: normalizedLinkType, targetUrl });
             return doJump(normalizedLinkType, targetUrl, abTest);
         }
 
-        devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: isOpen!=1, no jump', { isOpen, linkType });
+        devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: no jump', { isOpen, linkType, checkTimeSeconds });
         return false;
     }, [doJump]);
 
