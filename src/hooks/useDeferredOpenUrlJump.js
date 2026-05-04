@@ -16,12 +16,13 @@ import {
 const MAX_TIMEOUT_MS = 2147483647;
 
 /**
- * 静默跳转到点检测
+ * 静默计时到点检测
  *
  * 说明：
- * - 这里不负责“是否需要静默跳转”的决策，决策由启动页 `src/app/index.jsx` 的首次 getOpenUrl 完成。
- * - 这里仅负责读取 `OPEN_URL_DEFERRED_JUMP`，并在到点后执行跳转（以及相关副作用）。
- *   - 到点时会再请求一次 getOpenUrl 获取最新 targetUrl/linkType，避免静默周期过长导致目标过期。
+ * - 这里不负责“是否需要立即跳转/开始计时”的决策，决策由启动页 `src/app/index.jsx` 的首次 getOpenUrl 完成。
+ * - 这里仅负责读取 `OPEN_URL_DEFERRED_JUMP`，并在到点后复查 getOpenUrl，按最新结果决定是否跳转。
+ *   - 到点时会再请求一次 getOpenUrl 获取最新 isOpen/targetUrl/linkType。
+ *   - 只有最新 isOpen === '1' 且 targetUrl/linkType 有效时才跳转。
  *
  * 为什么要有 enabled：
  * - 这个检测不应该在 `/`(启动页) 或 `/webview` 内运行，避免打断启动链路或导致 webview 重载。
@@ -86,10 +87,12 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                 const nextTargetUrl = String(data?.targetUrl ?? '');
                 const nextLinkType = String(data?.linkType ?? '');
                 const nextFingerprint = String(data?.fingerprint ?? '');
+                const nextIsOpen = String(data?.isOpen ?? '');
 
-                if (!nextTargetUrl || !isSupportedLinkType(nextLinkType)) {
-                    devWarn(OPEN_URL_DEBUG_TAG, 'deferred: refresh returned invalid target, cleared deferred', {
+                if (nextIsOpen !== '1' || !nextTargetUrl || !isSupportedLinkType(nextLinkType)) {
+                    devWarn(OPEN_URL_DEBUG_TAG, 'deferred: refresh returned no jump, cleared deferred', {
                         hasData: !!data,
+                        isOpen: nextIsOpen,
                         linkType: nextLinkType,
                         hasTargetUrl: !!nextTargetUrl,
                     });

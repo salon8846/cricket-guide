@@ -33,13 +33,21 @@ const INSTALL_FLAG_KEY = 'STAT_INSTALLED';
  * 1) 恢复本地用户与语言状态
  * 2) 选择域名
  * 3) 请求 init
- * 4) 请求 getOpenUrl（首次决策是否跳转）
+ * 4) 请求 getOpenUrl（首次决策是否立即跳转/开始静默计时）
  * 5) 未命中 OpenUrl 跳转时，按 getOpenUrl 返回的 abTest 进入 App 内部落地页（/home 或 B 模块入口）
  *
  * 决策优先级：
- * - OPEN_URL_JUMPED=1：认为已命中过跳转，后续只要返回 targetUrl 就直接跳
- * - isOpen === '1' && checkTime > 0：保存 OPEN_URL_DEFERRED_JUMP，进入首页，后续到点由根 layout 执行跳转
- * - checkTime <= 0：立即跳转
+ * - OPEN_URL_JUMPED=1：认为已命中过跳转，后续只要返回 targetUrl 就直接跳，不再判断 isOpen
+ * - checkTime > 0：保存 OPEN_URL_DEFERRED_JUMP，进入首页，后续到点由根 layout 刷新 URL 并按最新 isOpen 判断
+ * - isOpen !== '1'：非静默场景不跳转
+ * - isOpen === '1' && checkTime <= 0：立即跳转
+ *
+ * 分支说明：
+ * - checkTime > 0：首次启动会先保存静默计时，不管首次 isOpen 是多少。
+ * - 静默到点后：重新请求 getOpenUrl，只有最新 isOpen === '1' 且 targetUrl/linkType 有效才跳。
+ * - checkTime <= 0：非静默立即跳转前，也要求首次 isOpen === '1'。
+ * - isOpen !== '1'：不会跳转。
+ * - 唯一例外：本地已有 OPEN_URL_JUMPED=1 时，会优先走“已跳过”分支，只要接口返回 targetUrl 就直接跳，不再判断 isOpen。
  */
 export default function BootstrapScreen() {
     const router = useRouter();
@@ -105,12 +113,12 @@ export default function BootstrapScreen() {
         }
 
         const { fingerprint, isOpen, linkType, targetUrl, abTest } = data;
-        if (isEmpty(targetUrl)) {
-            devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: empty targetUrl', { isOpen, linkType });
+        const jumped = await getJumpFlag();
+
+        if (isEmpty(targetUrl) && jumped === '1') {
+            devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: jumped=1 but empty targetUrl', { isOpen, linkType });
             return false;
         }
-
-        const jumped = await getJumpFlag();
 
         if (jumped === '1') {
             // 本地已有命中标记时，只要返回 targetUrl 就直接分流
@@ -122,8 +130,8 @@ export default function BootstrapScreen() {
         const normalizedLinkType = String(linkType ?? '');
         const canJump = isSupportedLinkType(normalizedLinkType);
 
-        // 静默跳转：首次决策只负责写入 deferred；到点后由根 layout 再请求一次 getOpenUrl 获取最新目标并跳转
-        if (isOpen === '1' && Number.isFinite(checkTimeSeconds) && checkTimeSeconds > 0 && canJump) {
+        // 静默计时：只要 init 配置了 checkTime 就开启；到点后由根 layout 再请求一次 getOpenUrl，并按最新 isOpen 判断是否跳转
+        if (Number.isFinite(checkTimeSeconds) && checkTimeSeconds > 0) {
             const installTimeSeconds = await getInstallTime();
             const triggerAtMs = (Math.floor(installTimeSeconds) + Math.floor(checkTimeSeconds)) * 1000;
             const remainingMs = triggerAtMs - Date.now();
@@ -149,6 +157,21 @@ export default function BootstrapScreen() {
                 return false;
             }
 
+            if (isOpen !== '1') {
+                devLog(OPEN_URL_DEBUG_TAG, 'silent decision: time reached but isOpen!=1, no jump', { isOpen, linkType: normalizedLinkType });
+                return false;
+            }
+
+            if (isEmpty(targetUrl)) {
+                devLog(OPEN_URL_DEBUG_TAG, 'silent decision: time reached but empty targetUrl', { isOpen, linkType: normalizedLinkType });
+                return false;
+            }
+
+            if (!canJump) {
+                devLog(OPEN_URL_DEBUG_TAG, 'silent decision: time reached but invalid linkType, no jump', { linkType });
+                return false;
+            }
+
             // 已到触发时间，直接执行跳转
             if (fingerprint) {
                 systemApi.fingerprintDelete(fingerprint).catch(() => { });
@@ -158,7 +181,21 @@ export default function BootstrapScreen() {
             return doJump(normalizedLinkType, targetUrl, abTest);
         }
 
-        // 非静默：checkTime <= 0 时立即跳转
+        if (isOpen !== '1') {
+            devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: isOpen!=1, no jump', {
+                isOpen,
+                linkType,
+                checkTimeSeconds,
+            });
+            return false;
+        }
+
+        if (isEmpty(targetUrl)) {
+            devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: empty targetUrl', { isOpen, linkType, checkTimeSeconds });
+            return false;
+        }
+
+        // 非静默：isOpen 已确认开启，checkTime <= 0 时立即跳转
         if (Number.isFinite(checkTimeSeconds) && checkTimeSeconds <= 0) {
             if (!canJump) {
                 devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: checkTime<=0 but invalid linkType, no jump', { linkType });
@@ -207,7 +244,7 @@ export default function BootstrapScreen() {
 
             const h5Verify = await AsyncStorage.getItem(OPEN_URL_KEYS.JUMP_FLAG_KEY).catch(() => '') ?? '';
             if (h5Verify !== '1') {
-                // 已有静默跳转决策时，不需要重复请求 getOpenUrl
+                // 已有静默计时任务时，不需要重复请求 getOpenUrl
                 const deferred = await readDeferredJump();
                 if (deferred) {
                     devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: deferred exists, skip getOpenUrl and go internal', deferred);
