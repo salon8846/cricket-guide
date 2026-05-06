@@ -15,7 +15,7 @@ const getBuiltInLangState = (lang) => ({
  *
  * 用法：
  *   const { lang, t, switchLang } = useLangStore();
- *   t('当前状态')  // => 'Current Status'（当 lang 为 'en' 时）
+ *   t('首页')  // => 'Home'（当 lang 为 'en' 时）
  *   switchLang('zh'); // 切换语言，按语言版本决定使用内置包或远端缓存
  */
 const useLangStore = create((set, get) => ({
@@ -136,9 +136,16 @@ const useLangStore = create((set, get) => ({
      * 翻译函数
      * - 无对应翻译时回退返回 key
      */
-    t: (key) => {
+    t: (key, params) => {
         const { translations } = get();
-        return translations[key] ?? key;
+        const text = translations[key] ?? key;
+        if (!params || typeof text !== 'string') {
+            return text;
+        }
+
+        return Object.entries(params).reduce((result, [name, value]) => {
+            return result.replace(new RegExp(`\\{${name}\\}`, 'g'), String(value));
+        }, text);
     },
 }));
 
