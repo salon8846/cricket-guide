@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { setLanguage, getLanguage, getRawLanguage, getLangCache, setLangCache } from '@/utils/storage';
+import { setLanguage, getLanguage, getRawLanguage, getLangCache, removeItem, setLangCache } from '@/utils/storage';
 import { systemApi } from '@/services/api';
+import { STORAGE_KEYS } from '@/constants/config';
 import { BUILTIN_LANGUAGE_VER, getBuiltInTranslations } from '@/constants/language';
 
 const hasTranslations = (translations) => Object.keys(translations || {}).length > 0;
@@ -130,6 +131,21 @@ const useLangStore = create((set, get) => ({
         } catch (e) {
             console.warn('[LangStore] switchLang 拉取失败，继续使用本地缓存或内置语言包', e);
         }
+    },
+
+    /** 清除本地语言偏好和翻译缓存，并恢复到内置默认语言 */
+    resetLang: async () => {
+        await Promise.all([
+            removeItem(STORAGE_KEYS.LANGUAGE),
+            removeItem(STORAGE_KEYS.LANG_VER),
+            removeItem(STORAGE_KEYS.LANG_TRANSLATIONS),
+            removeItem(STORAGE_KEYS.LANG_VER_CACHE),
+            removeItem(STORAGE_KEYS.LANG_TRANSLATIONS_CACHE),
+        ]);
+        set({
+            lang: 'en',
+            ...getBuiltInLangState('en'),
+        });
     },
 
     /**

@@ -4,11 +4,13 @@ import {
     TouchableOpacity, Modal, Pressable, FlatList
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from 'expo-router';
 import Button from '@/components/common/Button';
 import { Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
 import useUserStore from '@/store/useUserStore';
 import useLangStore from '@/store/useLangStore';
+import { playClickSound, triggerClickVibration } from '@/utils/feedback';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
@@ -70,7 +72,7 @@ export default function HomeScreen() {
                 <View style={styles.card}>
                     <Text style={styles.cardTitle}>{t('当前状态')}</Text>
                     <Text style={styles.cardText}>
-                        {t('登录状态')}：{isLoggedIn ? `✅ 已登录` : `❌ ${t('未登录')}`}
+                        {t('登录状态')}：{isLoggedIn ? `✅ ${t('已登录')}` : `❌ ${t('未登录')}`}
                     </Text>
                 </View>
 
@@ -92,6 +94,16 @@ export default function HomeScreen() {
                 <View style={styles.card}>
                     <Text style={styles.cardTitle}>🧩 {t('组件示例')}</Text>
                     <View style={styles.buttonGroup}>
+                        <LinearGradient
+                            colors={['#4A6FFF', '#18B69B']}
+                            start={{ x: 0, y: 0.5 }}
+                            end={{ x: 1, y: 0.5 }}
+                            style={styles.gradientSample}
+                        >
+                            <Text style={styles.gradientSampleText}>{t('渐变示例')}</Text>
+                        </LinearGradient>
+                        <Button title={t('播放声音')} variant="outline" onPress={playClickSound} fullWidth />
+                        <Button title={t('点击震动')} variant="outline" onPress={triggerClickVibration} fullWidth />
                         <Button title={`Primary ${t('按钮')}`} onPress={() => { }} fullWidth />
                         <Button title={`Outline ${t('按钮')}`} variant="outline" onPress={() => { }} fullWidth />
                         <Button title={`Ghost ${t('按钮')}`} variant="ghost" onPress={() => { }} fullWidth />
@@ -209,6 +221,18 @@ const styles = StyleSheet.create({
     },
     buttonGroup: {
         gap: Spacing.sm,
+    },
+    gradientSample: {
+        minHeight: 48,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: Spacing.lg,
+    },
+    gradientSampleText: {
+        fontSize: FontSize.md,
+        fontWeight: FontWeight.semibold,
+        color: Colors.white,
     },
     langBtn: {
         paddingHorizontal: Spacing.sm,
