@@ -34,6 +34,23 @@ const X_DEFAULTS = {
     XSafeTopStatus: '0',
 };
 
+const RETRYABLE_LOAD_ERROR_CODES = new Set([
+    -1009, // iOS: not connected to internet
+    -1006, // iOS: DNS lookup failed
+    -1005, // iOS: network connection lost
+    -1004, // iOS: cannot connect to host
+    -1003, // iOS: cannot find host
+    -1001, // iOS: timeout
+    -8, // Android: timeout
+    -7, // Android: IO error
+    -6, // Android: connect failed
+    -2, // Android: host lookup failed
+]);
+
+function isRetryableLoadError(nativeEvent) {
+    return RETRYABLE_LOAD_ERROR_CODES.has(Number(nativeEvent?.code));
+}
+
 /**
  * 从 URL 中提取 X* 控制参数，并返回剥离这些参数后的干净 URL
  */
@@ -88,6 +105,7 @@ export default function WebViewScreen() {
 
     // WebView 引用 & 内部历史状态
     const webViewRef = useRef(null);
+    const initialLoadDoneRef = useRef(false);
     const [canGoBack, setCanGoBack] = useState(false);
     const [showInitOverlay, setShowInitOverlay] = useState(true);
     const [showLoadError, setShowLoadError] = useState(false);
@@ -176,6 +194,7 @@ export default function WebViewScreen() {
             return cleanUrl;
         }
     }, [cleanUrl, XSafeTopStatus, XSafeBottomStatus, insets.top, insets.bottom]);
+
     const webview = (
         <WebView
             ref={webViewRef}
@@ -183,22 +202,31 @@ export default function WebViewScreen() {
             style={[styles.webview, { backgroundColor }]}
             onMessage={handleMessage}
             onLoadStart={() => {
-                setShowLoadError(false);
-                setShowInitOverlay(true);
+                if (!initialLoadDoneRef.current) {
+                    setShowLoadError(false);
+                    setShowInitOverlay(true);
+                }
             }}
             onLoadEnd={() => {
-                setShowInitOverlay(false);
-                setRetryingLoad(false);
+                if (!initialLoadDoneRef.current) {
+                    initialLoadDoneRef.current = true;
+                    setShowInitOverlay(false);
+                    setRetryingLoad(false);
+                }
             }}
-            onError={() => {
-                setShowInitOverlay(false);
-                setShowLoadError(true);
-                setRetryingLoad(false);
+            onError={(event) => {
+                if (!initialLoadDoneRef.current) {
+                    setShowInitOverlay(false);
+                    setShowLoadError(isRetryableLoadError(event.nativeEvent));
+                    setRetryingLoad(false);
+                }
             }}
             onHttpError={() => {
-                setShowInitOverlay(false);
-                setShowLoadError(true);
-                setRetryingLoad(false);
+                if (!initialLoadDoneRef.current) {
+                    setShowInitOverlay(false);
+                    setShowLoadError(false);
+                    setRetryingLoad(false);
+                }
             }}
             onNavigationStateChange={(navState) => setCanGoBack(navState.canGoBack)}
         />
@@ -294,6 +322,7 @@ export default function WebViewScreen() {
                 <NetworkErrorScreen
                     loading={retryingLoad}
                     onPress={() => {
+                        initialLoadDoneRef.current = false;
                         setRetryingLoad(true);
                         setShowLoadError(false);
                         setShowInitOverlay(true);
