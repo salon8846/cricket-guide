@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import * as WebBrowser from 'expo-web-browser';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Linking,
@@ -15,6 +16,7 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import NetworkErrorScreen from '@/components/common/NetworkErrorScreen';
+import useWebViewAuthStore from '@/store/useWebViewAuthStore';
 
 // X* 控制参数的 key 列表
 const X_PARAMS = ['XFullScreen', 'XShowFloatButton', 'XSafeBottom', 'XSafeTop', 'XBackgroundColor', 'XStatusBarStyle', 'XSafeBottomStatus', 'XSafeTopStatus'];
@@ -33,6 +35,9 @@ const X_DEFAULTS = {
     XSafeBottomStatus: '0',
     XSafeTopStatus: '0',
 };
+
+const GOOGLE_AUTH_REDIRECT_URL = 'pzbox://auth/google';
+const TELEGRAM_AUTH_REDIRECT_URL = 'pzbox://auth/telegram';
 
 const RETRYABLE_LOAD_ERROR_CODES = new Set([
     -1009, // iOS: not connected to internet
@@ -110,6 +115,12 @@ export default function WebViewScreen() {
     const [showInitOverlay, setShowInitOverlay] = useState(true);
     const [showLoadError, setShowLoadError] = useState(false);
     const [retryingLoad, setRetryingLoad] = useState(false);
+    const lastGoogleAuthResultUrlRef = useRef(null);
+    const lastTelegramAuthResultUrlRef = useRef(null);
+    const googleAuthResultUrl = useWebViewAuthStore((state) => state.googleAuthResultUrl);
+    const clearGoogleAuthResultUrl = useWebViewAuthStore((state) => state.clearGoogleAuthResultUrl);
+    const telegramAuthResultUrl = useWebViewAuthStore((state) => state.telegramAuthResultUrl);
+    const clearTelegramAuthResultUrl = useWebViewAuthStore((state) => state.clearTelegramAuthResultUrl);
 
     const showFloatButton = XShowFloatButton === '1';
     const hasSafeBottom = XSafeBottom === '1';
@@ -151,12 +162,81 @@ export default function WebViewScreen() {
         setFullScreen((prev) => !prev);
     }, []);
 
+    const postWebViewMessage = useCallback((messageAction, messageParams) => {
+        webViewRef.current?.postMessage(JSON.stringify({
+            action: messageAction,
+            params: messageParams,
+        }));
+    }, []);
+
+    const postGoogleAuthSuccess = useCallback((resultUrl) => {
+        if (!resultUrl || lastGoogleAuthResultUrlRef.current === resultUrl) return;
+        lastGoogleAuthResultUrlRef.current = resultUrl;
+        postWebViewMessage('googleAuthSuccess', {
+            url: resultUrl,
+        });
+    }, [postWebViewMessage]);
+
+    const postTelegramAuthSuccess = useCallback((resultUrl) => {
+        if (!resultUrl || lastTelegramAuthResultUrlRef.current === resultUrl) return;
+        lastTelegramAuthResultUrlRef.current = resultUrl;
+        postWebViewMessage('telegramAuthSuccess', {
+            url: resultUrl,
+        });
+    }, [postWebViewMessage]);
+
+    useEffect(() => {
+        if (!googleAuthResultUrl) return;
+        postGoogleAuthSuccess(googleAuthResultUrl);
+        clearGoogleAuthResultUrl();
+    }, [clearGoogleAuthResultUrl, googleAuthResultUrl, postGoogleAuthSuccess]);
+
+    useEffect(() => {
+        if (!telegramAuthResultUrl) return;
+        postTelegramAuthSuccess(telegramAuthResultUrl);
+        clearTelegramAuthResultUrl();
+    }, [clearTelegramAuthResultUrl, postTelegramAuthSuccess, telegramAuthResultUrl]);
+
     // 处理 H5 通过 window.ReactNativeWebView.postMessage 发来的消息
-    const handleMessage = useCallback((event) => {
+    const handleMessage = useCallback(async (event) => {
         try {
             const { action, params } = JSON.parse(event.nativeEvent.data);
             if (action === 'openBrowser' && params?.url) {
                 Linking.openURL(params.url);
+            }
+            if (action === 'openGoogleAuth' && params?.url) {
+                try {
+                    const result = await WebBrowser.openAuthSessionAsync(params.url, GOOGLE_AUTH_REDIRECT_URL);
+                    if (result.type === 'success') {
+                        postGoogleAuthSuccess(result.url);
+                    } else {
+                        postWebViewMessage('googleAuthCancel', {
+                            type: result.type,
+                        });
+                    }
+                } catch (e) {
+                    console.warn('Google auth error:', e);
+                    postWebViewMessage('googleAuthError', {
+                        message: e?.message ?? String(e),
+                    });
+                }
+            }
+            if (action === 'openTelegramAuth' && params?.url) {
+                try {
+                    const result = await WebBrowser.openAuthSessionAsync(params.url, TELEGRAM_AUTH_REDIRECT_URL);
+                    if (result.type === 'success') {
+                        postTelegramAuthSuccess(result.url);
+                    } else {
+                        postWebViewMessage('telegramAuthCancel', {
+                            type: result.type,
+                        });
+                    }
+                } catch (e) {
+                    console.warn('Telegram auth error:', e);
+                    postWebViewMessage('telegramAuthError', {
+                        message: e?.message ?? String(e),
+                    });
+                }
             }
             // H5 调用：window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'getSafeArea' }))
             // 响应：window 上触发 CustomEvent('nativeSafeArea')，detail 为 { safeTop, safeBottom }
@@ -177,7 +257,7 @@ export default function WebViewScreen() {
         } catch (e) {
             console.warn('WebView message parse error:', e);
         }
-    }, [insets.top, insets.bottom]);
+    }, [insets.top, insets.bottom, postGoogleAuthSuccess, postTelegramAuthSuccess, postWebViewMessage]);
 
     // 将安全区像素值注入到 URL，供 H5 页面读取
     const finalUrl = useMemo(() => {
