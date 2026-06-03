@@ -2,8 +2,9 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import useWebViewAuthStore from '@/store/useWebViewAuthStore';
+import { APP_SCHEME } from '@/constants/config';
 
-const TELEGRAM_AUTH_REDIRECT_BASE_URL = 'pzbox://auth/telegram';
+const TELEGRAM_AUTH_REDIRECT_BASE_URL = `${APP_SCHEME}://auth/telegram`;
 
 function buildTelegramAuthResultUrl(params) {
     const query = new URLSearchParams();

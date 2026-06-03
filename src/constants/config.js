@@ -1,9 +1,18 @@
+import Constants from 'expo-constants';
+
 /**
  * 全局配置
  */
 
 // 环境判断 (__DEV__ 是 React Native 内置的开发环境变量)
 export const IsDev = __DEV__;
+
+const getConfiguredAppScheme = () => {
+    const scheme = Constants.expoConfig?.scheme;
+    return Array.isArray(scheme) ? scheme[0] : scheme;
+};
+
+export const APP_SCHEME = getConfiguredAppScheme();
 
 export const API_BASE_URL = IsDev
     ? 'https://goapi0099.xctsappet.com/api'
@@ -46,6 +55,7 @@ export const HAS_AB_TEST_MODULE = true;
 
 export default {
     IsDev,
+    APP_SCHEME,
     API_BASE_URL,
     REQUEST_TIMEOUT,
     STORAGE_KEYS,

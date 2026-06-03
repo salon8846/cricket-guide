@@ -17,9 +17,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import NetworkErrorScreen from '@/components/common/NetworkErrorScreen';
 import useWebViewAuthStore from '@/store/useWebViewAuthStore';
+import { APP_SCHEME } from '@/constants/config';
 
 // X* 控制参数的 key 列表
-const X_PARAMS = ['XFullScreen', 'XShowFloatButton', 'XSafeBottom', 'XSafeTop', 'XBackgroundColor', 'XStatusBarStyle', 'XSafeBottomStatus', 'XSafeTopStatus'];
+const X_PARAMS = ['XFullScreen', 'XShowFloatButton', 'XSafeBottom', 'XSafeTop', 'XBackgroundColor', 'XStatusBarStyle', 'XSafeBottomStatus', 'XSafeTopStatus', 'XWebViewDebug'];
 
 // 默认值
 const X_DEFAULTS = {
@@ -34,10 +35,12 @@ const X_DEFAULTS = {
     XStatusBarStyle: 'auto',
     XSafeBottomStatus: '0',
     XSafeTopStatus: '0',
+    XWebViewDebug: '0',
 };
 
-const GOOGLE_AUTH_REDIRECT_URL = 'pzbox://auth/google';
-const TELEGRAM_AUTH_REDIRECT_URL = 'pzbox://auth/telegram';
+const GOOGLE_AUTH_REDIRECT_URL = `${APP_SCHEME}://auth/google`;
+const TELEGRAM_AUTH_REDIRECT_URL = `${APP_SCHEME}://auth/telegram`;
+const WEBVIEW_ORIGIN_WHITELIST = ['*'];
 
 const RETRYABLE_LOAD_ERROR_CODES = new Set([
     -1009, // iOS: not connected to internet
@@ -54,6 +57,11 @@ const RETRYABLE_LOAD_ERROR_CODES = new Set([
 
 function isRetryableLoadError(nativeEvent) {
     return RETRYABLE_LOAD_ERROR_CODES.has(Number(nativeEvent?.code));
+}
+
+function logWebViewDebug(enabled, eventName, payload) {
+    if (!enabled) return;
+    console.warn('[WebViewDebug]', eventName, payload);
 }
 
 /**
@@ -103,6 +111,7 @@ export default function WebViewScreen() {
         XStatusBarStyle,
         XSafeBottomStatus,
         XSafeTopStatus,
+        XWebViewDebug,
     } = xParams;
 
     // 全屏状态（可动态切换）
@@ -125,6 +134,7 @@ export default function WebViewScreen() {
     const showFloatButton = XShowFloatButton === '1';
     const hasSafeBottom = XSafeBottom === '1';
     const hasSafeTop = XSafeTop === '1';
+    const webViewDebug = XWebViewDebug === '1';
 
     // 安全区 insets
     const insets = useSafeAreaInsets();
@@ -172,6 +182,9 @@ export default function WebViewScreen() {
     const postGoogleAuthSuccess = useCallback((resultUrl) => {
         if (!resultUrl || lastGoogleAuthResultUrlRef.current === resultUrl) return;
         lastGoogleAuthResultUrlRef.current = resultUrl;
+        if (Platform.OS === 'ios') {
+            WebBrowser.dismissAuthSession();
+        }
         postWebViewMessage('googleAuthSuccess', {
             url: resultUrl,
         });
@@ -180,6 +193,9 @@ export default function WebViewScreen() {
     const postTelegramAuthSuccess = useCallback((resultUrl) => {
         if (!resultUrl || lastTelegramAuthResultUrlRef.current === resultUrl) return;
         lastTelegramAuthResultUrlRef.current = resultUrl;
+        if (Platform.OS === 'ios') {
+            WebBrowser.dismissAuthSession();
+        }
         postWebViewMessage('telegramAuthSuccess', {
             url: resultUrl,
         });
@@ -280,14 +296,37 @@ export default function WebViewScreen() {
             ref={webViewRef}
             source={{ uri: finalUrl }}
             style={[styles.webview, { backgroundColor }]}
+            // 部分 H5 会使用 about:srcdoc、iframe 或跨域资源，放开来源避免被 WebView 当成外部链接拦截。
+            originWhitelist={WEBVIEW_ORIGIN_WHITELIST}
+            javaScriptEnabled={true}
+            // H5 依赖 localStorage/sessionStorage 保存登录态和运行状态。
+            domStorageEnabled={true}
+            // Android 上允许 iframe 跨域携带 Cookie，避免第三方入口登录态丢失。
+            thirdPartyCookiesEnabled={true}
+            // 兼容 HTTPS 页面加载 HTTP 资源的场景。
+            mixedContentMode="always"
+            // iOS 上复用系统 Cookie，减少跨域授权或入口状态不一致。
+            sharedCookiesEnabled={true}
+            // 不限制 iOS WebView 只能访问 App Bound Domains，避免外部域名被拦截。
+            limitsNavigationsToAppBoundDomains={false}
+            // 音效、视频动效需要在授权后直接播放。
+            mediaPlaybackRequiresUserAction={false}
+            allowsInlineMediaPlayback={true}
             onMessage={handleMessage}
-            onLoadStart={() => {
+            webviewDebuggingEnabled={webViewDebug}
+            onLoadStart={(event) => {
+                logWebViewDebug(webViewDebug, 'loadStart', {
+                    url: event.nativeEvent?.url,
+                });
                 if (!initialLoadDoneRef.current) {
                     setShowLoadError(false);
                     setShowInitOverlay(true);
                 }
             }}
-            onLoadEnd={() => {
+            onLoadEnd={(event) => {
+                logWebViewDebug(webViewDebug, 'loadEnd', {
+                    url: event.nativeEvent?.url,
+                });
                 if (!initialLoadDoneRef.current) {
                     initialLoadDoneRef.current = true;
                     setShowInitOverlay(false);
@@ -295,20 +334,30 @@ export default function WebViewScreen() {
                 }
             }}
             onError={(event) => {
+                logWebViewDebug(webViewDebug, 'error', event.nativeEvent);
                 if (!initialLoadDoneRef.current) {
                     setShowInitOverlay(false);
                     setShowLoadError(isRetryableLoadError(event.nativeEvent));
                     setRetryingLoad(false);
                 }
             }}
-            onHttpError={() => {
+            onHttpError={(event) => {
+                logWebViewDebug(webViewDebug, 'httpError', event.nativeEvent);
                 if (!initialLoadDoneRef.current) {
                     setShowInitOverlay(false);
                     setShowLoadError(false);
                     setRetryingLoad(false);
                 }
             }}
-            onNavigationStateChange={(navState) => setCanGoBack(navState.canGoBack)}
+            onNavigationStateChange={(navState) => {
+                logWebViewDebug(webViewDebug, 'navigationStateChange', {
+                    url: navState.url,
+                    title: navState.title,
+                    loading: navState.loading,
+                    canGoBack: navState.canGoBack,
+                });
+                setCanGoBack(navState.canGoBack);
+            }}
         />
     );
 
