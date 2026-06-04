@@ -1,7 +1,9 @@
 {
   "name": "baseapp",
   "version": "1.0.0",
+  "packageManager": "pnpm@11.5.1",
   "main": "expo-router/entry",
+  "private": true,
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
@@ -41,6 +43,5 @@
   },
   "devDependencies": {
     "react-native-svg-transformer": "1.5.3"
-  },
-  "private": true
+  }
 }
