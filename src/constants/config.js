@@ -13,6 +13,8 @@ const getConfiguredAppScheme = () => {
 };
 
 export const APP_SCHEME = getConfiguredAppScheme();
+export const APP_NAME = Constants.expoConfig?.name;
+export const APP_VERSION = Constants.expoConfig?.version;
 
 export const API_BASE_URL = IsDev
     ? 'https://goapi0099.xctsappet.com/api'
@@ -39,8 +41,8 @@ export const STORAGE_KEYS = {
 };
 
 export const APP_CONFIG = {
-    name: 'baseApp',
-    version: '1.0.0',
+    name: APP_NAME,
+    version: APP_VERSION,
     pageSize: 20,           // 列表默认每页条数
     maxRetryCount: 3,       // 最大重试次数
     appId: 99,
@@ -56,6 +58,8 @@ export const HAS_AB_TEST_MODULE = true;
 export default {
     IsDev,
     APP_SCHEME,
+    APP_NAME,
+    APP_VERSION,
     API_BASE_URL,
     REQUEST_TIMEOUT,
     STORAGE_KEYS,
