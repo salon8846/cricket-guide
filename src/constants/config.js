@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { PRIVATE_API_ENDPOINTS, REQUEST_SECRETS } from './config.private';
 
 /**
  * 全局配置
@@ -17,12 +18,9 @@ export const APP_NAME = Constants.expoConfig?.name;
 export const APP_VERSION = Constants.expoConfig?.version;
 
 export const API_BASE_URL = IsDev
-    ? 'https://goapi0109.xctsappet.com/api'
-    : 'https://api-ftcb.apiapp123.com/api';
-export const PROD_DOMAINS = [
-    'https://api-ftcb.apiapp123.link',
-    'https://api-ftcb.apiapp123.click'
-];
+    ? PRIVATE_API_ENDPOINTS.devBaseUrl
+    : PRIVATE_API_ENDPOINTS.prodBaseUrl;
+export const PROD_DOMAINS = PRIVATE_API_ENDPOINTS.prodFallbackUrls;
 
 export const HEALTH_PATH = '/api/health';
 
@@ -46,8 +44,8 @@ export const APP_CONFIG = {
     pageSize: 20,           // 列表默认每页条数
     maxRetryCount: 3,       // 最大重试次数
     appId: 109,
-    appKey: 'f06eb3e5cfc99aae8aa71ac2ccbff98a',
-    aesKey: '9483cf58fd7bbb46603bed9acb54a230',
+    appKey: REQUEST_SECRETS.appKey,
+    aesKey: REQUEST_SECRETS.aesKey,
 };
 
 // abTest 内部分流入口（示例模块：B 模块入口）
