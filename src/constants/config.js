@@ -43,7 +43,7 @@ export const APP_CONFIG = {
     version: APP_VERSION,
     pageSize: 20,           // 列表默认每页条数
     maxRetryCount: 3,       // 最大重试次数
-    appId: 109,
+    appId: REQUEST_SECRETS.appId,
     appKey: REQUEST_SECRETS.appKey,
     aesKey: REQUEST_SECRETS.aesKey,
 };
