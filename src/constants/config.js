@@ -17,7 +17,7 @@ export const APP_NAME = Constants.expoConfig?.name;
 export const APP_VERSION = Constants.expoConfig?.version;
 
 export const API_BASE_URL = IsDev
-    ? 'https://goapi0099.xctsappet.com/api'
+    ? 'https://goapi0109.xctsappet.com/api'
     : 'https://api-ftcb.apiapp123.com/api';
 export const PROD_DOMAINS = [
     'https://api-ftcb.apiapp123.link',
@@ -45,7 +45,7 @@ export const APP_CONFIG = {
     version: APP_VERSION,
     pageSize: 20,           // 列表默认每页条数
     maxRetryCount: 3,       // 最大重试次数
-    appId: 99,
+    appId: 109,
     appKey: 'f06eb3e5cfc99aae8aa71ac2ccbff98a',
     aesKey: '9483cf58fd7bbb46603bed9acb54a230',
 };

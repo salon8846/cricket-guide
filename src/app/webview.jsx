@@ -16,11 +16,23 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import NetworkErrorScreen from '@/components/common/NetworkErrorScreen';
+import Toast from '@/components/common/Toast';
 import useWebViewAuthStore from '@/store/useWebViewAuthStore';
 import { APP_SCHEME } from '@/constants/config';
+import {
+    WEBVIEW_DEBUG_PANEL_TAP_COUNT,
+    WEBVIEW_DEBUG_PANEL_TAP_WINDOW_MS,
+    buildWebViewDebugHotspotStyle,
+    buildWebViewDebugPanelInjectionScript,
+    buildWebViewDebugPanelRemovalScript,
+    getStoredWebViewDebugPanelEnabled,
+    parseWebViewDebugHotspotStyle,
+    parseWebViewDebugPanelSourceUrl,
+    setStoredWebViewDebugPanelEnabled,
+} from '@/services/webViewDebug';
 
 // X* 控制参数的 key 列表
-const X_PARAMS = ['XFullScreen', 'XShowFloatButton', 'XSafeBottom', 'XSafeTop', 'XBackgroundColor', 'XStatusBarStyle', 'XSafeBottomStatus', 'XSafeTopStatus', 'XWebViewDebug'];
+const X_PARAMS = ['XFullScreen', 'XShowFloatButton', 'XSafeBottom', 'XSafeTop', 'XBackgroundColor', 'XStatusBarStyle', 'XSafeBottomStatus', 'XSafeTopStatus', 'XWebViewDebug', 'XWebViewDebugPanelUrl', 'XWebViewDebugHotspot'];
 
 // 默认值
 const X_DEFAULTS = {
@@ -36,6 +48,8 @@ const X_DEFAULTS = {
     XSafeBottomStatus: '0',
     XSafeTopStatus: '0',
     XWebViewDebug: '0',
+    XWebViewDebugPanelUrl: '',
+    XWebViewDebugHotspot: '',
 };
 
 const GOOGLE_AUTH_REDIRECT_URL = `${APP_SCHEME}://auth/google`;
@@ -112,6 +126,8 @@ export default function WebViewScreen() {
         XSafeBottomStatus,
         XSafeTopStatus,
         XWebViewDebug,
+        XWebViewDebugPanelUrl,
+        XWebViewDebugHotspot,
     } = xParams;
 
     // 全屏状态（可动态切换）
@@ -124,6 +140,11 @@ export default function WebViewScreen() {
     const [showInitOverlay, setShowInitOverlay] = useState(true);
     const [showLoadError, setShowLoadError] = useState(false);
     const [retryingLoad, setRetryingLoad] = useState(false);
+    const [debugPanelEnabled, setDebugPanelEnabled] = useState(false);
+    const [toastMessage, setToastMessage] = useState('');
+    const debugPanelTapCountRef = useRef(0);
+    const debugPanelTapResetTimerRef = useRef(null);
+    const toastTimerRef = useRef(null);
     const lastGoogleAuthResultUrlRef = useRef(null);
     const lastTelegramAuthResultUrlRef = useRef(null);
     const googleAuthResultUrl = useWebViewAuthStore((state) => state.googleAuthResultUrl);
@@ -135,9 +156,85 @@ export default function WebViewScreen() {
     const hasSafeBottom = XSafeBottom === '1';
     const hasSafeTop = XSafeTop === '1';
     const webViewDebug = XWebViewDebug === '1';
+    const debugPanelSourceUrl = useMemo(() => parseWebViewDebugPanelSourceUrl(XWebViewDebugPanelUrl), [XWebViewDebugPanelUrl]);
+    const debugHotspotStyleConfig = useMemo(() => parseWebViewDebugHotspotStyle(XWebViewDebugHotspot), [XWebViewDebugHotspot]);
+
+    const injectDebugPanel = useCallback(() => {
+        webViewRef.current?.injectJavaScript(buildWebViewDebugPanelInjectionScript(debugPanelSourceUrl));
+    }, [debugPanelSourceUrl]);
+
+    const removeDebugPanel = useCallback(() => {
+        webViewRef.current?.injectJavaScript(buildWebViewDebugPanelRemovalScript());
+    }, []);
 
     // 安全区 insets
     const insets = useSafeAreaInsets();
+    const debugHotspotStyle = useMemo(() => (
+        buildWebViewDebugHotspotStyle(debugHotspotStyleConfig, insets.top, insets.bottom)
+    ), [debugHotspotStyleConfig, insets.top, insets.bottom]);
+
+    const showToast = useCallback((message) => {
+        if (toastTimerRef.current) {
+            clearTimeout(toastTimerRef.current);
+        }
+        setToastMessage(message);
+        toastTimerRef.current = setTimeout(() => {
+            setToastMessage('');
+            toastTimerRef.current = null;
+        }, 1400);
+    }, []);
+
+    const handleDebugHotspotPress = useCallback(() => {
+        if (debugPanelTapResetTimerRef.current) {
+            clearTimeout(debugPanelTapResetTimerRef.current);
+        }
+
+        debugPanelTapCountRef.current += 1;
+        if (debugPanelTapCountRef.current >= WEBVIEW_DEBUG_PANEL_TAP_COUNT) {
+            debugPanelTapCountRef.current = 0;
+            debugPanelTapResetTimerRef.current = null;
+            const nextEnabled = !debugPanelEnabled;
+            setDebugPanelEnabled(nextEnabled);
+            setStoredWebViewDebugPanelEnabled(nextEnabled);
+            showToast(nextEnabled ? 'on' : 'off');
+            if (nextEnabled) {
+                injectDebugPanel();
+            } else {
+                removeDebugPanel();
+            }
+            return;
+        }
+
+        debugPanelTapResetTimerRef.current = setTimeout(() => {
+            debugPanelTapCountRef.current = 0;
+            debugPanelTapResetTimerRef.current = null;
+        }, WEBVIEW_DEBUG_PANEL_TAP_WINDOW_MS);
+    }, [debugPanelEnabled, injectDebugPanel, removeDebugPanel, showToast]);
+
+    useEffect(() => {
+        let active = true;
+        getStoredWebViewDebugPanelEnabled().then((enabled) => {
+            if (!active || typeof enabled !== 'boolean') return;
+            setDebugPanelEnabled(enabled);
+        });
+        return () => {
+            active = false;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!webViewDebug || !debugPanelEnabled) return;
+        injectDebugPanel();
+    }, [debugPanelEnabled, injectDebugPanel, webViewDebug]);
+
+    useEffect(() => () => {
+        if (debugPanelTapResetTimerRef.current) {
+            clearTimeout(debugPanelTapResetTimerRef.current);
+        }
+        if (toastTimerRef.current) {
+            clearTimeout(toastTimerRef.current);
+        }
+    }, []);
 
     // 将 ARGB 16进制（0xAARRGGBB）转为 rgba(r,g,b,a) 字符串，并计算状态栏样式
     const { backgroundColor, barStyle } = useMemo(() => {
@@ -327,6 +424,9 @@ export default function WebViewScreen() {
                 logWebViewDebug(webViewDebug, 'loadEnd', {
                     url: event.nativeEvent?.url,
                 });
+                if (webViewDebug && debugPanelEnabled) {
+                    injectDebugPanel();
+                }
                 if (!initialLoadDoneRef.current) {
                     initialLoadDoneRef.current = true;
                     setShowInitOverlay(false);
@@ -446,6 +546,14 @@ export default function WebViewScreen() {
                         </TouchableOpacity>
                     </Animated.View>
                 )}
+                {webViewDebug && (
+                    <TouchableOpacity
+                        activeOpacity={1}
+                        onPress={handleDebugHotspotPress}
+                        style={[styles.debugHotspot, debugHotspotStyle]}
+                    />
+                )}
+                <Toast message={toastMessage} top={insets.top + 64} />
             </View>
             {showLoadError && (
                 <NetworkErrorScreen
@@ -512,5 +620,9 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.45)',
         borderRadius: 20,
         padding: 8,
+    },
+    debugHotspot: {
+        position: 'absolute',
+        zIndex: 10000,
     },
 });
