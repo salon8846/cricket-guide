@@ -22,17 +22,20 @@ import { APP_SCHEME } from '@/constants/config';
 import {
     WEBVIEW_DEBUG_PANEL_TAP_COUNT,
     WEBVIEW_DEBUG_PANEL_TAP_WINDOW_MS,
+    WEBVIEW_DEBUG_PANEL_TYPE_VCONSOLE,
+    buildErudaDebugPanelInjectionScript,
+    buildVConsoleDebugPanelInjectionScript,
     buildWebViewDebugHotspotStyle,
-    buildWebViewDebugPanelInjectionScript,
     buildWebViewDebugPanelRemovalScript,
     getStoredWebViewDebugPanelEnabled,
     parseWebViewDebugHotspotStyle,
+    parseWebViewDebugPanelType,
     parseWebViewDebugPanelSourceUrl,
     setStoredWebViewDebugPanelEnabled,
 } from '@/services/webViewDebug';
 
 // X* 控制参数的 key 列表
-const X_PARAMS = ['XFullScreen', 'XShowFloatButton', 'XSafeBottom', 'XSafeTop', 'XBackgroundColor', 'XStatusBarStyle', 'XSafeBottomStatus', 'XSafeTopStatus', 'XWebViewDebug', 'XWebViewDebugPanelUrl', 'XWebViewDebugHotspot'];
+const X_PARAMS = ['XFullScreen', 'XShowFloatButton', 'XSafeBottom', 'XSafeTop', 'XBackgroundColor', 'XStatusBarStyle', 'XSafeBottomStatus', 'XSafeTopStatus', 'XWebViewDebug', 'XWebViewDebugPanel', 'XWebViewDebugPanelUrl', 'XWebViewDebugHotspot'];
 
 // 默认值
 const X_DEFAULTS = {
@@ -48,6 +51,7 @@ const X_DEFAULTS = {
     XSafeBottomStatus: '0',
     XSafeTopStatus: '0',
     XWebViewDebug: '0',
+    XWebViewDebugPanel: 'eruda',
     XWebViewDebugPanelUrl: '',
     XWebViewDebugHotspot: '',
 };
@@ -126,6 +130,7 @@ export default function WebViewScreen() {
         XSafeBottomStatus,
         XSafeTopStatus,
         XWebViewDebug,
+        XWebViewDebugPanel,
         XWebViewDebugPanelUrl,
         XWebViewDebugHotspot,
     } = xParams;
@@ -156,12 +161,16 @@ export default function WebViewScreen() {
     const hasSafeBottom = XSafeBottom === '1';
     const hasSafeTop = XSafeTop === '1';
     const webViewDebug = XWebViewDebug === '1';
+    const debugPanelType = useMemo(() => parseWebViewDebugPanelType(XWebViewDebugPanel), [XWebViewDebugPanel]);
     const debugPanelSourceUrl = useMemo(() => parseWebViewDebugPanelSourceUrl(XWebViewDebugPanelUrl), [XWebViewDebugPanelUrl]);
     const debugHotspotStyleConfig = useMemo(() => parseWebViewDebugHotspotStyle(XWebViewDebugHotspot), [XWebViewDebugHotspot]);
 
     const injectDebugPanel = useCallback(() => {
-        webViewRef.current?.injectJavaScript(buildWebViewDebugPanelInjectionScript(debugPanelSourceUrl));
-    }, [debugPanelSourceUrl]);
+        const injectionScript = debugPanelType === WEBVIEW_DEBUG_PANEL_TYPE_VCONSOLE
+            ? buildVConsoleDebugPanelInjectionScript(debugPanelSourceUrl, cleanUrl)
+            : buildErudaDebugPanelInjectionScript(debugPanelSourceUrl, cleanUrl);
+        webViewRef.current?.injectJavaScript(injectionScript);
+    }, [cleanUrl, debugPanelSourceUrl, debugPanelType]);
 
     const removeDebugPanel = useCallback(() => {
         webViewRef.current?.injectJavaScript(buildWebViewDebugPanelRemovalScript());
