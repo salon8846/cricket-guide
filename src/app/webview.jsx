@@ -59,6 +59,7 @@ const X_DEFAULTS = {
 const GOOGLE_AUTH_REDIRECT_URL = `${APP_SCHEME}://auth/google`;
 const TELEGRAM_AUTH_REDIRECT_URL = `${APP_SCHEME}://auth/telegram`;
 const WEBVIEW_ORIGIN_WHITELIST = ['*'];
+const WEBVIEW_AUTH_SESSION_DEBOUNCE_MS = 500;
 
 const RETRYABLE_LOAD_ERROR_CODES = new Set([
     -1009, // iOS: not connected to internet
@@ -152,6 +153,10 @@ export default function WebViewScreen() {
     const toastTimerRef = useRef(null);
     const lastGoogleAuthResultUrlRef = useRef(null);
     const lastTelegramAuthResultUrlRef = useRef(null);
+    const webViewAuthSessionTimerRef = useRef(null);
+    const pendingWebViewAuthSessionRef = useRef(null);
+    const webViewAuthSessionOpenRef = useRef(false);
+    const latestWebViewAuthSessionIdRef = useRef(0);
     const googleAuthResultUrl = useWebViewAuthStore((state) => state.googleAuthResultUrl);
     const clearGoogleAuthResultUrl = useWebViewAuthStore((state) => state.clearGoogleAuthResultUrl);
     const telegramAuthResultUrl = useWebViewAuthStore((state) => state.telegramAuthResultUrl);
@@ -243,6 +248,10 @@ export default function WebViewScreen() {
         if (toastTimerRef.current) {
             clearTimeout(toastTimerRef.current);
         }
+        if (webViewAuthSessionTimerRef.current) {
+            clearTimeout(webViewAuthSessionTimerRef.current);
+        }
+        pendingWebViewAuthSessionRef.current = null;
     }, []);
 
     // 将 ARGB 16进制（0xAARRGGBB）转为 rgba(r,g,b,a) 字符串，并计算状态栏样式
@@ -307,6 +316,135 @@ export default function WebViewScreen() {
         });
     }, [postWebViewMessage]);
 
+    const closeWebViewAuthSession = useCallback(() => {
+        try {
+            WebBrowser.dismissAuthSession();
+        } catch (e) {
+            console.warn('WebView auth dismiss error:', e);
+        }
+    }, []);
+
+    const openGoogleAuthSession = useCallback(async (authUrl, authSessionId) => {
+        try {
+            const result = await WebBrowser.openAuthSessionAsync(authUrl, GOOGLE_AUTH_REDIRECT_URL);
+            if (authSessionId !== latestWebViewAuthSessionIdRef.current) return;
+            if (result.type === 'success') {
+                postGoogleAuthSuccess(result.url);
+            } else {
+                postWebViewMessage('googleAuthCancel', {
+                    type: result.type,
+                });
+            }
+        } catch (e) {
+            if (authSessionId !== latestWebViewAuthSessionIdRef.current) return;
+            console.warn('Google auth error:', e);
+            postWebViewMessage('googleAuthError', {
+                message: e?.message ?? String(e),
+            });
+        }
+    }, [postGoogleAuthSuccess, postWebViewMessage]);
+
+    const openTelegramAuthSession = useCallback(async (authUrl, authSessionId) => {
+        try {
+            const result = await WebBrowser.openAuthSessionAsync(authUrl, TELEGRAM_AUTH_REDIRECT_URL);
+            if (authSessionId !== latestWebViewAuthSessionIdRef.current) return;
+            if (result.type === 'success') {
+                postTelegramAuthSuccess(result.url);
+            } else {
+                postWebViewMessage('telegramAuthCancel', {
+                    type: result.type,
+                });
+            }
+        } catch (e) {
+            if (authSessionId !== latestWebViewAuthSessionIdRef.current) return;
+            console.warn('Telegram auth error:', e);
+            postWebViewMessage('telegramAuthError', {
+                message: e?.message ?? String(e),
+            });
+        }
+    }, [postTelegramAuthSuccess, postWebViewMessage]);
+
+    const openPendingWebViewAuthSession = useCallback(() => {
+        if (webViewAuthSessionOpenRef.current) {
+            closeWebViewAuthSession();
+            return;
+        }
+
+        const nextAuthSession = pendingWebViewAuthSessionRef.current;
+        pendingWebViewAuthSessionRef.current = null;
+        if (!nextAuthSession) return;
+
+        webViewAuthSessionOpenRef.current = true;
+        Promise.resolve(nextAuthSession()).finally(() => {
+            webViewAuthSessionOpenRef.current = false;
+            if (pendingWebViewAuthSessionRef.current && !webViewAuthSessionTimerRef.current) {
+                webViewAuthSessionTimerRef.current = setTimeout(() => {
+                    webViewAuthSessionTimerRef.current = null;
+                    openPendingWebViewAuthSession();
+                }, 0);
+            }
+        });
+    }, [closeWebViewAuthSession]);
+
+    const openWebViewAuthSessionNow = useCallback((openAuthSession) => {
+        const authSessionId = latestWebViewAuthSessionIdRef.current + 1;
+        latestWebViewAuthSessionIdRef.current = authSessionId;
+        webViewAuthSessionOpenRef.current = true;
+        Promise.resolve(openAuthSession(authSessionId)).finally(() => {
+            webViewAuthSessionOpenRef.current = false;
+        });
+    }, []);
+
+    const scheduleIosWebViewAuthSession = useCallback((openAuthSession) => {
+        const authSessionId = latestWebViewAuthSessionIdRef.current + 1;
+        latestWebViewAuthSessionIdRef.current = authSessionId;
+        pendingWebViewAuthSessionRef.current = () => openAuthSession(authSessionId);
+
+        if (webViewAuthSessionTimerRef.current) {
+            clearTimeout(webViewAuthSessionTimerRef.current);
+        }
+
+        if (webViewAuthSessionOpenRef.current) {
+            closeWebViewAuthSession();
+        }
+
+        webViewAuthSessionTimerRef.current = setTimeout(() => {
+            webViewAuthSessionTimerRef.current = null;
+            openPendingWebViewAuthSession();
+        }, WEBVIEW_AUTH_SESSION_DEBOUNCE_MS);
+    }, [closeWebViewAuthSession, openPendingWebViewAuthSession]);
+
+    const scheduleAndroidWebViewAuthSession = useCallback((openAuthSession) => {
+        if (webViewAuthSessionOpenRef.current) return;
+
+        const authSessionId = latestWebViewAuthSessionIdRef.current + 1;
+        latestWebViewAuthSessionIdRef.current = authSessionId;
+        pendingWebViewAuthSessionRef.current = () => openAuthSession(authSessionId);
+
+        if (webViewAuthSessionTimerRef.current) {
+            clearTimeout(webViewAuthSessionTimerRef.current);
+        }
+
+        webViewAuthSessionTimerRef.current = setTimeout(() => {
+            webViewAuthSessionTimerRef.current = null;
+            openPendingWebViewAuthSession();
+        }, WEBVIEW_AUTH_SESSION_DEBOUNCE_MS);
+    }, [openPendingWebViewAuthSession]);
+
+    const runWebViewAuthSession = useCallback((openAuthSession) => {
+        if (Platform.OS === 'web') {
+            openWebViewAuthSessionNow(openAuthSession);
+            return;
+        }
+
+        if (Platform.OS === 'android') {
+            scheduleAndroidWebViewAuthSession(openAuthSession);
+            return;
+        }
+
+        scheduleIosWebViewAuthSession(openAuthSession);
+    }, [openWebViewAuthSessionNow, scheduleAndroidWebViewAuthSession, scheduleIosWebViewAuthSession]);
+
     useEffect(() => {
         if (!googleAuthResultUrl) return;
         postGoogleAuthSuccess(googleAuthResultUrl);
@@ -327,38 +465,10 @@ export default function WebViewScreen() {
                 Linking.openURL(params.url);
             }
             if (action === 'openGoogleAuth' && params?.url) {
-                try {
-                    const result = await WebBrowser.openAuthSessionAsync(params.url, GOOGLE_AUTH_REDIRECT_URL);
-                    if (result.type === 'success') {
-                        postGoogleAuthSuccess(result.url);
-                    } else {
-                        postWebViewMessage('googleAuthCancel', {
-                            type: result.type,
-                        });
-                    }
-                } catch (e) {
-                    console.warn('Google auth error:', e);
-                    postWebViewMessage('googleAuthError', {
-                        message: e?.message ?? String(e),
-                    });
-                }
+                runWebViewAuthSession((authSessionId) => openGoogleAuthSession(params.url, authSessionId));
             }
             if (action === 'openTelegramAuth' && params?.url) {
-                try {
-                    const result = await WebBrowser.openAuthSessionAsync(params.url, TELEGRAM_AUTH_REDIRECT_URL);
-                    if (result.type === 'success') {
-                        postTelegramAuthSuccess(result.url);
-                    } else {
-                        postWebViewMessage('telegramAuthCancel', {
-                            type: result.type,
-                        });
-                    }
-                } catch (e) {
-                    console.warn('Telegram auth error:', e);
-                    postWebViewMessage('telegramAuthError', {
-                        message: e?.message ?? String(e),
-                    });
-                }
+                runWebViewAuthSession((authSessionId) => openTelegramAuthSession(params.url, authSessionId));
             }
             // H5 调用：window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'getSafeArea' }))
             // 响应：window 上触发 CustomEvent('nativeSafeArea')，detail 为 { safeTop, safeBottom }
@@ -379,7 +489,7 @@ export default function WebViewScreen() {
         } catch (e) {
             console.warn('WebView message parse error:', e);
         }
-    }, [insets.top, insets.bottom, postGoogleAuthSuccess, postTelegramAuthSuccess, postWebViewMessage]);
+    }, [insets.top, insets.bottom, openGoogleAuthSession, openTelegramAuthSession, runWebViewAuthSession]);
 
     // 将安全区像素值注入到 URL，供 H5 页面读取
     const finalUrl = useMemo(() => {
