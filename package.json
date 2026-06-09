@@ -1,7 +1,6 @@
 {
   "name": "baseapp",
   "version": "1.0.0",
-  "packageManager": "pnpm@11.5.2",
   "main": "expo-router/entry",
   "private": true,
   "scripts": {
