@@ -4,7 +4,7 @@
     "slug": "baseApp",
     "version": "1.0.0",
     "scheme": "baseapp",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {

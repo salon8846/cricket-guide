@@ -1,4 +1,7 @@
 import { Stack, usePathname, useRouter } from 'expo-router';
+import * as ScreenOrientation from 'expo-screen-orientation';
+import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import useDeferredOpenUrlJump from '@/hooks/useDeferredOpenUrlJump';
 import { HAS_AB_TEST_MODULE } from '@/constants/config';
 
@@ -17,6 +20,17 @@ export default function RootLayout() {
     const enableDeferredCheck = pathname !== '/' && !pathname.startsWith('/webview');
 
     useDeferredOpenUrlJump(router, enableDeferredCheck);
+
+    useEffect(() => {
+        if (Platform.OS === 'web') return;
+        const routeAllowsDeviceOrientation = pathname.startsWith('/webview');
+        const orientationTask = routeAllowsDeviceOrientation
+            ? ScreenOrientation.unlockAsync()
+            : ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+        orientationTask.catch((error) => {
+            console.warn('Screen orientation change error:', error);
+        });
+    }, [pathname]);
 
     return (
         <Stack
