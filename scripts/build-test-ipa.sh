@@ -8,6 +8,15 @@ CONFIGURATION=${CONFIGURATION:-Release}
 DESTINATION=${DESTINATION:-generic/platform=iOS}
 RCT_USE_RN_DEP=${RCT_USE_RN_DEP:-0}
 RCT_USE_PREBUILT_RNCORE=${RCT_USE_PREBUILT_RNCORE:-0}
+CLEAR=0
+
+for arg in "$@"; do
+  case "$arg" in
+    --clear|-c)
+      CLEAR=1
+      ;;
+  esac
+done
 
 export RCT_USE_RN_DEP
 export RCT_USE_PREBUILT_RNCORE
@@ -143,8 +152,17 @@ if [ ! -d "$ROOT_DIR/node_modules" ] || [ "${FORCE_INSTALL:-0}" = "1" ]; then
   install_js_dependencies
 fi
 
-ensure_ios_project
-sync_ios_project
+if [ "$CLEAR" = "1" ]; then
+  need_cmd npx
+  log "Running expo prebuild --clean for iOS..."
+  (
+    cd "$ROOT_DIR"
+    npx expo prebuild --platform ios --clean
+  )
+else
+  ensure_ios_project
+  sync_ios_project
+fi
 
 if [ ! -f "$IOS_DIR/Podfile" ]; then
   fail "Podfile not found under ios/. Check Expo prebuild output first."
