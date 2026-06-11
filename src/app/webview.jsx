@@ -83,6 +83,33 @@ function logWebViewDebug(enabled, eventName, payload) {
     console.warn('[WebViewDebug]', eventName, payload);
 }
 
+function buildNativeSafeAreaEventScript(safeTop, safeBottom) {
+    return `
+        (function() {
+            var e = new CustomEvent('nativeSafeArea', {
+                detail: { safeTop: ${safeTop}, safeBottom: ${safeBottom} }
+            });
+            window.dispatchEvent(e);
+        })();
+        true;
+    `;
+}
+
+function buildWebViewEntryUrl(cleanUrl, safeTopStatus, safeBottomStatus, safeTop, safeBottom) {
+    try {
+        const parsed = new URL(cleanUrl);
+        if (safeTopStatus === '1') {
+            parsed.searchParams.set('safeTop', String(safeTop));
+        }
+        if (safeBottomStatus === '1') {
+            parsed.searchParams.set('safeBottom', String(safeBottom));
+        }
+        return parsed.toString();
+    } catch {
+        return cleanUrl;
+    }
+}
+
 /**
  * 从 URL 中提取 X* 控制参数，并返回剥离这些参数后的干净 URL
  */
@@ -183,9 +210,15 @@ export default function WebViewScreen() {
 
     // 安全区 insets
     const insets = useSafeAreaInsets();
+    const currentSafeTop = Math.round(insets.top);
+    const currentSafeBottom = Math.round(insets.bottom);
     const debugHotspotStyle = useMemo(() => (
         buildWebViewDebugHotspotStyle(debugHotspotStyleConfig, insets.top, insets.bottom)
     ), [debugHotspotStyleConfig, insets.top, insets.bottom]);
+
+    const injectNativeSafeArea = useCallback(() => {
+        webViewRef.current?.injectJavaScript(buildNativeSafeAreaEventScript(currentSafeTop, currentSafeBottom));
+    }, [currentSafeTop, currentSafeBottom]);
 
     const showToast = useCallback((message) => {
         if (toastTimerRef.current) {
@@ -473,44 +506,33 @@ export default function WebViewScreen() {
             // H5 调用：window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'getSafeArea' }))
             // 响应：window 上触发 CustomEvent('nativeSafeArea')，detail 为 { safeTop, safeBottom }
             if (action === 'getSafeArea') {
-                const safeTop = Math.round(insets.top);
-                const safeBottom = Math.round(insets.bottom);
-                const js = `
-                    (function() {
-                        var e = new CustomEvent('nativeSafeArea', {
-                            detail: { safeTop: ${safeTop}, safeBottom: ${safeBottom} }
-                        });
-                        window.dispatchEvent(e);
-                    })();
-                    true;
-                `;
-                webViewRef.current?.injectJavaScript(js);
+                injectNativeSafeArea();
             }
         } catch (e) {
             console.warn('WebView message parse error:', e);
         }
-    }, [insets.top, insets.bottom, openGoogleAuthSession, openTelegramAuthSession, runWebViewAuthSession]);
+    }, [injectNativeSafeArea, openGoogleAuthSession, openTelegramAuthSession, runWebViewAuthSession]);
 
-    // 将安全区像素值注入到 URL，供 H5 页面读取
-    const finalUrl = useMemo(() => {
-        try {
-            const parsed = new URL(cleanUrl);
-            if (XSafeTopStatus === '1') {
-                parsed.searchParams.set('safeTop', String(Math.round(insets.top)));
-            }
-            if (XSafeBottomStatus === '1') {
-                parsed.searchParams.set('safeBottom', String(Math.round(insets.bottom)));
-            }
-            return parsed.toString();
-        } catch {
-            return cleanUrl;
-        }
-    }, [cleanUrl, XSafeTopStatus, XSafeBottomStatus, insets.top, insets.bottom]);
+    useEffect(() => {
+        if (!initialLoadDoneRef.current) return;
+        injectNativeSafeArea();
+    }, [injectNativeSafeArea]);
+
+    const entryUrlKey = `${cleanUrl}\n${XSafeTopStatus}\n${XSafeBottomStatus}`;
+    const entryUrlRef = useRef({ key: null, url: cleanUrl });
+    if (entryUrlRef.current.key !== entryUrlKey) {
+        entryUrlRef.current = {
+            key: entryUrlKey,
+            url: buildWebViewEntryUrl(cleanUrl, XSafeTopStatus, XSafeBottomStatus, currentSafeTop, currentSafeBottom),
+        };
+    }
+    const entryUrl = entryUrlRef.current.url;
+    const webViewSource = useMemo(() => ({ uri: entryUrl }), [entryUrl]);
 
     const webview = (
         <WebView
             ref={webViewRef}
-            source={{ uri: finalUrl }}
+            source={webViewSource}
             style={[styles.webview, { backgroundColor }]}
             // 部分 H5 会使用 about:srcdoc、iframe 或跨域资源，放开来源避免被 WebView 当成外部链接拦截。
             originWhitelist={WEBVIEW_ORIGIN_WHITELIST}
@@ -546,6 +568,7 @@ export default function WebViewScreen() {
                 if (webViewDebug && debugPanelEnabled) {
                     injectDebugPanel();
                 }
+                injectNativeSafeArea();
                 if (!initialLoadDoneRef.current) {
                     initialLoadDoneRef.current = true;
                     setShowInitOverlay(false);
