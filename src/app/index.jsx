@@ -40,7 +40,7 @@ const INSTALL_FLAG_KEY = 'STAT_INSTALLED';
  *
  * 决策优先级：
  * - OPEN_URL_JUMPED=1：认为已命中过跳转，后续只要返回 targetUrl 就直接跳，不再判断 isOpen
- * - more=1：缓存本次提交的 clipboardContent，后续 getOpenUrl 优先复用缓存内容
+ * - more=1 且 targetUrl/linkType 有效：缓存本次提交的 clipboardContent，后续 getOpenUrl 优先复用缓存内容
  * - checkTime > 0：保存 OPEN_URL_DEFERRED_JUMP，进入首页，后续到点由根 layout 刷新 URL 并按最新 isOpen 判断
  * - isOpen !== '1'：非静默场景不跳转
  * - isOpen === '1' && checkTime <= 0：立即跳转
@@ -71,13 +71,15 @@ export default function BootstrapScreen() {
             await syncOpenUrlClipboardContentCache({
                 more: openUrlRes?.data?.more,
                 clipboardContent,
+                linkType: openUrlRes?.data?.linkType,
+                targetUrl: openUrlRes?.data?.targetUrl,
             });
             return openUrlRes;
         };
 
         const cachedClipboardContent = await getCachedOpenUrlClipboardContent();
         if (cachedClipboardContent !== null) {
-            devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: with cached clipboard', { cachedClipboardContent: cachedClipboardContent });
+            devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: with cached clipboard', { preview: cachedClipboardContent.slice(0, 32) });
             return requestOpenUrlAndSyncClipboardCache(cachedClipboardContent);
         }
 
@@ -86,7 +88,7 @@ export default function BootstrapScreen() {
             try {
                 const Clipboard = require('expo-clipboard');
                 const clipboardContent = await Clipboard.getStringAsync();
-                devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: with clipboard', { len: (clipboardContent ?? '').length });
+                devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: with clipboard', { preview: (clipboardContent ?? '').slice(0, 32) });
                 return requestOpenUrlAndSyncClipboardCache(clipboardContent ?? '');
             } catch {
                 // 读取剪切板失败时回退到空内容

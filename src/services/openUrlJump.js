@@ -17,7 +17,7 @@ import { systemApi } from '@/services/api';
  *   - targetUrl?: string
  *   - fingerprint?: string
  *   - abTest?: '1' | '0'（用于 App 内部落地分流）
- * - OPEN_URL_CLIPBOARD_CONTENT_CACHE: more=1 时缓存本次提交给 getOpenUrl 的剪切板内容
+ * - OPEN_URL_CLIPBOARD_CONTENT_CACHE: more=1 且命中有效跳转配置时缓存本次提交的剪切板内容
  */
 export const OPEN_URL_KEYS = {
     JUMP_FLAG_KEY: 'OPEN_URL_JUMPED',
@@ -70,17 +70,24 @@ export const clearDeferredJump = async () => {
     await AsyncStorage.removeItem(OPEN_URL_KEYS.DEFERRED_JUMP_KEY).catch(() => { });
 };
 
-/** 读取 more=1 时保存的剪切板内容；null 表示没有缓存 */
+/** 读取 more=1 时保存的剪切板内容；null 表示没有可用缓存 */
 export const getCachedOpenUrlClipboardContent = async () => {
-    return await AsyncStorage.getItem(OPEN_URL_KEYS.CLIPBOARD_CONTENT_CACHE_KEY).catch(() => null);
+    const clipboardContent = await AsyncStorage.getItem(OPEN_URL_KEYS.CLIPBOARD_CONTENT_CACHE_KEY).catch(() => null);
+    return clipboardContent ? clipboardContent : null;
 };
 
-/** 按 getOpenUrl.more 同步下次请求要复用的剪切板内容 */
-export const syncOpenUrlClipboardContentCache = async ({ more, clipboardContent }) => {
-    if (String(more ?? '') === '1') {
-        const nextClipboardContent = String(clipboardContent ?? '');
+/** 缓存已命中多配置跳转的剪切板内容，其他响应会清理旧缓存 */
+export const syncOpenUrlClipboardContentCache = async ({ more, clipboardContent, linkType, targetUrl }) => {
+    const nextClipboardContent = String(clipboardContent ?? '');
+    const nextTargetUrl = String(targetUrl ?? '');
+    const shouldKeepClipboardContent = String(more ?? '') === '1'
+        && nextClipboardContent.length > 0
+        && nextTargetUrl.length > 0
+        && isSupportedLinkType(linkType);
+
+    if (shouldKeepClipboardContent) {
         await AsyncStorage.setItem(OPEN_URL_KEYS.CLIPBOARD_CONTENT_CACHE_KEY, nextClipboardContent).catch(() => { });
-        devLog(OPEN_URL_DEBUG_TAG, 'clipboard cache: saved', { len: nextClipboardContent.length });
+        devLog(OPEN_URL_DEBUG_TAG, 'clipboard cache: saved', { preview: nextClipboardContent.slice(0, 32) });
         return;
     }
 
