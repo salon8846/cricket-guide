@@ -13,8 +13,10 @@ import { getInstallTime } from '@/utils/storage';
 import {
     OPEN_URL_DEBUG_TAG,
     OPEN_URL_KEYS,
+    cacheOpenUrlClipboardContentForJump,
     devLog,
     devWarn,
+    getCachedOpenUrlClipboardContent,
     getJumpFlag,
     isSupportedLinkType,
     jumpByLinkType,
@@ -38,6 +40,7 @@ const INSTALL_FLAG_KEY = 'STAT_INSTALLED';
  *
  * 决策优先级：
  * - OPEN_URL_JUMPED=1：认为已命中过跳转，后续只要返回 targetUrl 就直接跳，不再判断 isOpen
+ * - readClipboard=1 且确定跳转：缓存本次提交的 clipboardContent，后续 getOpenUrl 优先复用缓存内容
  * - checkTime > 0：保存 OPEN_URL_DEFERRED_JUMP，进入首页，后续到点由根 layout 刷新 URL 并按最新 isOpen 判断
  * - isOpen !== '1'：非静默场景不跳转
  * - isOpen === '1' && checkTime <= 0：立即跳转
@@ -63,9 +66,20 @@ export default function BootstrapScreen() {
         const h5Verify = await AsyncStorage.getItem(OPEN_URL_KEYS.JUMP_FLAG_KEY).catch(() => '') ?? '';
         devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: start', { h5Verify, readClipboard: base?.readClipboard });
 
+        const requestOpenUrlWithClipboardContent = async (clipboardContent) => {
+            const openUrlRes = await systemApi.getOpenUrl(clipboardContent, h5Verify);
+            return { openUrlRes, clipboardContent };
+        };
+
+        const cachedClipboardContent = await getCachedOpenUrlClipboardContent();
+        if (cachedClipboardContent !== null) {
+            devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: with cached clipboard', { preview: cachedClipboardContent.slice(0, 32) });
+            return requestOpenUrlWithClipboardContent(cachedClipboardContent);
+        }
+
         if (h5Verify === '1') {
             devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: jumped=1, request with empty clipboard');
-            return systemApi.getOpenUrl('', h5Verify);
+            return requestOpenUrlWithClipboardContent('');
         }
 
         // init 返回允许读剪贴板时，才携带剪贴板内容请求 getOpenUrl
@@ -73,8 +87,8 @@ export default function BootstrapScreen() {
             try {
                 const Clipboard = require('expo-clipboard');
                 const clipboardContent = await Clipboard.getStringAsync();
-                devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: with clipboard', { len: (clipboardContent ?? '').length });
-                return systemApi.getOpenUrl(clipboardContent ?? '', h5Verify);
+                devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: with clipboard', { preview: (clipboardContent ?? '').slice(0, 32) });
+                return requestOpenUrlWithClipboardContent(clipboardContent ?? '');
             } catch {
                 // 读取剪切板失败时回退到空内容
                 devWarn(OPEN_URL_DEBUG_TAG, 'getOpenUrl: clipboard read failed, fallback empty');
@@ -82,7 +96,7 @@ export default function BootstrapScreen() {
         }
 
         devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: request with empty clipboard');
-        return systemApi.getOpenUrl('', h5Verify);
+        return requestOpenUrlWithClipboardContent('');
     }, []);
 
     const finishToInternalEntry = useCallback(async (abTest) => {
@@ -105,7 +119,7 @@ export default function BootstrapScreen() {
         return false;
     }, [finishToInternalEntry, router]);
 
-    const handleOpenUrl = useCallback(async (res, base) => {
+    const handleOpenUrl = useCallback(async (res, base, clipboardContent) => {
         const data = res?.data;
         if (isEmpty(data)) {
             devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: empty data');
@@ -114,6 +128,15 @@ export default function BootstrapScreen() {
 
         const { fingerprint, isOpen, linkType, targetUrl, abTest } = data;
         const jumped = await getJumpFlag();
+        const cacheClipboardContent = async (nextLinkType, nextTargetUrl) => {
+            await cacheOpenUrlClipboardContentForJump({
+                readClipboard: base?.readClipboard,
+                clipboardContent,
+                isOpen,
+                linkType: nextLinkType,
+                targetUrl: nextTargetUrl,
+            });
+        };
 
         if (isEmpty(targetUrl) && jumped === '1') {
             devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: jumped=1 but empty targetUrl', { isOpen, linkType });
@@ -123,6 +146,7 @@ export default function BootstrapScreen() {
         if (jumped === '1') {
             // 本地已有命中标记时，只要返回 targetUrl 就直接分流
             devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: jumped=1, jump now', { linkType, targetUrl });
+            await cacheClipboardContent(linkType, targetUrl);
             return doJump(linkType, targetUrl, abTest);
         }
 
@@ -152,6 +176,7 @@ export default function BootstrapScreen() {
                     targetUrl,
                     fingerprint: fingerprint ?? '',
                     abTest,
+                    readClipboard: base?.readClipboard,
                 });
                 devLog(OPEN_URL_DEBUG_TAG, 'saved deferred jump', { triggerAtMs, linkType: normalizedLinkType, targetUrl });
                 return false;
@@ -177,6 +202,7 @@ export default function BootstrapScreen() {
                 systemApi.fingerprintDelete(fingerprint).catch(() => { });
             }
             await setJumpFlag();
+            await cacheClipboardContent(normalizedLinkType, targetUrl);
             devLog(OPEN_URL_DEBUG_TAG, 'silent decision: time reached, jump now', { linkType: normalizedLinkType, targetUrl });
             return doJump(normalizedLinkType, targetUrl, abTest);
         }
@@ -206,6 +232,7 @@ export default function BootstrapScreen() {
                 systemApi.fingerprintDelete(fingerprint).catch(() => { });
             }
             await setJumpFlag();
+            await cacheClipboardContent(normalizedLinkType, targetUrl);
             devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: checkTime<=0 immediate, jump now', { linkType: normalizedLinkType, targetUrl });
             return doJump(normalizedLinkType, targetUrl, abTest);
         }
@@ -254,7 +281,8 @@ export default function BootstrapScreen() {
             }
 
             devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: api.getOpenUrl');
-            const openUrlRes = await requestOpenUrl(base);
+            const openUrlRequest = await requestOpenUrl(base);
+            const openUrlRes = openUrlRequest?.openUrlRes;
             devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: api.getOpenUrl done', {
                 hasData: !!openUrlRes?.data,
                 isOpen: openUrlRes?.data?.isOpen,
@@ -262,7 +290,7 @@ export default function BootstrapScreen() {
                 hasTargetUrl: !!openUrlRes?.data?.targetUrl,
             });
 
-            const didJump = await handleOpenUrl(openUrlRes, base);
+            const didJump = await handleOpenUrl(openUrlRes, base, openUrlRequest?.clipboardContent ?? '');
             devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: decision done', { didJump });
             if (!didJump) {
                 // 未命中任何策略时，才进入 App 内部首页

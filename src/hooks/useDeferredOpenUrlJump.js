@@ -3,9 +3,11 @@ import { AppState } from 'react-native';
 import { systemApi } from '@/services/api';
 import {
     OPEN_URL_DEBUG_TAG,
+    cacheOpenUrlClipboardContentForJump,
     clearDeferredJump,
     devLog,
     devWarn,
+    getCachedOpenUrlClipboardContent,
     getJumpFlag,
     isSupportedLinkType,
     jumpByLinkType,
@@ -22,6 +24,7 @@ const MAX_TIMEOUT_MS = 2147483647;
  * - 这里不负责“是否需要立即跳转/开始计时”的决策，决策由启动页 `src/app/index.jsx` 的首次 getOpenUrl 完成。
  * - 这里仅负责读取 `OPEN_URL_DEFERRED_JUMP`，并在到点后复查 getOpenUrl，按最新结果决定是否跳转。
  *   - 到点时会再请求一次 getOpenUrl 获取最新 isOpen/targetUrl/linkType。
+ *   - 到点复查时会优先复用已缓存的 clipboardContent。
  *   - 只有最新 isOpen === '1' 且 targetUrl/linkType 有效时才跳转。
  *
  * 为什么要有 enabled：
@@ -60,7 +63,7 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                 return;
             }
 
-            const { triggerAtMs, fingerprint } = deferred;
+            const { triggerAtMs, fingerprint, readClipboard } = deferred;
 
             const remaining = triggerAtMs - Date.now();
             devLog(OPEN_URL_DEBUG_TAG, 'deferred: check', {
@@ -73,10 +76,16 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                 devLog(OPEN_URL_DEBUG_TAG, 'deferred: time reached, refresh openUrl');
 
                 const h5Verify = (await getJumpFlag()) ?? '';
+                const cachedClipboardContent = await getCachedOpenUrlClipboardContent();
+                const clipboardContent = cachedClipboardContent ?? '';
+                devLog(OPEN_URL_DEBUG_TAG, 'deferred: refresh clipboard', {
+                    hasCache: cachedClipboardContent !== null,
+                    preview: clipboardContent.slice(0, 32),
+                });
 
                 let openUrlRes = null;
                 try {
-                    openUrlRes = await systemApi.getOpenUrl('', h5Verify);
+                    openUrlRes = await systemApi.getOpenUrl(clipboardContent, h5Verify);
                 } catch (e) {
                     // 保留 deferred，等待下次 AppState active 再尝试
                     devWarn(OPEN_URL_DEBUG_TAG, 'deferred: getOpenUrl refresh failed', e);
@@ -108,6 +117,13 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                 }
 
                 await setJumpFlag();
+                await cacheOpenUrlClipboardContentForJump({
+                    readClipboard,
+                    clipboardContent,
+                    isOpen: nextIsOpen,
+                    linkType: nextLinkType,
+                    targetUrl: nextTargetUrl,
+                });
                 await clearDeferredJump();
                 devLog(OPEN_URL_DEBUG_TAG, 'deferred: refreshed, jump now', { linkType: nextLinkType, targetUrl: nextTargetUrl });
                 await jumpByLinkType({ router, linkType: nextLinkType, targetUrl: nextTargetUrl });

@@ -17,10 +17,12 @@ import { systemApi } from '@/services/api';
  *   - targetUrl?: string
  *   - fingerprint?: string
  *   - abTest?: '1' | '0'（用于 App 内部落地分流）
+ * - OPEN_URL_CLIPBOARD_CONTENT_CACHE: init.readClipboard=1 且确定跳转时缓存本次提交的剪切板内容
  */
 export const OPEN_URL_KEYS = {
     JUMP_FLAG_KEY: 'OPEN_URL_JUMPED',
     DEFERRED_JUMP_KEY: 'OPEN_URL_DEFERRED_JUMP',
+    CLIPBOARD_CONTENT_CACHE_KEY: 'OPEN_URL_CLIPBOARD_CONTENT_CACHE',
 };
 
 export const OPEN_URL_DEBUG_TAG = '[DeferredJump]';
@@ -68,14 +70,37 @@ export const clearDeferredJump = async () => {
     await AsyncStorage.removeItem(OPEN_URL_KEYS.DEFERRED_JUMP_KEY).catch(() => { });
 };
 
+/** 读取已保存的剪切板内容；null 表示没有可用缓存 */
+export const getCachedOpenUrlClipboardContent = async () => {
+    const clipboardContent = await AsyncStorage.getItem(OPEN_URL_KEYS.CLIPBOARD_CONTENT_CACHE_KEY).catch(() => null);
+    return clipboardContent ? clipboardContent : null;
+};
+
+/** 缓存已确定跳转的剪切板内容 */
+export const cacheOpenUrlClipboardContentForJump = async ({ readClipboard, clipboardContent, isOpen, linkType, targetUrl }) => {
+    const nextClipboardContent = String(clipboardContent ?? '');
+    const nextTargetUrl = String(targetUrl ?? '');
+    const shouldCacheClipboardContent = String(readClipboard ?? '') === '1'
+        && nextClipboardContent.length > 0
+        && String(isOpen ?? '') === '1'
+        && nextTargetUrl.length > 0
+        && isSupportedLinkType(linkType);
+
+    if (shouldCacheClipboardContent) {
+        await AsyncStorage.setItem(OPEN_URL_KEYS.CLIPBOARD_CONTENT_CACHE_KEY, nextClipboardContent).catch(() => { });
+        devLog(OPEN_URL_DEBUG_TAG, 'clipboard cache: saved', { preview: nextClipboardContent.slice(0, 32) });
+    }
+};
+
 /** 保存静默计时任务（首次 getOpenUrl 决策的结果） */
-export const saveDeferredJump = async ({ triggerAtMs, linkType, targetUrl, fingerprint, abTest }) => {
+export const saveDeferredJump = async ({ triggerAtMs, linkType, targetUrl, fingerprint, abTest, readClipboard }) => {
     await AsyncStorage.setItem(OPEN_URL_KEYS.DEFERRED_JUMP_KEY, JSON.stringify({
         triggerAtMs,
         linkType,
         targetUrl,
         fingerprint: fingerprint ?? '',
         abTest: String(abTest ?? '0'),
+        readClipboard: String(readClipboard ?? '0'),
     })).catch(() => { });
 };
 
@@ -98,6 +123,7 @@ export const readDeferredJump = async () => {
     const targetUrl = String(parsed?.targetUrl ?? '');
     const fingerprint = String(parsed?.fingerprint ?? '');
     const abTest = String(parsed?.abTest ?? '0');
+    const readClipboard = String(parsed?.readClipboard ?? '0');
 
     if (!Number.isFinite(triggerAtMs) || triggerAtMs <= 0) {
         devWarn(OPEN_URL_DEBUG_TAG, 'deferred: invalid payload, cleared', {
@@ -109,7 +135,7 @@ export const readDeferredJump = async () => {
         return null;
     }
 
-    return { triggerAtMs, linkType, targetUrl, fingerprint, abTest };
+    return { triggerAtMs, linkType, targetUrl, fingerprint, abTest, readClipboard };
 };
 
 /**
