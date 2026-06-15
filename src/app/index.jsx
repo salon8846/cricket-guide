@@ -71,6 +71,7 @@ export default function BootstrapScreen() {
             await syncOpenUrlClipboardContentCache({
                 more: openUrlRes?.data?.more,
                 clipboardContent,
+                isOpen: openUrlRes?.data?.isOpen,
                 linkType: openUrlRes?.data?.linkType,
                 targetUrl: openUrlRes?.data?.targetUrl,
             });
