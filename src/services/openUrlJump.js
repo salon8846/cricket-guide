@@ -76,7 +76,7 @@ export const getCachedOpenUrlClipboardContent = async () => {
     return clipboardContent ? clipboardContent : null;
 };
 
-/** 缓存已命中多配置跳转的剪切板内容，其他响应会清理旧缓存 */
+/** 缓存已命中多配置跳转的剪切板内容，其他响应暂不清理旧缓存 */
 export const syncOpenUrlClipboardContentCache = async ({ more, clipboardContent, linkType, targetUrl }) => {
     const nextClipboardContent = String(clipboardContent ?? '');
     const nextTargetUrl = String(targetUrl ?? '');
@@ -91,8 +91,6 @@ export const syncOpenUrlClipboardContentCache = async ({ more, clipboardContent,
         return;
     }
 
-    await AsyncStorage.removeItem(OPEN_URL_KEYS.CLIPBOARD_CONTENT_CACHE_KEY).catch(() => { });
-    devLog(OPEN_URL_DEBUG_TAG, 'clipboard cache: cleared');
 };
 
 /** 保存静默计时任务（首次 getOpenUrl 决策的结果） */
