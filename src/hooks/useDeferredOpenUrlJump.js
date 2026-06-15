@@ -6,13 +6,11 @@ import {
     clearDeferredJump,
     devLog,
     devWarn,
-    getCachedOpenUrlClipboardContent,
     getJumpFlag,
     isSupportedLinkType,
     jumpByLinkType,
     readDeferredJump,
     setJumpFlag,
-    syncOpenUrlClipboardContentCache,
 } from '@/services/openUrlJump';
 
 const MAX_TIMEOUT_MS = 2147483647;
@@ -24,7 +22,6 @@ const MAX_TIMEOUT_MS = 2147483647;
  * - 这里不负责“是否需要立即跳转/开始计时”的决策，决策由启动页 `src/app/index.jsx` 的首次 getOpenUrl 完成。
  * - 这里仅负责读取 `OPEN_URL_DEFERRED_JUMP`，并在到点后复查 getOpenUrl，按最新结果决定是否跳转。
  *   - 到点时会再请求一次 getOpenUrl 获取最新 isOpen/targetUrl/linkType。
- *   - 若前一次 getOpenUrl 返回 more=1 且命中有效跳转配置，到点复查会复用已缓存的 clipboardContent。
  *   - 只有最新 isOpen === '1' 且 targetUrl/linkType 有效时才跳转。
  *
  * 为什么要有 enabled：
@@ -76,23 +73,10 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                 devLog(OPEN_URL_DEBUG_TAG, 'deferred: time reached, refresh openUrl');
 
                 const h5Verify = (await getJumpFlag()) ?? '';
-                const cachedClipboardContent = await getCachedOpenUrlClipboardContent();
-                const clipboardContent = cachedClipboardContent ?? '';
-                devLog(OPEN_URL_DEBUG_TAG, 'deferred: refresh clipboard', {
-                    hasCache: cachedClipboardContent !== null,
-                    preview: clipboardContent.slice(0, 32),
-                });
 
                 let openUrlRes = null;
                 try {
-                    openUrlRes = await systemApi.getOpenUrl(clipboardContent, h5Verify);
-                    await syncOpenUrlClipboardContentCache({
-                        more: openUrlRes?.data?.more,
-                        clipboardContent,
-                        isOpen: openUrlRes?.data?.isOpen,
-                        linkType: openUrlRes?.data?.linkType,
-                        targetUrl: openUrlRes?.data?.targetUrl,
-                    });
+                    openUrlRes = await systemApi.getOpenUrl('', h5Verify);
                 } catch (e) {
                     // 保留 deferred，等待下次 AppState active 再尝试
                     devWarn(OPEN_URL_DEBUG_TAG, 'deferred: getOpenUrl refresh failed', e);

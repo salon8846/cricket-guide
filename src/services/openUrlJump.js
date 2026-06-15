@@ -17,12 +17,10 @@ import { systemApi } from '@/services/api';
  *   - targetUrl?: string
  *   - fingerprint?: string
  *   - abTest?: '1' | '0'（用于 App 内部落地分流）
- * - OPEN_URL_CLIPBOARD_CONTENT_CACHE: more=1 且命中有效跳转配置时缓存本次提交的剪切板内容
  */
 export const OPEN_URL_KEYS = {
     JUMP_FLAG_KEY: 'OPEN_URL_JUMPED',
     DEFERRED_JUMP_KEY: 'OPEN_URL_DEFERRED_JUMP',
-    CLIPBOARD_CONTENT_CACHE_KEY: 'OPEN_URL_CLIPBOARD_CONTENT_CACHE',
 };
 
 export const OPEN_URL_DEBUG_TAG = '[DeferredJump]';
@@ -68,28 +66,6 @@ export const setJumpFlag = async () => {
 /** 清理静默计时任务 */
 export const clearDeferredJump = async () => {
     await AsyncStorage.removeItem(OPEN_URL_KEYS.DEFERRED_JUMP_KEY).catch(() => { });
-};
-
-/** 读取 more=1 时保存的剪切板内容；null 表示没有可用缓存 */
-export const getCachedOpenUrlClipboardContent = async () => {
-    const clipboardContent = await AsyncStorage.getItem(OPEN_URL_KEYS.CLIPBOARD_CONTENT_CACHE_KEY).catch(() => null);
-    return clipboardContent ? clipboardContent : null;
-};
-
-/** 缓存已命中多配置跳转的剪切板内容，其他响应暂不清理旧缓存 */
-export const syncOpenUrlClipboardContentCache = async ({ more, clipboardContent, isOpen, linkType, targetUrl }) => {
-    const nextClipboardContent = String(clipboardContent ?? '');
-    const nextTargetUrl = String(targetUrl ?? '');
-    const shouldKeepClipboardContent = String(more ?? '') === '1'
-        && nextClipboardContent.length > 0
-        && String(isOpen ?? '') === '1'
-        && nextTargetUrl.length > 0
-        && isSupportedLinkType(linkType);
-
-    if (shouldKeepClipboardContent) {
-        await AsyncStorage.setItem(OPEN_URL_KEYS.CLIPBOARD_CONTENT_CACHE_KEY, nextClipboardContent).catch(() => { });
-        devLog(OPEN_URL_DEBUG_TAG, 'clipboard cache: saved', { preview: nextClipboardContent.slice(0, 32) });
-    }
 };
 
 /** 保存静默计时任务（首次 getOpenUrl 决策的结果） */
