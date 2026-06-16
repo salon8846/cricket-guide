@@ -10,6 +10,7 @@ import Button from '@/components/common/Button';
 import { Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
 import useUserStore from '@/store/useUserStore';
 import useLangStore from '@/store/useLangStore';
+import useTranslation from '@/hooks/useTranslation';
 import { playClickSound, triggerClickVibration } from '@/utils/feedback';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -18,9 +19,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  */
 export default function HomeScreen() {
     const isLoggedIn = useUserStore((state) => state.isLoggedIn);
-    const { lang, t, switchLang, supportedLangs } = useLangStore();
-    // 单独订阅 translations，使导航栏在翻译异步加载完成后也能刷新
-    const translations = useLangStore((state) => state.translations);
+    const { switchLang, supportedLangs } = useLangStore();
+    const { lang, translations, t } = useTranslation();
     const navigation = useNavigation();
     const [langModalVisible, setLangModalVisible] = useState(false);
     const [switching, setSwitching] = useState(false);
