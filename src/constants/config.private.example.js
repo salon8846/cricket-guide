@@ -1,7 +1,6 @@
 export const PRIVATE_API_ENDPOINTS = {
     devBaseUrl: '',
-    prodBaseUrl: '',
-    prodFallbackUrls: [
+    prodBaseUrls: [
         '',
         '',
     ],

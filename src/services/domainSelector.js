@@ -1,6 +1,6 @@
-import { PROD_DOMAINS, HEALTH_PATH, REQUEST_TIMEOUT, IsDev, API_BASE_URL } from '@/constants/config';
+import { API_BASE_URL, HEALTH_PATH, IsDev, PROD_DOMAINS, REQUEST_TIMEOUT } from '@/constants/config';
 
-let _activeBaseURL = IsDev ? API_BASE_URL : `${PROD_DOMAINS[0]}/api`;
+let _activeBaseURL = API_BASE_URL;
 let _initialized = false;
 let _initPromise = null;
 
@@ -38,11 +38,10 @@ async function detectDomain() {
  * 支持幂等：重复调用只执行一次
  */
 export async function initDomain() {
-    // 开发环境：直接用配置地址，跳过所有 health check
     if (IsDev) {
         _activeBaseURL = API_BASE_URL;
         _initialized = true;
-        console.log(`[DomainSelector] 🛠 Dev 模式，使用: ${_activeBaseURL}`);
+        if (__DEV__) console.log(`[DomainSelector] 🛠 Dev 模式，使用: ${_activeBaseURL}`);
         return _activeBaseURL;
     }
 
@@ -57,7 +56,7 @@ export async function initDomain() {
             } else {
                 // 全部失败，使用优先级最高（第一个）域名兜底
                 if (__DEV__) console.warn('[DomainSelector] ⚠️ 所有域名不可达，使用兜底:', PROD_DOMAINS[0]);
-                _activeBaseURL = `${PROD_DOMAINS[0]}/api`;
+                _activeBaseURL = API_BASE_URL;
             }
         } catch (e) {
             if (__DEV__) console.error('[DomainSelector] 检测异常:', e);
@@ -81,5 +80,5 @@ export function getActiveBaseURL() {
 export function resetDomainSelector() {
     _initialized = false;
     _initPromise = null;
-    _activeBaseURL = IsDev ? API_BASE_URL : `${PROD_DOMAINS[0]}/api`;
+    _activeBaseURL = API_BASE_URL;
 }

@@ -1,7 +1,7 @@
 export const PRIVATE_API_ENDPOINTS = {
     devBaseUrl: 'https://goapi0109.xctsappet.com/api',
-    prodBaseUrl: 'https://api-ftcb.apiapp123.com/api',
-    prodFallbackUrls: [
+    prodBaseUrls: [
+        'https://api-ftcb.apiapp123.com/api',
         'https://api-ftcb.apiapp123.link',
         'https://api-ftcb.apiapp123.click',
     ],

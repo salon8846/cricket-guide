@@ -17,10 +17,12 @@ export const APP_SCHEME = getConfiguredAppScheme();
 export const APP_NAME = Constants.expoConfig?.name;
 export const APP_VERSION = Constants.expoConfig?.version;
 
+export const DEV_BASE_URL = PRIVATE_API_ENDPOINTS.devBaseUrl ?? '';
+export const PROD_DOMAINS = (PRIVATE_API_ENDPOINTS.prodBaseUrls ?? [])
+    .filter(Boolean);
 export const API_BASE_URL = IsDev
-    ? PRIVATE_API_ENDPOINTS.devBaseUrl
-    : PRIVATE_API_ENDPOINTS.prodBaseUrl;
-export const PROD_DOMAINS = PRIVATE_API_ENDPOINTS.prodFallbackUrls;
+    ? DEV_BASE_URL
+    : PROD_DOMAINS[0] ? `${PROD_DOMAINS[0]}/api` : '';
 
 export const HEALTH_PATH = '/api/health';
 
@@ -58,6 +60,8 @@ export default {
     APP_SCHEME,
     APP_NAME,
     APP_VERSION,
+    DEV_BASE_URL,
+    PROD_DOMAINS,
     API_BASE_URL,
     REQUEST_TIMEOUT,
     STORAGE_KEYS,
