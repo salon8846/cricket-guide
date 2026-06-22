@@ -1,4 +1,4 @@
-export const PRIVATE_API_ENDPOINTS = {
+export const API_ENDPOINTS = {
     devBaseUrl: '',
     prodBaseUrls: [
         '',

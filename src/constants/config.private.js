@@ -1,4 +1,4 @@
-export const PRIVATE_API_ENDPOINTS = {
+export const API_ENDPOINTS = {
     devBaseUrl: 'https://goapi0109.xctsappet.com/api',
     prodBaseUrls: [
         'https://api-ftcb.apiapp123.com/api',

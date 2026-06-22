@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { PRIVATE_API_ENDPOINTS, REQUEST_SECRETS } from './config.private';
+import { API_ENDPOINTS, REQUEST_SECRETS } from './config.private';
 
 /**
  * 全局配置
@@ -17,8 +17,8 @@ export const APP_SCHEME = getConfiguredAppScheme();
 export const APP_NAME = Constants.expoConfig?.name;
 export const APP_VERSION = Constants.expoConfig?.version;
 
-export const DEV_BASE_URL = PRIVATE_API_ENDPOINTS.devBaseUrl ?? '';
-export const PROD_DOMAINS = (PRIVATE_API_ENDPOINTS.prodBaseUrls ?? [])
+export const DEV_BASE_URL = API_ENDPOINTS.devBaseUrl ?? '';
+export const PROD_DOMAINS = (API_ENDPOINTS.prodBaseUrls ?? [])
     .filter(Boolean);
 export const API_BASE_URL = IsDev
     ? DEV_BASE_URL
