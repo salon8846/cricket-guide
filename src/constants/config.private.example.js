@@ -1,6 +1,7 @@
-export const API_ENDPOINTS = {
-    devBaseUrl: '',
-    prodBaseUrls: [
+export const API_URLS = {
+    basePath: '/api',
+    devRootUrl: '',
+    prodRootUrls: [
         '',
         '',
     ],

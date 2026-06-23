@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { API_ENDPOINTS, REQUEST_SECRETS } from './config.private';
+import { API_URLS, REQUEST_SECRETS } from './config.private';
 
 /**
  * 全局配置
@@ -17,14 +17,32 @@ export const APP_SCHEME = getConfiguredAppScheme();
 export const APP_NAME = Constants.expoConfig?.name;
 export const APP_VERSION = Constants.expoConfig?.version;
 
-export const DEV_BASE_URL = API_ENDPOINTS.devBaseUrl ?? '';
-export const PROD_DOMAINS = (API_ENDPOINTS.prodBaseUrls ?? [])
-    .filter(Boolean);
-export const API_BASE_URL = IsDev
-    ? DEV_BASE_URL
-    : PROD_DOMAINS[0] ? `${PROD_DOMAINS[0]}/api` : '';
+const trimTrailingSlash = (value) => {
+    return `${value ?? ''}`.trim().replace(/\/+$/, '');
+};
 
-export const HEALTH_PATH = '/api/health';
+const normalizePathPrefix = (value) => {
+    const path = `${value ?? ''}`.trim();
+    const normalizedPath = path.replace(/^\/+|\/+$/g, '');
+    return normalizedPath ? `/${normalizedPath}` : '';
+};
+
+export const API_BASE_PATH = normalizePathPrefix(API_URLS.basePath);
+export const DEV_API_ROOT_URL = trimTrailingSlash(API_URLS.devRootUrl);
+export const PROD_API_ROOT_URLS = (API_URLS.prodRootUrls ?? [])
+    .filter(Boolean)
+    .map(trimTrailingSlash);
+
+export const buildApiBaseURL = (rootUrl) => {
+    const apiRootUrl = trimTrailingSlash(rootUrl);
+    return apiRootUrl ? `${apiRootUrl}${API_BASE_PATH}` : '';
+};
+
+export const API_BASE_URL = IsDev
+    ? buildApiBaseURL(DEV_API_ROOT_URL)
+    : buildApiBaseURL(PROD_API_ROOT_URLS[0]);
+
+export const API_HEALTH_PATH = `${API_BASE_PATH}/health`;
 
 export const REQUEST_TIMEOUT = 15000;
 
@@ -60,9 +78,12 @@ export default {
     APP_SCHEME,
     APP_NAME,
     APP_VERSION,
-    DEV_BASE_URL,
-    PROD_DOMAINS,
+    API_BASE_PATH,
+    DEV_API_ROOT_URL,
+    PROD_API_ROOT_URLS,
+    buildApiBaseURL,
     API_BASE_URL,
+    API_HEALTH_PATH,
     REQUEST_TIMEOUT,
     STORAGE_KEYS,
     APP_CONFIG,

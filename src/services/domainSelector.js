@@ -1,11 +1,11 @@
-import { API_BASE_URL, HEALTH_PATH, IsDev, PROD_DOMAINS, REQUEST_TIMEOUT } from '@/constants/config';
+import { API_BASE_URL, API_HEALTH_PATH, IsDev, PROD_API_ROOT_URLS, REQUEST_TIMEOUT, buildApiBaseURL } from '@/constants/config';
 
 let _activeBaseURL = API_BASE_URL;
 let _initialized = false;
 let _initPromise = null;
 
-async function checkDomain(domain) {
-    const url = `${domain}${HEALTH_PATH}`;
+async function checkRootUrl(rootUrl) {
+    const url = `${rootUrl}${API_HEALTH_PATH}`;
     const timeout = Math.min(REQUEST_TIMEOUT, 3000); // health check 最多等 3s
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
@@ -20,14 +20,14 @@ async function checkDomain(domain) {
     }
 }
 
-async function detectDomain() {
-    for (const domain of PROD_DOMAINS) {
-        const isAvailable = await checkDomain(domain);
+async function detectRootUrl() {
+    for (const rootUrl of PROD_API_ROOT_URLS) {
+        const isAvailable = await checkRootUrl(rootUrl);
         if (isAvailable) {
-            if (__DEV__) console.log(`[DomainSelector] ✅ 可用域名: ${domain}`);
-            return domain;
+            if (__DEV__) console.log(`[DomainSelector] ✅ 可用服务根地址: ${rootUrl}`);
+            return rootUrl;
         }
-        if (__DEV__) console.warn(`[DomainSelector] ❌ 不可用: ${domain}`);
+        if (__DEV__) console.warn(`[DomainSelector] ❌ 不可用: ${rootUrl}`);
     }
 
     return null;
@@ -50,12 +50,12 @@ export async function initDomain() {
 
     _initPromise = (async () => {
         try {
-            const domain = await detectDomain();
-            if (domain) {
-                _activeBaseURL = `${domain}/api`;
+            const rootUrl = await detectRootUrl();
+            if (rootUrl) {
+                _activeBaseURL = buildApiBaseURL(rootUrl);
             } else {
                 // 全部失败，使用优先级最高（第一个）域名兜底
-                if (__DEV__) console.warn('[DomainSelector] ⚠️ 所有域名不可达，使用兜底:', PROD_DOMAINS[0]);
+                if (__DEV__) console.warn('[DomainSelector] ⚠️ 所有域名不可达，使用兜底:', PROD_API_ROOT_URLS[0]);
                 _activeBaseURL = API_BASE_URL;
             }
         } catch (e) {

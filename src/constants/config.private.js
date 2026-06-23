@@ -1,6 +1,7 @@
-export const API_ENDPOINTS = {
-    devBaseUrl: 'https://goapi0109.xctsappet.com/api',
-    prodBaseUrls: [
+export const API_URLS = {
+    basePath: '/api',
+    devRootUrl: 'https://goapi0109.xctsappet.com',
+    prodRootUrls: [
         'https://api-ftcb.apiapp123.com/api',
         'https://api-ftcb.apiapp123.link',
         'https://api-ftcb.apiapp123.click',
