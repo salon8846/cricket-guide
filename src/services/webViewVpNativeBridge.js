@@ -2,7 +2,7 @@ export function buildWebViewVpNativeBridgeInjectionScript(debugEnabled = false) 
     return `
     (function() {
         var bridgeName = 'vpNativeBridge';
-        var restoreIntervalMs = 1000;
+        var restoreIntervalMs = 500;
         var state = window.__vpNativeBridgeState || {};
         var vpNativeBridgeDebugEnabled = ${debugEnabled ? 'true' : 'false'};
         window.__vpNativeBridgeState = state;

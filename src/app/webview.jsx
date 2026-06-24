@@ -596,10 +596,10 @@ export default function WebViewScreen() {
                 logWebViewDebug(webViewDebug, 'loadEnd', {
                     url: event.nativeEvent?.url,
                 });
-                injectVpNativeBridge();
                 if (webViewDebug && debugPanelEnabled) {
                     injectDebugPanel();
                 }
+                injectVpNativeBridge();
                 injectNativeSafeArea();
                 if (!initialLoadDoneRef.current) {
                     initialLoadDoneRef.current = true;
