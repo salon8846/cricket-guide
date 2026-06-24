@@ -3,11 +3,12 @@ import { AppState } from 'react-native';
 import { systemApi } from '@/services/api';
 import {
     OPEN_URL_DEBUG_TAG,
+    cacheAppsFlyerDeepLinkParamsForJump,
     cacheOpenUrlClipboardContentForJump,
     clearDeferredJump,
     devLog,
     devWarn,
-    getCachedAppsFlyerDeepLinkValue,
+    getCachedAppsFlyerDeepLinkParams,
     getCachedOpenUrlClipboardContent,
     getJumpFlag,
     isSupportedLinkType,
@@ -78,11 +79,15 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
 
                 const h5Verify = (await getJumpFlag()) ?? '';
                 const cachedClipboardContent = await getCachedOpenUrlClipboardContent();
-                const cachedAppsFlyerDeepLinkValue = await getCachedAppsFlyerDeepLinkValue();
+                const cachedAppsFlyerDeepLinkParams = await getCachedAppsFlyerDeepLinkParams();
+                const cachedAppsFlyerDeepLinkValue = String(cachedAppsFlyerDeepLinkParams?.deep_link_value ?? '');
                 const clipboardContent = cachedClipboardContent ?? cachedAppsFlyerDeepLinkValue ?? '';
+                const appsFlyerDeepLinkParamsForJump = cachedClipboardContent === null && cachedAppsFlyerDeepLinkValue
+                    ? cachedAppsFlyerDeepLinkParams
+                    : null;
                 devLog(OPEN_URL_DEBUG_TAG, 'deferred: refresh clipboard', {
                     hasCache: cachedClipboardContent !== null,
-                    hasAppsFlyerCache: cachedAppsFlyerDeepLinkValue !== null,
+                    hasAppsFlyerCache: cachedAppsFlyerDeepLinkParams !== null,
                     preview: clipboardContent.slice(0, 32),
                 });
 
@@ -127,9 +132,20 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                     linkType: nextLinkType,
                     targetUrl: nextTargetUrl,
                 });
+                await cacheAppsFlyerDeepLinkParamsForJump({
+                    appsFlyerDeepLinkParams: appsFlyerDeepLinkParamsForJump,
+                    isOpen: nextIsOpen,
+                    linkType: nextLinkType,
+                    targetUrl: nextTargetUrl,
+                });
                 await clearDeferredJump();
                 devLog(OPEN_URL_DEBUG_TAG, 'deferred: refreshed, jump now', { linkType: nextLinkType, targetUrl: nextTargetUrl });
-                await jumpByLinkType({ router, linkType: nextLinkType, targetUrl: nextTargetUrl });
+                await jumpByLinkType({
+                    router,
+                    linkType: nextLinkType,
+                    targetUrl: nextTargetUrl,
+                    appsFlyerDeepLinkParams: appsFlyerDeepLinkParamsForJump,
+                });
                 return;
             }
 

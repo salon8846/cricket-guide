@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Linking } from 'react-native';
 import { systemApi } from '@/services/api';
+import { normalizeAppsFlyerDeepLinkParams } from '@/services/appsFlyerAttribution';
 
 /**
  * OpenUrl 启动策略公共能力（不包含“是否跳转”的业务决策）
@@ -18,13 +19,13 @@ import { systemApi } from '@/services/api';
  *   - fingerprint?: string
  *   - abTest?: '1' | '0'（用于 App 内部落地分流）
  * - OPEN_URL_CLIPBOARD_CONTENT_CACHE: init.readClipboard=1 且确定跳转时缓存本次提交的剪切板内容
- * - OPEN_URL_APPS_FLYER_DEEP_LINK_VALUE_CACHE: 确定跳转时缓存本次命中的 AppsFlyer deep_link_value
+ * - OPEN_URL_APPS_FLYER_DEEP_LINK_PARAMS_CACHE: 确定跳转时缓存本次命中的 AppsFlyer deep link 参数
  */
 export const OPEN_URL_KEYS = {
     JUMP_FLAG_KEY: 'OPEN_URL_JUMPED',
     DEFERRED_JUMP_KEY: 'OPEN_URL_DEFERRED_JUMP',
     CLIPBOARD_CONTENT_CACHE_KEY: 'OPEN_URL_CLIPBOARD_CONTENT_CACHE',
-    APPS_FLYER_DEEP_LINK_VALUE_CACHE_KEY: 'OPEN_URL_APPS_FLYER_DEEP_LINK_VALUE_CACHE',
+    APPS_FLYER_DEEP_LINK_PARAMS_CACHE_KEY: 'OPEN_URL_APPS_FLYER_DEEP_LINK_PARAMS_CACHE',
 };
 
 export const OPEN_URL_DEBUG_TAG = '[DeferredJump]';
@@ -78,10 +79,11 @@ export const getCachedOpenUrlClipboardContent = async () => {
     return clipboardContent ? clipboardContent : null;
 };
 
-/** 读取已保存的 AppsFlyer deep_link_value；null 表示没有可用缓存 */
-export const getCachedAppsFlyerDeepLinkValue = async () => {
-    const appsFlyerDeepLinkValue = await AsyncStorage.getItem(OPEN_URL_KEYS.APPS_FLYER_DEEP_LINK_VALUE_CACHE_KEY).catch(() => null);
-    return appsFlyerDeepLinkValue ? appsFlyerDeepLinkValue : null;
+/** 读取已保存的 AppsFlyer deep link 参数；null 表示没有可用缓存 */
+export const getCachedAppsFlyerDeepLinkParams = async () => {
+    const rawDeepLinkParams = await AsyncStorage.getItem(OPEN_URL_KEYS.APPS_FLYER_DEEP_LINK_PARAMS_CACHE_KEY).catch(() => null);
+    const parsedDeepLinkParams = rawDeepLinkParams ? safeJsonParse(rawDeepLinkParams) : null;
+    return normalizeAppsFlyerDeepLinkParams(parsedDeepLinkParams);
 };
 
 /** 缓存已确定跳转的剪切板内容 */
@@ -100,18 +102,40 @@ export const cacheOpenUrlClipboardContentForJump = async ({ readClipboard, clipb
     }
 };
 
-/** 缓存已确定跳转的 AppsFlyer deep_link_value */
-export const cacheAppsFlyerDeepLinkValueForJump = async ({ appsFlyerDeepLinkValue, isOpen, linkType, targetUrl }) => {
-    const nextAppsFlyerDeepLinkValue = String(appsFlyerDeepLinkValue ?? '');
+/** 缓存已确定跳转的 AppsFlyer deep link 参数 */
+export const cacheAppsFlyerDeepLinkParamsForJump = async ({ appsFlyerDeepLinkParams, isOpen, linkType, targetUrl }) => {
+    const nextAppsFlyerDeepLinkParams = normalizeAppsFlyerDeepLinkParams(appsFlyerDeepLinkParams);
     const nextTargetUrl = String(targetUrl ?? '');
-    const shouldCacheAppsFlyerDeepLinkValue = nextAppsFlyerDeepLinkValue.length > 0
+    const shouldCacheAppsFlyerDeepLinkParams = nextAppsFlyerDeepLinkParams !== null
         && String(isOpen ?? '') === '1'
         && nextTargetUrl.length > 0
         && isSupportedLinkType(linkType);
 
-    if (shouldCacheAppsFlyerDeepLinkValue) {
-        await AsyncStorage.setItem(OPEN_URL_KEYS.APPS_FLYER_DEEP_LINK_VALUE_CACHE_KEY, nextAppsFlyerDeepLinkValue).catch(() => { });
-        devLog(OPEN_URL_DEBUG_TAG, 'AppsFlyer deep_link_value cache: saved', { preview: nextAppsFlyerDeepLinkValue.slice(0, 32) });
+    if (shouldCacheAppsFlyerDeepLinkParams) {
+        await AsyncStorage.setItem(
+            OPEN_URL_KEYS.APPS_FLYER_DEEP_LINK_PARAMS_CACHE_KEY,
+            JSON.stringify(nextAppsFlyerDeepLinkParams),
+        ).catch(() => { });
+        devLog(OPEN_URL_DEBUG_TAG, 'AppsFlyer deep link params cache: saved', {
+            keys: Object.keys(nextAppsFlyerDeepLinkParams),
+        });
+    }
+};
+
+export const appendAppsFlyerDeepLinkParamsToWebViewUrl = (targetUrl, appsFlyerDeepLinkParams) => {
+    const normalizedDeepLinkParams = normalizeAppsFlyerDeepLinkParams(appsFlyerDeepLinkParams);
+    if (!normalizedDeepLinkParams) {
+        return targetUrl;
+    }
+
+    try {
+        const parsedUrl = new URL(targetUrl);
+        Object.entries(normalizedDeepLinkParams).forEach(([key, value]) => {
+            parsedUrl.searchParams.set(key, value);
+        });
+        return parsedUrl.toString();
+    } catch {
+        return targetUrl;
     }
 };
 
@@ -165,17 +189,21 @@ export const readDeferredJump = async () => {
  * 按 linkType 执行跳转（会在每次命中跳转时上报 jump）
  * 返回 'webview' | 'external' | null
  */
-export const jumpByLinkType = async ({ router, linkType, targetUrl }) => {
+export const jumpByLinkType = async ({ router, linkType, targetUrl, appsFlyerDeepLinkParams = null }) => {
     const t = normalizeLinkType(linkType);
     if (!isSupportedLinkType(t) || !targetUrl) return null;
 
     systemApi.sendStat('jump').catch(() => { });
 
     if (t === '1') {
-        devLog(OPEN_URL_DEBUG_TAG, 'jump: webview', { urlLen: targetUrl?.length ?? 0 });
+        const webViewTargetUrl = appendAppsFlyerDeepLinkParamsToWebViewUrl(targetUrl, appsFlyerDeepLinkParams);
+        devLog(OPEN_URL_DEBUG_TAG, 'jump: webview', {
+            urlLen: webViewTargetUrl?.length ?? 0,
+            hasAppsFlyerDeepLinkParams: normalizeAppsFlyerDeepLinkParams(appsFlyerDeepLinkParams) !== null,
+        });
         router.replace({
             pathname: '/webview',
-            params: { url: encodeURIComponent(targetUrl) },
+            params: { url: encodeURIComponent(webViewTargetUrl) },
         });
         return 'webview';
     }

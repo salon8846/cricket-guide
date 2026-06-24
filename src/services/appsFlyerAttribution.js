@@ -7,6 +7,19 @@ const APPS_FLYER_DEBUG_TAG = '[AppsFlyer]';
 const APPS_FLYER_OPEN_URL_WAIT_MS = 5000;
 const APPS_FLYER_OPEN_URL_POLL_MS = 250;
 const APPS_FLYER_EVENT_LOG_TIMEOUT_MS = 8000;
+export const APPS_FLYER_DEEP_LINK_PARAM_KEYS = [
+    'deep_link_value',
+    'deep_link_sub1',
+    'deep_link_sub2',
+    'deep_link_sub3',
+    'deep_link_sub4',
+    'deep_link_sub5',
+    'deep_link_sub6',
+    'deep_link_sub7',
+    'deep_link_sub8',
+    'deep_link_sub9',
+    'deep_link_sub10',
+];
 
 const createEmptyAppsFlyerConfig = () => ({
     enabled: false,
@@ -45,6 +58,22 @@ const withTimeout = (task, timeoutMs, timeoutReason) => Promise.race([
 const hasConfiguredValue = (value) => {
     const normalizedValue = String(value ?? '').trim();
     return normalizedValue.length > 0;
+};
+
+export const normalizeAppsFlyerDeepLinkParams = (value) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return null;
+    }
+
+    const deepLinkParams = {};
+    APPS_FLYER_DEEP_LINK_PARAM_KEYS.forEach((key) => {
+        const normalizedValue = String(value[key] ?? '').trim();
+        if (normalizedValue) {
+            deepLinkParams[key] = normalizedValue;
+        }
+    });
+
+    return Object.keys(deepLinkParams).length > 0 ? deepLinkParams : null;
 };
 
 const normalizeAppsFlyerConfig = (config) => {
@@ -114,7 +143,7 @@ const saveUrlOpenSnapshot = (url, source) => {
     });
 };
 
-const readAppsFlyerDeepLinkValue = (deepLink) => {
+const readAppsFlyerDeepLinkParams = (deepLink) => {
     if (
         deepLink?.status !== 'success'
         || deepLink?.deepLinkStatus !== 'FOUND'
@@ -125,8 +154,7 @@ const readAppsFlyerDeepLinkValue = (deepLink) => {
         return null;
     }
 
-    const deepLinkValue = String(deepLink.data.deep_link_value ?? '').trim();
-    return deepLinkValue || null;
+    return normalizeAppsFlyerDeepLinkParams(deepLink.data);
 };
 
 export const registerAppsFlyerUrlOpenListener = () => {
@@ -354,7 +382,7 @@ export const readAppsFlyerAttributionSnapshot = async () => {
     return appsFlyerAttributionSnapshot;
 };
 
-export const readCurrentAppsFlyerDeepLinkValue = async () => {
+export const readCurrentAppsFlyerDeepLinkParams = async () => {
     if (!validateAppsFlyerConfig(appsFlyerRuntimeConfig) || !canLoadAppsFlyerSdk()) {
         return null;
     }
@@ -368,13 +396,15 @@ export const readCurrentAppsFlyerDeepLinkValue = async () => {
             continue;
         }
 
-        const deepLinkValue = readAppsFlyerDeepLinkValue(latestAppsFlyerDeepLink);
-        if (deepLinkValue) {
-            devLog(APPS_FLYER_DEBUG_TAG, 'deep_link_value ready', { deepLinkValue });
-            return deepLinkValue;
+        const deepLinkParams = readAppsFlyerDeepLinkParams(latestAppsFlyerDeepLink);
+        if (deepLinkParams) {
+            devLog(APPS_FLYER_DEBUG_TAG, 'deep link params ready', {
+                keys: Object.keys(deepLinkParams),
+            });
+            return deepLinkParams;
         }
 
-        devWarn(APPS_FLYER_DEBUG_TAG, 'openUrl deep_link_value unavailable', {
+        devWarn(APPS_FLYER_DEBUG_TAG, 'openUrl deep link params unavailable', {
             deepLinkStatus: latestAppsFlyerDeepLink?.deepLinkStatus,
         });
         return null;
