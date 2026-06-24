@@ -22,6 +22,10 @@ import { APP_SCHEME } from '@/constants/config';
 import { readAppsFlyerAttributionSnapshot, startAppsFlyerAttribution } from '@/services/appsFlyerAttribution';
 import { handleWebViewAppsFlyerEvent } from '@/services/webViewAppsFlyerEvents';
 import {
+    buildWebViewVpNativeBridgeInjectionScript,
+    parseWebViewBridgeMessage,
+} from '@/services/webViewVpNativeBridge';
+import {
     WEBVIEW_DEBUG_PANEL_TAP_COUNT,
     WEBVIEW_DEBUG_PANEL_TAP_WINDOW_MS,
     WEBVIEW_DEBUG_PANEL_TYPE_VCONSOLE,
@@ -195,6 +199,9 @@ export default function WebViewScreen() {
     const hasSafeBottom = XSafeBottom === '1';
     const hasSafeTop = XSafeTop === '1';
     const webViewDebug = XWebViewDebug === '1';
+    const vpNativeBridgeInjectionScript = useMemo(() => (
+        buildWebViewVpNativeBridgeInjectionScript(webViewDebug)
+    ), [webViewDebug]);
     const debugPanelType = useMemo(() => parseWebViewDebugPanelType(XWebViewDebugPanel), [XWebViewDebugPanel]);
     const debugPanelSourceUrl = useMemo(() => parseWebViewDebugPanelSourceUrl(XWebViewDebugPanelUrl), [XWebViewDebugPanelUrl]);
     const debugHotspotStyleConfig = useMemo(() => parseWebViewDebugHotspotStyle(XWebViewDebugHotspot), [XWebViewDebugHotspot]);
@@ -221,6 +228,10 @@ export default function WebViewScreen() {
     const injectNativeSafeArea = useCallback(() => {
         webViewRef.current?.injectJavaScript(buildNativeSafeAreaEventScript(currentSafeTop, currentSafeBottom));
     }, [currentSafeTop, currentSafeBottom]);
+
+    const injectVpNativeBridge = useCallback(() => {
+        webViewRef.current?.injectJavaScript(vpNativeBridgeInjectionScript);
+    }, [vpNativeBridgeInjectionScript]);
 
     const showToast = useCallback((message) => {
         if (toastTimerRef.current) {
@@ -492,10 +503,11 @@ export default function WebViewScreen() {
         clearTelegramAuthResultUrl();
     }, [clearTelegramAuthResultUrl, postTelegramAuthSuccess, telegramAuthResultUrl]);
 
-    // 处理 H5 通过 window.ReactNativeWebView.postMessage 发来的消息
+    // 处理 H5 通过 ReactNativeWebView 或 vpNativeBridge 发来的消息
     const handleMessage = useCallback(async (event) => {
         try {
-            const message = JSON.parse(event.nativeEvent.data);
+            const message = parseWebViewBridgeMessage(event.nativeEvent.data);
+            if (!message) return;
             const { action, params } = message;
 
             if (message?.eventName) {
@@ -569,6 +581,7 @@ export default function WebViewScreen() {
             mediaPlaybackRequiresUserAction={false}
             allowsInlineMediaPlayback={true}
             onMessage={handleMessage}
+            injectedJavaScriptBeforeContentLoaded={vpNativeBridgeInjectionScript}
             webviewDebuggingEnabled={webViewDebug}
             onLoadStart={(event) => {
                 logWebViewDebug(webViewDebug, 'loadStart', {
@@ -583,6 +596,7 @@ export default function WebViewScreen() {
                 logWebViewDebug(webViewDebug, 'loadEnd', {
                     url: event.nativeEvent?.url,
                 });
+                injectVpNativeBridge();
                 if (webViewDebug && debugPanelEnabled) {
                     injectDebugPanel();
                 }
