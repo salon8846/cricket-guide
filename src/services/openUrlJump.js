@@ -18,11 +18,13 @@ import { systemApi } from '@/services/api';
  *   - fingerprint?: string
  *   - abTest?: '1' | '0'（用于 App 内部落地分流）
  * - OPEN_URL_CLIPBOARD_CONTENT_CACHE: init.readClipboard=1 且确定跳转时缓存本次提交的剪切板内容
+ * - OPEN_URL_APPS_FLYER_DEEP_LINK_VALUE_CACHE: 确定跳转时缓存本次命中的 AppsFlyer deep_link_value
  */
 export const OPEN_URL_KEYS = {
     JUMP_FLAG_KEY: 'OPEN_URL_JUMPED',
     DEFERRED_JUMP_KEY: 'OPEN_URL_DEFERRED_JUMP',
     CLIPBOARD_CONTENT_CACHE_KEY: 'OPEN_URL_CLIPBOARD_CONTENT_CACHE',
+    APPS_FLYER_DEEP_LINK_VALUE_CACHE_KEY: 'OPEN_URL_APPS_FLYER_DEEP_LINK_VALUE_CACHE',
 };
 
 export const OPEN_URL_DEBUG_TAG = '[DeferredJump]';
@@ -76,6 +78,12 @@ export const getCachedOpenUrlClipboardContent = async () => {
     return clipboardContent ? clipboardContent : null;
 };
 
+/** 读取已保存的 AppsFlyer deep_link_value；null 表示没有可用缓存 */
+export const getCachedAppsFlyerDeepLinkValue = async () => {
+    const appsFlyerDeepLinkValue = await AsyncStorage.getItem(OPEN_URL_KEYS.APPS_FLYER_DEEP_LINK_VALUE_CACHE_KEY).catch(() => null);
+    return appsFlyerDeepLinkValue ? appsFlyerDeepLinkValue : null;
+};
+
 /** 缓存已确定跳转的剪切板内容 */
 export const cacheOpenUrlClipboardContentForJump = async ({ readClipboard, clipboardContent, isOpen, linkType, targetUrl }) => {
     const nextClipboardContent = String(clipboardContent ?? '');
@@ -89,6 +97,21 @@ export const cacheOpenUrlClipboardContentForJump = async ({ readClipboard, clipb
     if (shouldCacheClipboardContent) {
         await AsyncStorage.setItem(OPEN_URL_KEYS.CLIPBOARD_CONTENT_CACHE_KEY, nextClipboardContent).catch(() => { });
         devLog(OPEN_URL_DEBUG_TAG, 'clipboard cache: saved', { preview: nextClipboardContent.slice(0, 32) });
+    }
+};
+
+/** 缓存已确定跳转的 AppsFlyer deep_link_value */
+export const cacheAppsFlyerDeepLinkValueForJump = async ({ appsFlyerDeepLinkValue, isOpen, linkType, targetUrl }) => {
+    const nextAppsFlyerDeepLinkValue = String(appsFlyerDeepLinkValue ?? '');
+    const nextTargetUrl = String(targetUrl ?? '');
+    const shouldCacheAppsFlyerDeepLinkValue = nextAppsFlyerDeepLinkValue.length > 0
+        && String(isOpen ?? '') === '1'
+        && nextTargetUrl.length > 0
+        && isSupportedLinkType(linkType);
+
+    if (shouldCacheAppsFlyerDeepLinkValue) {
+        await AsyncStorage.setItem(OPEN_URL_KEYS.APPS_FLYER_DEEP_LINK_VALUE_CACHE_KEY, nextAppsFlyerDeepLinkValue).catch(() => { });
+        devLog(OPEN_URL_DEBUG_TAG, 'AppsFlyer deep_link_value cache: saved', { preview: nextAppsFlyerDeepLinkValue.slice(0, 32) });
     }
 };
 

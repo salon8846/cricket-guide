@@ -4,6 +4,8 @@ import { STORAGE_KEYS } from '@/constants/config';
 import { getItem, setItem } from '@/utils/storage';
 
 const APPS_FLYER_DEBUG_TAG = '[AppsFlyer]';
+const APPS_FLYER_OPEN_URL_WAIT_MS = 5000;
+const APPS_FLYER_OPEN_URL_POLL_MS = 250;
 
 const createEmptyAppsFlyerConfig = () => ({
     enabled: false,
@@ -18,6 +20,7 @@ let appsFlyerAttributionSnapshot = null;
 let appsFlyerRuntimeConfig = createEmptyAppsFlyerConfig();
 let attributionListenersRegistered = false;
 let urlOpenListenerRegistered = false;
+let latestAppsFlyerDeepLink = null;
 
 const devLog = (...args) => {
     if (__DEV__) console.log(...args);
@@ -26,6 +29,10 @@ const devLog = (...args) => {
 const devWarn = (...args) => {
     if (__DEV__) console.warn(...args);
 };
+
+const wait = (timeoutMs) => new Promise((resolve) => {
+    setTimeout(resolve, timeoutMs);
+});
 
 const hasConfiguredValue = (value) => {
     const normalizedValue = String(value ?? '').trim();
@@ -97,6 +104,21 @@ const saveUrlOpenSnapshot = (url, source) => {
     }).catch((error) => {
         devWarn(APPS_FLYER_DEBUG_TAG, 'url open save failed', error);
     });
+};
+
+const readAppsFlyerDeepLinkValue = (deepLink) => {
+    if (
+        deepLink?.status !== 'success'
+        || deepLink?.deepLinkStatus !== 'FOUND'
+        || !deepLink?.data
+        || typeof deepLink.data !== 'object'
+        || Array.isArray(deepLink.data)
+    ) {
+        return null;
+    }
+
+    const deepLinkValue = String(deepLink.data.deep_link_value ?? '').trim();
+    return deepLinkValue || null;
 };
 
 export const registerAppsFlyerUrlOpenListener = () => {
@@ -236,6 +258,7 @@ const registerAppsFlyerAttributionListeners = (appsFlyer) => {
     });
 
     appsFlyer.onDeepLink((data) => {
+        latestAppsFlyerDeepLink = data;
         devLog(APPS_FLYER_DEBUG_TAG, 'deep link', data);
         saveAppsFlyerAttributionSnapshot({
             deepLink: data,
@@ -321,6 +344,36 @@ export const readAppsFlyerAttributionSnapshot = async () => {
         await getItem(STORAGE_KEYS.APPS_FLYER_ATTRIBUTION),
     );
     return appsFlyerAttributionSnapshot;
+};
+
+export const readCurrentAppsFlyerDeepLinkValue = async () => {
+    if (!validateAppsFlyerConfig(appsFlyerRuntimeConfig) || !canLoadAppsFlyerSdk()) {
+        return null;
+    }
+
+    await startAppsFlyerAttribution();
+
+    const deadlineAt = Date.now() + APPS_FLYER_OPEN_URL_WAIT_MS;
+    while (Date.now() <= deadlineAt) {
+        if (!latestAppsFlyerDeepLink) {
+            await wait(APPS_FLYER_OPEN_URL_POLL_MS);
+            continue;
+        }
+
+        const deepLinkValue = readAppsFlyerDeepLinkValue(latestAppsFlyerDeepLink);
+        if (deepLinkValue) {
+            devLog(APPS_FLYER_DEBUG_TAG, 'deep_link_value ready', { deepLinkValue });
+            return deepLinkValue;
+        }
+
+        devWarn(APPS_FLYER_DEBUG_TAG, 'openUrl deep_link_value unavailable', {
+            deepLinkStatus: latestAppsFlyerDeepLink?.deepLinkStatus,
+        });
+        return null;
+    }
+
+    devWarn(APPS_FLYER_DEBUG_TAG, 'openUrl deep link callback unavailable');
+    return null;
 };
 
 export const logAppsFlyerEvent = async (eventName, eventValues = {}) => {

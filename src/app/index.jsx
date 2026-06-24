@@ -5,7 +5,7 @@ import { ActivityIndicator, AppState, StyleSheet, View } from 'react-native';
 import NetworkErrorScreen from '@/components/common/NetworkErrorScreen';
 import { initDomain } from '@/services/domainSelector';
 import { systemApi } from '@/services/api';
-import { configureAppsFlyerAttribution, registerAppsFlyerUrlOpenListener, startAppsFlyerAttribution } from '@/services/appsFlyerAttribution';
+import { configureAppsFlyerAttribution, readCurrentAppsFlyerDeepLinkValue, registerAppsFlyerUrlOpenListener, startAppsFlyerAttribution } from '@/services/appsFlyerAttribution';
 import useAppStore from '@/store/useAppStore';
 import useLangStore from '@/store/useLangStore';
 import useUserStore from '@/store/useUserStore';
@@ -14,9 +14,11 @@ import { getInstallTime } from '@/utils/storage';
 import {
     OPEN_URL_DEBUG_TAG,
     OPEN_URL_KEYS,
+    cacheAppsFlyerDeepLinkValueForJump,
     cacheOpenUrlClipboardContentForJump,
     devLog,
     devWarn,
+    getCachedAppsFlyerDeepLinkValue,
     getCachedOpenUrlClipboardContent,
     getJumpFlag,
     isSupportedLinkType,
@@ -62,8 +64,10 @@ export default function BootstrapScreen() {
     const [retrying, setRetrying] = useState(false);
     const isRunningRef = useRef(false);
     const initSuccessRef = useRef(false);
+    const appsFlyerDeepLinkValueRef = useRef('');
 
     const requestOpenUrl = useCallback(async (base) => {
+        appsFlyerDeepLinkValueRef.current = '';
         const h5Verify = await AsyncStorage.getItem(OPEN_URL_KEYS.JUMP_FLAG_KEY).catch(() => '') ?? '';
         devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: start', { h5Verify, readClipboard: base?.readClipboard });
 
@@ -78,9 +82,23 @@ export default function BootstrapScreen() {
             return requestOpenUrlWithClipboardContent(cachedClipboardContent);
         }
 
+        const cachedAppsFlyerDeepLinkValue = await getCachedAppsFlyerDeepLinkValue();
+        if (cachedAppsFlyerDeepLinkValue !== null) {
+            devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: with cached AppsFlyer deep_link_value', { preview: cachedAppsFlyerDeepLinkValue.slice(0, 32) });
+            appsFlyerDeepLinkValueRef.current = cachedAppsFlyerDeepLinkValue;
+            return requestOpenUrlWithClipboardContent(cachedAppsFlyerDeepLinkValue);
+        }
+
         if (h5Verify === '1') {
             devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: jumped=1, request with empty clipboard');
             return requestOpenUrlWithClipboardContent('');
+        }
+
+        const appsFlyerDeepLinkValue = await readCurrentAppsFlyerDeepLinkValue();
+        if (appsFlyerDeepLinkValue !== null) {
+            devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: with AppsFlyer deep_link_value', { preview: appsFlyerDeepLinkValue.slice(0, 32) });
+            appsFlyerDeepLinkValueRef.current = appsFlyerDeepLinkValue;
+            return requestOpenUrlWithClipboardContent(appsFlyerDeepLinkValue);
         }
 
         // init 返回允许读剪贴板时，才携带剪贴板内容请求 getOpenUrl
@@ -133,6 +151,12 @@ export default function BootstrapScreen() {
             await cacheOpenUrlClipboardContentForJump({
                 readClipboard: base?.readClipboard,
                 clipboardContent,
+                isOpen,
+                linkType: nextLinkType,
+                targetUrl: nextTargetUrl,
+            });
+            await cacheAppsFlyerDeepLinkValueForJump({
+                appsFlyerDeepLinkValue: appsFlyerDeepLinkValueRef.current === clipboardContent ? clipboardContent : '',
                 isOpen,
                 linkType: nextLinkType,
                 targetUrl: nextTargetUrl,

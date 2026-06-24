@@ -7,6 +7,7 @@ import {
     clearDeferredJump,
     devLog,
     devWarn,
+    getCachedAppsFlyerDeepLinkValue,
     getCachedOpenUrlClipboardContent,
     getJumpFlag,
     isSupportedLinkType,
@@ -77,9 +78,11 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
 
                 const h5Verify = (await getJumpFlag()) ?? '';
                 const cachedClipboardContent = await getCachedOpenUrlClipboardContent();
-                const clipboardContent = cachedClipboardContent ?? '';
+                const cachedAppsFlyerDeepLinkValue = await getCachedAppsFlyerDeepLinkValue();
+                const clipboardContent = cachedClipboardContent ?? cachedAppsFlyerDeepLinkValue ?? '';
                 devLog(OPEN_URL_DEBUG_TAG, 'deferred: refresh clipboard', {
                     hasCache: cachedClipboardContent !== null,
+                    hasAppsFlyerCache: cachedAppsFlyerDeepLinkValue !== null,
                     preview: clipboardContent.slice(0, 32),
                 });
 
