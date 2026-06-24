@@ -52,6 +52,7 @@ export const STORAGE_KEYS = {
     SETTINGS: '@app_settings',
     LANGUAGE: '@app_language',
     INSTALL_TIME: '@app_install_time',
+    APPS_FLYER_ATTRIBUTION: '@app_apps_flyer_attribution',
     LANG_VER: '@lang_ver',
     LANG_TRANSLATIONS: '@lang_translations',
     LANG_VER_CACHE: '@lang_ver_cache',

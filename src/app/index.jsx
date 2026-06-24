@@ -5,6 +5,7 @@ import { ActivityIndicator, AppState, StyleSheet, View } from 'react-native';
 import NetworkErrorScreen from '@/components/common/NetworkErrorScreen';
 import { initDomain } from '@/services/domainSelector';
 import { systemApi } from '@/services/api';
+import { configureAppsFlyerAttribution, registerAppsFlyerUrlOpenListener, startAppsFlyerAttribution } from '@/services/appsFlyerAttribution';
 import useAppStore from '@/store/useAppStore';
 import useLangStore from '@/store/useLangStore';
 import useUserStore from '@/store/useUserStore';
@@ -265,6 +266,8 @@ export default function BootstrapScreen() {
             devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: api.init');
             const initRes = await systemApi.init();
             const base = initRes?.data?.base ?? null;
+            configureAppsFlyerAttribution(initRes?.data?.af);
+            startAppsFlyerAttribution();
             devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: api.init done', { checkTime: base?.checkTime, readClipboard: base?.readClipboard });
             // 将 init 返回的基础配置暂存起来，供 home 进入后补拉语言包
             setBootstrapBase(base);
@@ -308,6 +311,8 @@ export default function BootstrapScreen() {
 
     useEffect(() => {
         devLog(OPEN_URL_DEBUG_TAG, 'BootstrapScreen: mount');
+        registerAppsFlyerUrlOpenListener();
+
         // 首次安装时上报一次 install 事件
         AsyncStorage.getItem(INSTALL_FLAG_KEY).then((installed) => {
             if (!installed) {

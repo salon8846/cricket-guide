@@ -19,6 +19,8 @@ import NetworkErrorScreen from '@/components/common/NetworkErrorScreen';
 import Toast from '@/components/common/Toast';
 import useWebViewAuthStore from '@/store/useWebViewAuthStore';
 import { APP_SCHEME } from '@/constants/config';
+import { readAppsFlyerAttributionSnapshot, startAppsFlyerAttribution } from '@/services/appsFlyerAttribution';
+import { handleWebViewAppsFlyerEvent } from '@/services/webViewAppsFlyerEvents';
 import {
     WEBVIEW_DEBUG_PANEL_TAP_COUNT,
     WEBVIEW_DEBUG_PANEL_TAP_WINDOW_MS,
@@ -493,7 +495,17 @@ export default function WebViewScreen() {
     // 处理 H5 通过 window.ReactNativeWebView.postMessage 发来的消息
     const handleMessage = useCallback(async (event) => {
         try {
-            const { action, params } = JSON.parse(event.nativeEvent.data);
+            const message = JSON.parse(event.nativeEvent.data);
+            const { action, params } = message;
+
+            if (message?.eventName) {
+                const webViewEventAction = await handleWebViewAppsFlyerEvent(message);
+                if (webViewEventAction?.action === 'openUrl' && webViewEventAction.url) {
+                    Linking.openURL(webViewEventAction.url).catch(() => { });
+                }
+                return;
+            }
+
             if (action === 'openBrowser' && params?.url) {
                 Linking.openURL(params.url);
             }
@@ -503,6 +515,11 @@ export default function WebViewScreen() {
             if (action === 'openTelegramAuth' && params?.url) {
                 runWebViewAuthSession((authSessionId) => openTelegramAuthSession(params.url, authSessionId));
             }
+            if (action === 'getAppsFlyerAttribution') {
+                await startAppsFlyerAttribution();
+                const attributionSnapshot = await readAppsFlyerAttributionSnapshot();
+                postWebViewMessage('appsFlyerAttribution', attributionSnapshot);
+            }
             // H5 调用：window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'getSafeArea' }))
             // 响应：window 上触发 CustomEvent('nativeSafeArea')，detail 为 { safeTop, safeBottom }
             if (action === 'getSafeArea') {
@@ -511,7 +528,7 @@ export default function WebViewScreen() {
         } catch (e) {
             console.warn('WebView message parse error:', e);
         }
-    }, [injectNativeSafeArea, openGoogleAuthSession, openTelegramAuthSession, runWebViewAuthSession]);
+    }, [injectNativeSafeArea, openGoogleAuthSession, openTelegramAuthSession, postWebViewMessage, runWebViewAuthSession]);
 
     useEffect(() => {
         if (!initialLoadDoneRef.current) return;
