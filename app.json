@@ -15,6 +15,14 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.yourcompany.baseapp",
+      "associatedDomains": [
+        "applinks:mobile.willbet.com",
+        "applinks:mobile.ftestqoed.com",
+        "applinks:mobile.stggop.com",
+        "applinks:mobile.willbet.io",
+        "applinks:mobile.willbet.ai",
+        "applinks:hashexplorer.onelink.me"
+      ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -67,7 +75,16 @@
           "enableBackgroundRecording": false
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "react-native-appsflyer",
+        {
+          "shouldUseStrictMode": false,
+          "shouldUsePurchaseConnector": false,
+          "preferAppsFlyerBackupRules": false
+        }
+      ],
+      "./plugins/withAppsFlyerAndroidDeepLink"
     ],
     "experiments": {
       "typedRoutes": true
