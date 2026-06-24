@@ -499,9 +499,10 @@ export default function WebViewScreen() {
             const { action, params } = message;
 
             if (message?.eventName) {
-                const webViewEventAction = await handleWebViewAppsFlyerEvent(message);
-                if (webViewEventAction?.action === 'openUrl' && webViewEventAction.url) {
-                    Linking.openURL(webViewEventAction.url).catch(() => { });
+                const webViewAppsFlyerEventResult = await handleWebViewAppsFlyerEvent(message);
+                postWebViewMessage('appsFlyerEventResult', webViewAppsFlyerEventResult?.appsFlyerEventReport ?? null);
+                if (webViewAppsFlyerEventResult?.openUrl) {
+                    Linking.openURL(webViewAppsFlyerEventResult.openUrl).catch(() => { });
                 }
                 return;
             }

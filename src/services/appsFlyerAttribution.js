@@ -6,6 +6,7 @@ import { getItem, setItem } from '@/utils/storage';
 const APPS_FLYER_DEBUG_TAG = '[AppsFlyer]';
 const APPS_FLYER_OPEN_URL_WAIT_MS = 5000;
 const APPS_FLYER_OPEN_URL_POLL_MS = 250;
+const APPS_FLYER_EVENT_LOG_TIMEOUT_MS = 8000;
 
 const createEmptyAppsFlyerConfig = () => ({
     enabled: false,
@@ -33,6 +34,13 @@ const devWarn = (...args) => {
 const wait = (timeoutMs) => new Promise((resolve) => {
     setTimeout(resolve, timeoutMs);
 });
+
+const withTimeout = (task, timeoutMs, timeoutReason) => Promise.race([
+    task,
+    wait(timeoutMs).then(() => {
+        throw new Error(timeoutReason);
+    }),
+]);
 
 const hasConfiguredValue = (value) => {
     const normalizedValue = String(value ?? '').trim();
@@ -379,34 +387,70 @@ export const readCurrentAppsFlyerDeepLinkValue = async () => {
 export const logAppsFlyerEvent = async (eventName, eventValues = {}) => {
     const normalizedEventName = String(eventName ?? '').trim();
     if (!normalizedEventName) {
-        return false;
+        return {
+            status: 'failure',
+            eventName: normalizedEventName,
+            eventValues: {},
+            reason: 'empty_event_name',
+            loggedAt: new Date().toISOString(),
+        };
     }
 
+    const normalizedEventValues = normalizeAppsFlyerEventValues(eventValues);
+
     if (!validateAppsFlyerConfig(appsFlyerRuntimeConfig)) {
-        return false;
+        return {
+            status: 'failure',
+            eventName: normalizedEventName,
+            eventValues: normalizedEventValues,
+            reason: 'invalid_config',
+            loggedAt: new Date().toISOString(),
+        };
     }
 
     await startAppsFlyerAttribution();
 
     const appsFlyer = readAppsFlyerModule();
     if (!appsFlyer) {
-        return false;
+        return {
+            status: 'failure',
+            eventName: normalizedEventName,
+            eventValues: normalizedEventValues,
+            reason: 'native_module_unavailable',
+            loggedAt: new Date().toISOString(),
+        };
     }
 
-    const normalizedEventValues = normalizeAppsFlyerEventValues(eventValues);
-
     try {
-        await appsFlyer.logEvent(normalizedEventName, normalizedEventValues);
+        const sdkResponse = await withTimeout(
+            appsFlyer.logEvent(normalizedEventName, normalizedEventValues),
+            APPS_FLYER_EVENT_LOG_TIMEOUT_MS,
+            'event_log_timeout',
+        );
         devLog(APPS_FLYER_DEBUG_TAG, 'event logged', {
             eventName: normalizedEventName,
             eventValues: normalizedEventValues,
+            sdkResponse,
         });
-        return true;
+        return {
+            status: 'success',
+            eventName: normalizedEventName,
+            eventValues: normalizedEventValues,
+            sdkResponse,
+            loggedAt: new Date().toISOString(),
+        };
     } catch (error) {
         devWarn(APPS_FLYER_DEBUG_TAG, 'event log failed', {
             eventName: normalizedEventName,
             error,
         });
-        return false;
+        return {
+            status: 'failure',
+            eventName: normalizedEventName,
+            eventValues: normalizedEventValues,
+            reason: error?.message === 'event_log_timeout' ? 'sdk_timeout' : 'sdk_rejected',
+            error: error?.message ?? String(error),
+            loggedAt: new Date().toISOString(),
+        };
     }
 };
