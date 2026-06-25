@@ -84,7 +84,8 @@
           "preferAppsFlyerBackupRules": false
         }
       ],
-      "./plugins/withAppsFlyerAndroidDeepLink"
+      "./plugins/withAppsFlyerAndroidDeepLink",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
