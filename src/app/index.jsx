@@ -17,6 +17,7 @@ import {
     cacheAppsFlyerDeepLinkParamsForJump,
     cacheOpenUrlClipboardConfigForJump,
     cacheOpenUrlClipboardContentForJump,
+    canOverrideCachedAppsFlyerDeepLinkParams,
     devLog,
     devWarn,
     getCachedAppsFlyerDeepLinkParams,
@@ -25,6 +26,7 @@ import {
     getJumpFlag,
     isSupportedLinkType,
     jumpByLinkType,
+    overwriteCachedAppsFlyerDeepLinkParams,
     readDeferredJump,
     saveDeferredJump,
     setJumpFlag,
@@ -305,11 +307,18 @@ export default function BootstrapScreen() {
             devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: api.init');
             const initRes = await systemApi.init();
             const base = initRes?.data?.base ?? null;
-            configureAppsFlyerAttribution(initRes?.data?.af);
+            const appsFlyerConfig = initRes?.data?.af ?? null;
+            configureAppsFlyerAttribution(appsFlyerConfig);
             startAppsFlyerAttribution();
             devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: api.init done', { checkTime: base?.checkTime, readClipboard: base?.readClipboard });
             // 将 init 返回的基础配置暂存起来，供 home 进入后补拉语言包
             setBootstrapBase(base);
+
+            if (canOverrideCachedAppsFlyerDeepLinkParams(appsFlyerConfig)) {
+                devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: AppsFlyer deep link cache override enabled');
+                const appsFlyerDeepLinkParams = await readCurrentAppsFlyerDeepLinkParams();
+                await overwriteCachedAppsFlyerDeepLinkParams(appsFlyerDeepLinkParams);
+            }
 
             const h5Verify = await AsyncStorage.getItem(OPEN_URL_KEYS.JUMP_FLAG_KEY).catch(() => '') ?? '';
             if (h5Verify !== '1') {

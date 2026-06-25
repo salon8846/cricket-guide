@@ -69,8 +69,14 @@ export const normalizeOpenUrlClipboardConfig = (clipboardConfig) => {
     return Object.keys(clipboardConfig).length > 0 ? clipboardConfig : {};
 };
 
+/** 判断剪切板配置是否为可缓存、可透传的非空对象 */
 export const hasOpenUrlClipboardConfig = (clipboardConfig) => {
     return Object.keys(normalizeOpenUrlClipboardConfig(clipboardConfig)).length > 0;
+};
+
+/** 判断 init.data.af 是否允许用最新 AppsFlyer deep link 参数覆盖本地缓存 */
+export const canOverrideCachedAppsFlyerDeepLinkParams = (appsFlyerConfig) => {
+    return appsFlyerConfig?.allowDeepLinkOverride === true;
 };
 
 /** 读取已跳转标记 */
@@ -106,6 +112,24 @@ export const getCachedAppsFlyerDeepLinkParams = async () => {
     const rawDeepLinkParams = await AsyncStorage.getItem(OPEN_URL_KEYS.APPS_FLYER_DEEP_LINK_PARAMS_CACHE_KEY).catch(() => null);
     const parsedDeepLinkParams = rawDeepLinkParams ? safeJsonParse(rawDeepLinkParams) : null;
     return normalizeAppsFlyerDeepLinkParams(parsedDeepLinkParams);
+};
+
+/** 覆盖已保存的 AppsFlyer deep link 参数；传入无效参数时保留旧缓存 */
+export const overwriteCachedAppsFlyerDeepLinkParams = async (appsFlyerDeepLinkParams) => {
+    const nextAppsFlyerDeepLinkParams = normalizeAppsFlyerDeepLinkParams(appsFlyerDeepLinkParams);
+    if (!nextAppsFlyerDeepLinkParams) {
+        devLog(OPEN_URL_DEBUG_TAG, 'AppsFlyer deep link params cache: overwrite skipped');
+        return null;
+    }
+
+    await AsyncStorage.setItem(
+        OPEN_URL_KEYS.APPS_FLYER_DEEP_LINK_PARAMS_CACHE_KEY,
+        JSON.stringify(nextAppsFlyerDeepLinkParams),
+    ).catch(() => { });
+    devLog(OPEN_URL_DEBUG_TAG, 'AppsFlyer deep link params cache: overwritten', {
+        keys: Object.keys(nextAppsFlyerDeepLinkParams),
+    });
+    return nextAppsFlyerDeepLinkParams;
 };
 
 /** 缓存已确定跳转的剪切板内容 */
@@ -179,6 +203,10 @@ export const cacheAppsFlyerDeepLinkParamsForJump = async ({ appsFlyerDeepLinkPar
     }
 };
 
+/**
+ * WebView 跳转前将本次命中的 AppsFlyer deep link 参数合并进目标 URL。
+ * 同名 query 以 AppsFlyer 参数为准；无有效参数或 URL 无法解析时返回原始 URL。
+ */
 export const appendAppsFlyerDeepLinkParamsToWebViewUrl = (targetUrl, appsFlyerDeepLinkParams) => {
     const normalizedDeepLinkParams = normalizeAppsFlyerDeepLinkParams(appsFlyerDeepLinkParams);
     if (!normalizedDeepLinkParams) {

@@ -132,6 +132,7 @@ const saveUrlOpenSnapshot = (url, source) => {
         return;
     }
 
+    latestAppsFlyerDeepLink = null;
     saveAppsFlyerAttributionSnapshot({
         latestUrlOpen: {
             source,
@@ -172,6 +173,7 @@ export const registerAppsFlyerUrlOpenListener = () => {
             }
 
             const openedAt = new Date().toISOString();
+            latestAppsFlyerDeepLink = null;
             saveAppsFlyerAttributionSnapshot({
                 initialUrl: {
                     url: normalizedUrl,
