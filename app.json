@@ -21,7 +21,7 @@
         "applinks:mobile.stggop.com",
         "applinks:mobile.willbet.io",
         "applinks:mobile.willbet.ai",
-        "applinks:hashexplorer.onelink.me"
+        "applinks:baseapp.onelink.me"
       ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
