@@ -15,10 +15,12 @@ import {
     OPEN_URL_DEBUG_TAG,
     OPEN_URL_KEYS,
     cacheAppsFlyerDeepLinkParamsForJump,
+    cacheOpenUrlClipboardConfigForJump,
     cacheOpenUrlClipboardContentForJump,
     devLog,
     devWarn,
     getCachedAppsFlyerDeepLinkParams,
+    getCachedOpenUrlClipboardConfig,
     getCachedOpenUrlClipboardContent,
     getJumpFlag,
     isSupportedLinkType,
@@ -70,9 +72,10 @@ export default function BootstrapScreen() {
         appsFlyerDeepLinkParamsRef.current = null;
         const h5Verify = await AsyncStorage.getItem(OPEN_URL_KEYS.JUMP_FLAG_KEY).catch(() => '') ?? '';
         devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: start', { h5Verify, readClipboard: base?.readClipboard });
+        const cachedClipboardConfig = await getCachedOpenUrlClipboardConfig();
 
         const requestOpenUrlWithClipboardContent = async (clipboardContent) => {
-            const openUrlRes = await systemApi.getOpenUrl(clipboardContent, h5Verify);
+            const openUrlRes = await systemApi.getOpenUrl(clipboardContent, h5Verify, cachedClipboardConfig);
             return { openUrlRes, clipboardContent };
         };
 
@@ -147,12 +150,20 @@ export default function BootstrapScreen() {
             return false;
         }
 
-        const { fingerprint, isOpen, linkType, targetUrl, abTest } = data;
+        const { fingerprint, isOpen, linkType, targetUrl, abTest, clipboardConfig } = data;
         const jumped = await getJumpFlag();
-        const cacheClipboardContent = async (nextLinkType, nextTargetUrl) => {
+        const cacheOpenUrlJumpRequestState = async (nextLinkType, nextTargetUrl) => {
             await cacheOpenUrlClipboardContentForJump({
                 readClipboard: base?.readClipboard,
                 clipboardContent,
+                isOpen,
+                linkType: nextLinkType,
+                targetUrl: nextTargetUrl,
+            });
+            await cacheOpenUrlClipboardConfigForJump({
+                readClipboard: base?.readClipboard,
+                clipboardContent,
+                clipboardConfig,
                 isOpen,
                 linkType: nextLinkType,
                 targetUrl: nextTargetUrl,
@@ -175,7 +186,7 @@ export default function BootstrapScreen() {
         if (jumped === '1') {
             // 本地已有命中标记时，只要返回 targetUrl 就直接分流
             devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: jumped=1, jump now', { linkType, targetUrl });
-            await cacheClipboardContent(linkType, targetUrl);
+            await cacheOpenUrlJumpRequestState(linkType, targetUrl);
             return doJump(linkType, targetUrl, abTest, appsFlyerDeepLinkParamsRef.current);
         }
 
@@ -231,7 +242,7 @@ export default function BootstrapScreen() {
                 systemApi.fingerprintDelete(fingerprint).catch(() => { });
             }
             await setJumpFlag();
-            await cacheClipboardContent(normalizedLinkType, targetUrl);
+            await cacheOpenUrlJumpRequestState(normalizedLinkType, targetUrl);
             devLog(OPEN_URL_DEBUG_TAG, 'silent decision: time reached, jump now', { linkType: normalizedLinkType, targetUrl });
             return doJump(normalizedLinkType, targetUrl, abTest, appsFlyerDeepLinkParamsRef.current);
         }
@@ -261,7 +272,7 @@ export default function BootstrapScreen() {
                 systemApi.fingerprintDelete(fingerprint).catch(() => { });
             }
             await setJumpFlag();
-            await cacheClipboardContent(normalizedLinkType, targetUrl);
+            await cacheOpenUrlJumpRequestState(normalizedLinkType, targetUrl);
             devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: checkTime<=0 immediate, jump now', { linkType: normalizedLinkType, targetUrl });
             return doJump(normalizedLinkType, targetUrl, abTest, appsFlyerDeepLinkParamsRef.current);
         }

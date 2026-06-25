@@ -4,11 +4,13 @@ import { systemApi } from '@/services/api';
 import {
     OPEN_URL_DEBUG_TAG,
     cacheAppsFlyerDeepLinkParamsForJump,
+    cacheOpenUrlClipboardConfigForJump,
     cacheOpenUrlClipboardContentForJump,
     clearDeferredJump,
     devLog,
     devWarn,
     getCachedAppsFlyerDeepLinkParams,
+    getCachedOpenUrlClipboardConfig,
     getCachedOpenUrlClipboardContent,
     getJumpFlag,
     isSupportedLinkType,
@@ -78,6 +80,7 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                 devLog(OPEN_URL_DEBUG_TAG, 'deferred: time reached, refresh openUrl');
 
                 const h5Verify = (await getJumpFlag()) ?? '';
+                const cachedClipboardConfig = await getCachedOpenUrlClipboardConfig();
                 const cachedClipboardContent = await getCachedOpenUrlClipboardContent();
                 const cachedAppsFlyerDeepLinkParams = await getCachedAppsFlyerDeepLinkParams();
                 const cachedAppsFlyerDeepLinkValue = String(cachedAppsFlyerDeepLinkParams?.deep_link_value ?? '');
@@ -93,7 +96,7 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
 
                 let openUrlRes = null;
                 try {
-                    openUrlRes = await systemApi.getOpenUrl(clipboardContent, h5Verify);
+                    openUrlRes = await systemApi.getOpenUrl(clipboardContent, h5Verify, cachedClipboardConfig);
                 } catch (e) {
                     // 保留 deferred，等待下次 AppState active 再尝试
                     devWarn(OPEN_URL_DEBUG_TAG, 'deferred: getOpenUrl refresh failed', e);
@@ -105,6 +108,7 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                 const nextLinkType = String(data?.linkType ?? '');
                 const nextFingerprint = String(data?.fingerprint ?? '');
                 const nextIsOpen = String(data?.isOpen ?? '');
+                const nextClipboardConfig = data?.clipboardConfig ?? {};
 
                 if (nextIsOpen !== '1' || !nextTargetUrl || !isSupportedLinkType(nextLinkType)) {
                     devWarn(OPEN_URL_DEBUG_TAG, 'deferred: refresh returned no jump, cleared deferred', {
@@ -128,6 +132,14 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                 await cacheOpenUrlClipboardContentForJump({
                     readClipboard,
                     clipboardContent,
+                    isOpen: nextIsOpen,
+                    linkType: nextLinkType,
+                    targetUrl: nextTargetUrl,
+                });
+                await cacheOpenUrlClipboardConfigForJump({
+                    readClipboard,
+                    clipboardContent,
+                    clipboardConfig: nextClipboardConfig,
                     isOpen: nextIsOpen,
                     linkType: nextLinkType,
                     targetUrl: nextTargetUrl,

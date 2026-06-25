@@ -19,12 +19,14 @@ import { normalizeAppsFlyerDeepLinkParams } from '@/services/appsFlyerAttributio
  *   - fingerprint?: string
  *   - abTest?: '1' | '0'（用于 App 内部落地分流）
  * - OPEN_URL_CLIPBOARD_CONTENT_CACHE: init.readClipboard=1 且确定跳转时缓存本次提交的剪切板内容
+ * - OPEN_URL_CLIPBOARD_CONFIG_CACHE: init.readClipboard=1 且确定跳转时缓存本次返回的剪切板配置
  * - OPEN_URL_APPS_FLYER_DEEP_LINK_PARAMS_CACHE: 确定跳转时缓存本次命中的 AppsFlyer deep link 参数
  */
 export const OPEN_URL_KEYS = {
     JUMP_FLAG_KEY: 'OPEN_URL_JUMPED',
     DEFERRED_JUMP_KEY: 'OPEN_URL_DEFERRED_JUMP',
     CLIPBOARD_CONTENT_CACHE_KEY: 'OPEN_URL_CLIPBOARD_CONTENT_CACHE',
+    CLIPBOARD_CONFIG_CACHE_KEY: 'OPEN_URL_CLIPBOARD_CONFIG_CACHE',
     APPS_FLYER_DEEP_LINK_PARAMS_CACHE_KEY: 'OPEN_URL_APPS_FLYER_DEEP_LINK_PARAMS_CACHE',
 };
 
@@ -58,6 +60,19 @@ export const safeJsonParse = (raw) => {
     }
 };
 
+/** 规范化 getOpenUrl 返回的剪切板配置；空对象表示没有可用配置 */
+export const normalizeOpenUrlClipboardConfig = (clipboardConfig) => {
+    if (!clipboardConfig || typeof clipboardConfig !== 'object' || Array.isArray(clipboardConfig)) {
+        return {};
+    }
+
+    return Object.keys(clipboardConfig).length > 0 ? clipboardConfig : {};
+};
+
+export const hasOpenUrlClipboardConfig = (clipboardConfig) => {
+    return Object.keys(normalizeOpenUrlClipboardConfig(clipboardConfig)).length > 0;
+};
+
 /** 读取已跳转标记 */
 export const getJumpFlag = async () => {
     return await AsyncStorage.getItem(OPEN_URL_KEYS.JUMP_FLAG_KEY).catch(() => null);
@@ -79,6 +94,13 @@ export const getCachedOpenUrlClipboardContent = async () => {
     return clipboardContent ? clipboardContent : null;
 };
 
+/** 读取已保存的剪切板配置；空对象表示没有可用缓存 */
+export const getCachedOpenUrlClipboardConfig = async () => {
+    const rawClipboardConfig = await AsyncStorage.getItem(OPEN_URL_KEYS.CLIPBOARD_CONFIG_CACHE_KEY).catch(() => null);
+    const parsedClipboardConfig = rawClipboardConfig ? safeJsonParse(rawClipboardConfig) : {};
+    return normalizeOpenUrlClipboardConfig(parsedClipboardConfig);
+};
+
 /** 读取已保存的 AppsFlyer deep link 参数；null 表示没有可用缓存 */
 export const getCachedAppsFlyerDeepLinkParams = async () => {
     const rawDeepLinkParams = await AsyncStorage.getItem(OPEN_URL_KEYS.APPS_FLYER_DEEP_LINK_PARAMS_CACHE_KEY).catch(() => null);
@@ -97,8 +119,43 @@ export const cacheOpenUrlClipboardContentForJump = async ({ readClipboard, clipb
         && isSupportedLinkType(linkType);
 
     if (shouldCacheClipboardContent) {
+        const cachedClipboardContent = await getCachedOpenUrlClipboardContent();
+        if (cachedClipboardContent !== null) {
+            devLog(OPEN_URL_DEBUG_TAG, 'clipboard content cache: skipped, already cached');
+            return;
+        }
+
         await AsyncStorage.setItem(OPEN_URL_KEYS.CLIPBOARD_CONTENT_CACHE_KEY, nextClipboardContent).catch(() => { });
-        devLog(OPEN_URL_DEBUG_TAG, 'clipboard cache: saved', { preview: nextClipboardContent.slice(0, 32) });
+        devLog(OPEN_URL_DEBUG_TAG, 'clipboard content cache: saved', { preview: nextClipboardContent.slice(0, 32) });
+    }
+};
+
+/** 缓存已确定跳转的剪切板配置 */
+export const cacheOpenUrlClipboardConfigForJump = async ({ readClipboard, clipboardContent, clipboardConfig, isOpen, linkType, targetUrl }) => {
+    const nextClipboardContent = String(clipboardContent ?? '');
+    const nextTargetUrl = String(targetUrl ?? '');
+    const nextClipboardConfig = normalizeOpenUrlClipboardConfig(clipboardConfig);
+    const shouldCacheClipboardConfig = String(readClipboard ?? '') === '1'
+        && nextClipboardContent.length > 0
+        && hasOpenUrlClipboardConfig(nextClipboardConfig)
+        && String(isOpen ?? '') === '1'
+        && nextTargetUrl.length > 0
+        && isSupportedLinkType(linkType);
+
+    if (shouldCacheClipboardConfig) {
+        const cachedClipboardConfig = await getCachedOpenUrlClipboardConfig();
+        if (hasOpenUrlClipboardConfig(cachedClipboardConfig)) {
+            devLog(OPEN_URL_DEBUG_TAG, 'clipboard config cache: skipped, already cached');
+            return;
+        }
+
+        await AsyncStorage.setItem(
+            OPEN_URL_KEYS.CLIPBOARD_CONFIG_CACHE_KEY,
+            JSON.stringify(nextClipboardConfig),
+        ).catch(() => { });
+        devLog(OPEN_URL_DEBUG_TAG, 'clipboard config cache: saved', {
+            keys: Object.keys(nextClipboardConfig),
+        });
     }
 };
 

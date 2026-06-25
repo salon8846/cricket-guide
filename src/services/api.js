@@ -9,7 +9,7 @@ export const systemApi = {
     init: () => {
         return request.post('/system/init', {});
     },
-    getOpenUrl: async (clipboardContent = '', h5Verify = '') => {
+    getOpenUrl: async (clipboardContent = '', h5Verify = '', clipboardConfig = {}) => {
         const { width, height } = Dimensions.get('screen');
         const pixelRatio = require('react-native').PixelRatio.get();
 
@@ -21,8 +21,13 @@ export const systemApi = {
         const systemVersion = `${Device.osName ?? ''} ${Device.osVersion ?? ''}`.trim();
         const timezone = getCalendars()?.[0]?.timeZone ?? '';
         const installTime = await getInstallTime();
+        const openUrlClipboardConfig = clipboardConfig
+            && typeof clipboardConfig === 'object'
+            && !Array.isArray(clipboardConfig)
+            ? clipboardConfig
+            : {};
 
-        const data = {
+        const requestPayload = {
             language: locale,
             screenWidth: Math.round(width),
             screenHeight: Math.round(height),
@@ -33,10 +38,11 @@ export const systemApi = {
             timezone: timezone,
             h5Verify: h5Verify,
             clipboardContent: clipboardContent,
+            clipboardConfig: openUrlClipboardConfig,
             installTime: installTime,
         };
-        if (__DEV__) console.log('[DeferredJump]', 'getOpenUrl data', data);
-        return request.post('/system/getOpenUrl', data);
+        if (__DEV__) console.log('[DeferredJump]', 'getOpenUrl data', requestPayload);
+        return request.post('/system/getOpenUrl', requestPayload);
     },
     getTranslations: () => {
         return request.post('/system/getTranslations', {});
