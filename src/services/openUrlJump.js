@@ -19,7 +19,7 @@ import { normalizeAppsFlyerDeepLinkParams } from '@/services/appsFlyerAttributio
  *   - fingerprint?: string
  *   - abTest?: '1' | '0'（用于 App 内部落地分流）
  * - OPEN_URL_CLIPBOARD_CONTENT_CACHE: init.readClipboard=1 且确定跳转时缓存本次提交的剪切板内容
- * - OPEN_URL_CLIPBOARD_CONFIG_CACHE: init.readClipboard=1 且确定跳转时缓存本次返回的剪切板配置
+ * - OPEN_URL_CLIPBOARD_CONFIG_CACHE: 确定跳转时缓存本次返回的剪切板配置
  * - OPEN_URL_APPS_FLYER_DEEP_LINK_PARAMS_CACHE: 确定跳转时缓存本次命中的 AppsFlyer deep link 参数
  */
 export const OPEN_URL_KEYS = {
@@ -155,13 +155,10 @@ export const cacheOpenUrlClipboardContentForJump = async ({ readClipboard, clipb
 };
 
 /** 缓存已确定跳转的剪切板配置 */
-export const cacheOpenUrlClipboardConfigForJump = async ({ readClipboard, clipboardContent, clipboardConfig, isOpen, linkType, targetUrl }) => {
-    const nextClipboardContent = String(clipboardContent ?? '');
+export const cacheOpenUrlClipboardConfigForJump = async ({ clipboardConfig, isOpen, linkType, targetUrl }) => {
     const nextTargetUrl = String(targetUrl ?? '');
     const nextClipboardConfig = normalizeOpenUrlClipboardConfig(clipboardConfig);
-    const shouldCacheClipboardConfig = String(readClipboard ?? '') === '1'
-        && nextClipboardContent.length > 0
-        && hasOpenUrlClipboardConfig(nextClipboardConfig)
+    const shouldCacheClipboardConfig = hasOpenUrlClipboardConfig(nextClipboardConfig)
         && String(isOpen ?? '') === '1'
         && nextTargetUrl.length > 0
         && isSupportedLinkType(linkType);

@@ -137,8 +137,6 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                     targetUrl: nextTargetUrl,
                 });
                 await cacheOpenUrlClipboardConfigForJump({
-                    readClipboard,
-                    clipboardContent,
                     clipboardConfig: nextClipboardConfig,
                     isOpen: nextIsOpen,
                     linkType: nextLinkType,

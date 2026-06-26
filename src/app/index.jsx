@@ -163,8 +163,6 @@ export default function BootstrapScreen() {
                 targetUrl: nextTargetUrl,
             });
             await cacheOpenUrlClipboardConfigForJump({
-                readClipboard: base?.readClipboard,
-                clipboardContent,
                 clipboardConfig,
                 isOpen,
                 linkType: nextLinkType,
