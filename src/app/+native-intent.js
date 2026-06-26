@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 
-const ASSOCIATED_DOMAIN_PREFIX = 'applinks:';
+const IOS_APP_LINK_DOMAIN_PREFIX = 'applinks:';
 const ROUTE_WILDCARD_SUFFIX = '/*';
 const ALLOWED_EXTERNAL_ROUTE_PATTERNS = [
     'auth/*',
@@ -15,7 +15,16 @@ const normalizeUrlPart = (value) => {
     return String(value ?? '').trim().toLowerCase();
 };
 
-const getAssociatedDomainPatterns = () => {
+const createHttpsLinkHostPattern = (host) => {
+    const normalizedHost = normalizeUrlPart(host);
+
+    return {
+        host: normalizedHost.startsWith('*.') ? normalizedHost.slice(2) : normalizedHost,
+        includesSubdomains: normalizedHost.startsWith('*.'),
+    };
+};
+
+const getIosUniversalLinkHostPatterns = () => {
     const associatedDomains = Constants.expoConfig?.ios?.associatedDomains;
     if (!Array.isArray(associatedDomains)) {
         return [];
@@ -23,42 +32,58 @@ const getAssociatedDomainPatterns = () => {
 
     return associatedDomains
         .map((domain) => String(domain ?? '').trim())
-        .filter((domain) => domain.startsWith(ASSOCIATED_DOMAIN_PREFIX))
-        .map((domain) => {
-            const host = domain
-                .slice(ASSOCIATED_DOMAIN_PREFIX.length)
-                .split('?')[0]
-                .toLowerCase();
-
-            return {
-                host: host.startsWith('*.') ? host.slice(2) : host,
-                includesSubdomains: host.startsWith('*.'),
-            };
-        })
+        .filter((domain) => domain.startsWith(IOS_APP_LINK_DOMAIN_PREFIX))
+        .map((domain) => createHttpsLinkHostPattern(domain.slice(IOS_APP_LINK_DOMAIN_PREFIX.length).split('?')[0]))
         .filter((domain) => domain.host);
 };
 
-const isAssociatedDomainHost = (hostname) => {
+const getAndroidAppLinkHostPatterns = () => {
+    const intentFilters = Constants.expoConfig?.android?.intentFilters;
+    if (!Array.isArray(intentFilters)) {
+        return [];
+    }
+
+    return intentFilters.flatMap((intentFilter) => {
+        const data = intentFilter?.data;
+        const dataEntries = Array.isArray(data) ? data : [data];
+
+        return dataEntries
+            .filter((entry) => normalizeUrlPart(entry?.scheme) === 'https')
+            .map((entry) => createHttpsLinkHostPattern(entry?.host))
+            .filter((domain) => domain.host);
+    });
+};
+
+const getConfiguredHttpsLinkHostPatterns = () => {
+    return [
+        ...getIosUniversalLinkHostPatterns(),
+        ...getAndroidAppLinkHostPatterns(),
+    ];
+};
+
+const matchesHttpsLinkHostPattern = (host, domain) => {
+    if (domain.includesSubdomains) {
+        return host.endsWith(`.${domain.host}`);
+    }
+
+    return host === domain.host;
+};
+
+const isConfiguredHttpsLinkHost = (hostname) => {
     const host = normalizeUrlPart(hostname);
     if (!host) {
         return false;
     }
 
-    return getAssociatedDomainPatterns().some((domain) => {
-        if (domain.includesSubdomains) {
-            return host.endsWith(`.${domain.host}`);
-        }
-
-        return host === domain.host;
-    });
+    return getConfiguredHttpsLinkHostPatterns().some((domain) => matchesHttpsLinkHostPattern(host, domain));
 };
 
 const isConfiguredSchemeUrl = (url, scheme) => {
     return normalizeUrlPart(url.protocol).replace(/:$/, '') === normalizeUrlPart(scheme);
 };
 
-const isAssociatedDomainUrl = (url) => {
-    return url.protocol === 'https:' && isAssociatedDomainHost(url.hostname);
+const isConfiguredHttpsLinkUrl = (url) => {
+    return url.protocol === 'https:' && isConfiguredHttpsLinkHost(url.hostname);
 };
 
 const getIntentRoutePath = (url, scheme) => {
@@ -94,7 +119,7 @@ export function redirectSystemPath({ path }) {
             : new URL(rawPath, `${scheme}:///`);
         const routePath = getIntentRoutePath(url, scheme);
 
-        if (routePath && !isAllowedExternalRoutePath(routePath) && (isConfiguredSchemeUrl(url, scheme) || isAssociatedDomainUrl(url))) {
+        if (routePath && !isAllowedExternalRoutePath(routePath) && (isConfiguredSchemeUrl(url, scheme) || isConfiguredHttpsLinkUrl(url))) {
             return '/';
         }
 
