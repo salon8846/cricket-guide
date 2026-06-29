@@ -35,6 +35,7 @@ let appsFlyerRuntimeConfig = createEmptyAppsFlyerConfig();
 let attributionListenersRegistered = false;
 let urlOpenListenerRegistered = false;
 let latestAppsFlyerDeepLink = null;
+let latestAppsFlyerInstallConversion = null;
 
 const devLog = (...args) => {
     if (__DEV__) console.log(...args);
@@ -132,7 +133,9 @@ const saveUrlOpenSnapshot = (url, source) => {
         return;
     }
 
-    latestAppsFlyerDeepLink = null;
+    if (source === 'event') {
+        latestAppsFlyerDeepLink = null;
+    }
     saveAppsFlyerAttributionSnapshot({
         latestUrlOpen: {
             source,
@@ -144,18 +147,51 @@ const saveUrlOpenSnapshot = (url, source) => {
     });
 };
 
-const readAppsFlyerDeepLinkParams = (deepLink) => {
-    if (
-        deepLink?.status !== 'success'
-        || deepLink?.deepLinkStatus !== 'FOUND'
-        || !deepLink?.data
-        || typeof deepLink.data !== 'object'
-        || Array.isArray(deepLink.data)
-    ) {
+const isSuccessfulAppsFlyerCallback = (payload) => {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        return false;
+    }
+
+    const status = String(payload?.status ?? '').trim().toLowerCase();
+    return status === '' || status === 'success';
+};
+
+const readAppsFlyerCallbackFields = (payload) => {
+    if (!payload?.data || typeof payload.data !== 'object' || Array.isArray(payload.data)) {
         return null;
     }
 
-    return normalizeAppsFlyerDeepLinkParams(deepLink.data);
+    return payload.data;
+};
+
+const isAppsFlyerFirstLaunch = (conversionData) => {
+    const firstLaunch = conversionData?.is_first_launch;
+    if (typeof firstLaunch === 'boolean') {
+        return firstLaunch;
+    }
+
+    return String(firstLaunch ?? '').trim().toLowerCase() === 'true';
+};
+
+const readAppsFlyerDeepLinkParams = (deepLink) => {
+    if (!isSuccessfulAppsFlyerCallback(deepLink) || deepLink?.deepLinkStatus !== 'FOUND') {
+        return null;
+    }
+
+    return normalizeAppsFlyerDeepLinkParams(readAppsFlyerCallbackFields(deepLink));
+};
+
+const readAppsFlyerInstallConversionDeepLinkParams = (installConversion) => {
+    if (!isSuccessfulAppsFlyerCallback(installConversion)) {
+        return null;
+    }
+
+    const conversionData = readAppsFlyerCallbackFields(installConversion);
+    if (!isAppsFlyerFirstLaunch(conversionData)) {
+        return null;
+    }
+
+    return normalizeAppsFlyerDeepLinkParams(conversionData);
 };
 
 export const registerAppsFlyerUrlOpenListener = () => {
@@ -173,7 +209,6 @@ export const registerAppsFlyerUrlOpenListener = () => {
             }
 
             const openedAt = new Date().toISOString();
-            latestAppsFlyerDeepLink = null;
             saveAppsFlyerAttributionSnapshot({
                 initialUrl: {
                     url: normalizedUrl,
@@ -277,6 +312,7 @@ const registerAppsFlyerAttributionListeners = (appsFlyer) => {
     }
 
     appsFlyer.onInstallConversionData((data) => {
+        latestAppsFlyerInstallConversion = data;
         devLog(APPS_FLYER_DEBUG_TAG, 'install conversion', data);
         saveAppsFlyerAttributionSnapshot({
             installConversion: data,
@@ -393,26 +429,41 @@ export const readCurrentAppsFlyerDeepLinkParams = async () => {
 
     const deadlineAt = Date.now() + APPS_FLYER_OPEN_URL_WAIT_MS;
     while (Date.now() <= deadlineAt) {
-        if (!latestAppsFlyerDeepLink) {
-            await wait(APPS_FLYER_OPEN_URL_POLL_MS);
-            continue;
-        }
-
         const deepLinkParams = readAppsFlyerDeepLinkParams(latestAppsFlyerDeepLink);
         if (deepLinkParams) {
             devLog(APPS_FLYER_DEBUG_TAG, 'deep link params ready', {
+                source: 'deep_link',
                 keys: Object.keys(deepLinkParams),
             });
             return deepLinkParams;
         }
 
-        devWarn(APPS_FLYER_DEBUG_TAG, 'openUrl deep link params unavailable', {
-            deepLinkStatus: latestAppsFlyerDeepLink?.deepLinkStatus,
-        });
-        return null;
+        const installConversionDeepLinkParams = readAppsFlyerInstallConversionDeepLinkParams(latestAppsFlyerInstallConversion);
+        if (installConversionDeepLinkParams) {
+            devLog(APPS_FLYER_DEBUG_TAG, 'deep link params ready', {
+                source: 'install_conversion',
+                keys: Object.keys(installConversionDeepLinkParams),
+            });
+            return installConversionDeepLinkParams;
+        }
+
+        if (latestAppsFlyerDeepLink && latestAppsFlyerInstallConversion) {
+            devWarn(APPS_FLYER_DEBUG_TAG, 'openUrl deep link params unavailable', {
+                deepLinkStatus: latestAppsFlyerDeepLink?.deepLinkStatus,
+                installConversionFirstLaunch: readAppsFlyerCallbackFields(latestAppsFlyerInstallConversion)?.is_first_launch,
+            });
+            return null;
+        }
+
+        await wait(APPS_FLYER_OPEN_URL_POLL_MS);
     }
 
-    devWarn(APPS_FLYER_DEBUG_TAG, 'openUrl deep link callback unavailable');
+    devWarn(APPS_FLYER_DEBUG_TAG, 'openUrl deep link callback unavailable', {
+        hasDeepLinkCallback: latestAppsFlyerDeepLink !== null,
+        hasInstallConversionCallback: latestAppsFlyerInstallConversion !== null,
+        deepLinkStatus: latestAppsFlyerDeepLink?.deepLinkStatus,
+        installConversionFirstLaunch: readAppsFlyerCallbackFields(latestAppsFlyerInstallConversion)?.is_first_launch,
+    });
     return null;
 };
 

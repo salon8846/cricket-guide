@@ -171,6 +171,7 @@
         }
       ],
       "./plugins/withAppsFlyerAndroidDeepLink",
+      "./plugins/withAppsFlyerIosDeepLink",
       "expo-web-browser"
     ],
     "experiments": {
