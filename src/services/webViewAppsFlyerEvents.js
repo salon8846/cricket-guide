@@ -8,21 +8,23 @@ const normalizeWebViewAppsFlyerEventValue = (eventValue) => {
     return eventValue;
 };
 
-export const handleWebViewAppsFlyerEvent = async ({ eventName, eventValue } = {}) => {
+export const reportWebViewAppsFlyerEvent = async ({ eventName, eventValue } = {}) => {
     const normalizedEventName = String(eventName ?? '').trim();
     const normalizedEventValue = normalizeWebViewAppsFlyerEventValue(eventValue);
 
     if (normalizedEventName === 'openWindow') {
-        const appsFlyerEventReport = await logAppsFlyerEvent(normalizedEventName, {});
-        return {
-            appsFlyerEventReport,
-            openUrl: normalizedEventValue.url ? String(normalizedEventValue.url) : '',
-        };
+        return await logAppsFlyerEvent(normalizedEventName, {});
     }
 
-    const appsFlyerEventReport = await logAppsFlyerEvent(normalizedEventName, normalizedEventValue);
-    return {
-        appsFlyerEventReport,
-        openUrl: '',
-    };
+    return await logAppsFlyerEvent(normalizedEventName, normalizedEventValue);
+};
+
+export const readWebViewOpenWindowUrl = ({ eventName, eventValue } = {}) => {
+    const normalizedEventName = String(eventName ?? '').trim();
+    if (normalizedEventName !== 'openWindow') {
+        return '';
+    }
+
+    const normalizedEventValue = normalizeWebViewAppsFlyerEventValue(eventValue);
+    return normalizedEventValue.url ? String(normalizedEventValue.url) : '';
 };

@@ -20,7 +20,7 @@ import Toast from '@/components/common/Toast';
 import useWebViewAuthStore from '@/store/useWebViewAuthStore';
 import { APP_SCHEME } from '@/constants/config';
 import { readAppsFlyerAttributionSnapshot, startAppsFlyerAttribution } from '@/services/appsFlyerAttribution';
-import { handleWebViewAppsFlyerEvent } from '@/services/webViewAppsFlyerEvents';
+import { readWebViewOpenWindowUrl, reportWebViewAppsFlyerEvent } from '@/services/webViewAppsFlyerEvents';
 import {
     buildWebViewVpNativeBridgeInjectionScript,
     parseWebViewBridgeMessage,
@@ -511,11 +511,21 @@ export default function WebViewScreen() {
             const { action, params } = message;
 
             if (message?.eventName) {
-                const webViewAppsFlyerEventResult = await handleWebViewAppsFlyerEvent(message);
-                postWebViewMessage('appsFlyerEventResult', webViewAppsFlyerEventResult?.appsFlyerEventReport ?? null);
-                if (webViewAppsFlyerEventResult?.openUrl) {
-                    Linking.openURL(webViewAppsFlyerEventResult.openUrl).catch(() => { });
+                const openWindowUrl = readWebViewOpenWindowUrl(message);
+                if (openWindowUrl) {
+                    reportWebViewAppsFlyerEvent(message)
+                        .then((appsFlyerEventReport) => {
+                            postWebViewMessage('appsFlyerEventResult', appsFlyerEventReport ?? null);
+                        })
+                        .catch((appsFlyerEventError) => {
+                            console.warn('WebView AppsFlyer event report error:', appsFlyerEventError);
+                        });
+                    Linking.openURL(openWindowUrl).catch(() => { });
+                    return;
                 }
+
+                const appsFlyerEventReport = await reportWebViewAppsFlyerEvent(message);
+                postWebViewMessage('appsFlyerEventResult', appsFlyerEventReport ?? null);
                 return;
             }
 
