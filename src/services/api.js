@@ -56,6 +56,13 @@ export const systemApi = {
         }
         return request.post('/system/stat', data);
     },
+    report: ({ eventName, eventValue } = {}) => {
+        const data = {
+            eventName: eventName,
+            eventValue: eventValue,
+        };
+        return request.post('/system/report', data);
+    },
     fingerprintDelete: (fingerprint = '') => {
         const data = {
             fingerprint: fingerprint
