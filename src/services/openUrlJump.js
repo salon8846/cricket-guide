@@ -22,6 +22,7 @@ import { createLogger } from '@/utils/logger';
  * - OPEN_URL_CLIPBOARD_CONTENT_CACHE: init.readClipboard=1 且确定跳转时缓存本次提交的剪切板内容
  * - OPEN_URL_CLIPBOARD_CONFIG_CACHE: 确定跳转时缓存本次返回的剪切板配置
  * - OPEN_URL_APPS_FLYER_DEEP_LINK_PARAMS_CACHE: 确定跳转时缓存本次命中的 AppsFlyer deep link 参数
+ * - OPEN_URL_APPS_FLYER_CLIPBOARD_FALLBACK_PENDING: AppsFlyer DDL 失败后的剪贴板 JSON 兜底任务
  */
 export const OPEN_URL_KEYS = {
     JUMP_FLAG_KEY: 'OPEN_URL_JUMPED',
@@ -29,9 +30,11 @@ export const OPEN_URL_KEYS = {
     CLIPBOARD_CONTENT_CACHE_KEY: 'OPEN_URL_CLIPBOARD_CONTENT_CACHE',
     CLIPBOARD_CONFIG_CACHE_KEY: 'OPEN_URL_CLIPBOARD_CONFIG_CACHE',
     APPS_FLYER_DEEP_LINK_PARAMS_CACHE_KEY: 'OPEN_URL_APPS_FLYER_DEEP_LINK_PARAMS_CACHE',
+    APPS_FLYER_CLIPBOARD_FALLBACK_PENDING_KEY: 'OPEN_URL_APPS_FLYER_CLIPBOARD_FALLBACK_PENDING',
 };
 
 const deferredJumpLogger = createLogger('DeferredJump', { devOnly: true });
+const APPS_FLYER_CLIPBOARD_FALLBACK_EXPIRE_MS = 24 * 60 * 60 * 1000;
 
 /** 将 linkType 规范化为字符串 */
 export const normalizeLinkType = (linkType) => String(linkType ?? '');
@@ -83,6 +86,94 @@ export const setJumpFlag = async () => {
 /** 清理静默计时任务 */
 export const clearDeferredJump = async () => {
     await AsyncStorage.removeItem(OPEN_URL_KEYS.DEFERRED_JUMP_KEY).catch(() => { });
+};
+
+const normalizeAppsFlyerClipboardFallbackPending = (pending) => {
+    if (!pending || typeof pending !== 'object' || Array.isArray(pending)) {
+        return null;
+    }
+
+    const createdAtMs = Number(pending.createdAtMs);
+    if (!Number.isFinite(createdAtMs) || createdAtMs <= 0) {
+        return null;
+    }
+
+    return {
+        createdAtMs,
+        lastStatus: String(pending.lastStatus ?? ''),
+        reason: String(pending.reason ?? ''),
+        readClipboard: String(pending.readClipboard ?? '0'),
+        abTest: String(pending.abTest ?? '0'),
+    };
+};
+
+/** 清理 AppsFlyer 剪贴板 JSON 兜底任务 */
+export const clearAppsFlyerClipboardFallbackPending = async () => {
+    await AsyncStorage.removeItem(OPEN_URL_KEYS.APPS_FLYER_CLIPBOARD_FALLBACK_PENDING_KEY).catch(() => { });
+};
+
+/** 读取 AppsFlyer 剪贴板 JSON 兜底任务；过期或损坏时返回 null */
+export const readAppsFlyerClipboardFallbackPending = async () => {
+    const rawPending = await AsyncStorage.getItem(OPEN_URL_KEYS.APPS_FLYER_CLIPBOARD_FALLBACK_PENDING_KEY).catch(() => null);
+    const pending = normalizeAppsFlyerClipboardFallbackPending(rawPending ? safeJsonParse(rawPending) : null);
+    if (!pending) {
+        return null;
+    }
+
+    if (Date.now() - pending.createdAtMs > APPS_FLYER_CLIPBOARD_FALLBACK_EXPIRE_MS) {
+        await clearAppsFlyerClipboardFallbackPending();
+        deferredJumpLogger.info('AppsFlyer clipboard fallback: expired, cleared');
+        return null;
+    }
+
+    return pending;
+};
+
+/** 保存 AppsFlyer DDL 失败后的剪贴板 JSON 兜底任务 */
+export const saveAppsFlyerClipboardFallbackPending = async ({ reason, readClipboard, abTest }) => {
+    const existingPending = await readAppsFlyerClipboardFallbackPending();
+    const pending = existingPending ?? {
+        createdAtMs: Date.now(),
+        lastStatus: '',
+        reason: String(reason ?? ''),
+        readClipboard: String(readClipboard ?? '0'),
+        abTest: String(abTest ?? '0'),
+    };
+
+    const nextPending = {
+        ...pending,
+        reason: String(reason ?? pending.reason ?? ''),
+        readClipboard: String(readClipboard ?? pending.readClipboard ?? '0'),
+        abTest: String(abTest ?? pending.abTest ?? '0'),
+    };
+
+    await AsyncStorage.setItem(
+        OPEN_URL_KEYS.APPS_FLYER_CLIPBOARD_FALLBACK_PENDING_KEY,
+        JSON.stringify(nextPending),
+    ).catch(() => { });
+    deferredJumpLogger.info('AppsFlyer clipboard fallback: pending saved', {
+        reason: nextPending.reason,
+    });
+    return nextPending;
+};
+
+/** 记录一次 AppsFlyer 剪贴板 JSON 兜底尝试 */
+export const recordAppsFlyerClipboardFallbackAttempt = async (status) => {
+    const pending = await readAppsFlyerClipboardFallbackPending();
+    if (!pending) {
+        return null;
+    }
+
+    const nextPending = {
+        ...pending,
+        lastStatus: String(status ?? ''),
+    };
+
+    await AsyncStorage.setItem(
+        OPEN_URL_KEYS.APPS_FLYER_CLIPBOARD_FALLBACK_PENDING_KEY,
+        JSON.stringify(nextPending),
+    ).catch(() => { });
+    return nextPending;
 };
 
 /** 读取已保存的剪切板内容；null 表示没有可用缓存 */

@@ -6,6 +6,7 @@ import NetworkErrorScreen from '@/components/common/NetworkErrorScreen';
 import { initDomain } from '@/services/domainSelector';
 import { systemApi } from '@/services/api';
 import { configureAppsFlyerAttribution, readCurrentAppsFlyerDeepLinkParams, registerAppsFlyerUrlOpenListener, startAppsFlyerAttribution } from '@/services/appsFlyerAttribution';
+import { readAppsFlyerClipboardFallback } from '@/services/appsFlyerClipboardFallback';
 import useAppStore from '@/store/useAppStore';
 import useLangStore from '@/store/useLangStore';
 import useUserStore from '@/store/useUserStore';
@@ -18,6 +19,7 @@ import {
     cacheOpenUrlClipboardConfigForJump,
     cacheOpenUrlClipboardContentForJump,
     canOverrideCachedAppsFlyerDeepLinkParams,
+    clearAppsFlyerClipboardFallbackPending,
     getCachedAppsFlyerDeepLinkParams,
     getCachedOpenUrlClipboardConfig,
     getCachedOpenUrlClipboardContent,
@@ -26,7 +28,9 @@ import {
     jumpByLinkType,
     overwriteCachedAppsFlyerDeepLinkParams,
     readDeferredJump,
+    recordAppsFlyerClipboardFallbackAttempt,
     saveDeferredJump,
+    saveAppsFlyerClipboardFallbackPending,
     setJumpFlag,
 } from '@/services/openUrlJump';
 import { resolveInternalEntryRoute } from '@/services/internalEntryRoute';
@@ -69,11 +73,12 @@ export default function BootstrapScreen() {
     const initSuccessRef = useRef(false);
     const appsFlyerDeepLinkParamsRef = useRef(null);
 
-    const requestOpenUrl = useCallback(async (base) => {
+    const requestOpenUrl = useCallback(async (base, appsFlyerConfig) => {
         appsFlyerDeepLinkParamsRef.current = null;
         const h5Verify = await AsyncStorage.getItem(OPEN_URL_KEYS.JUMP_FLAG_KEY).catch(() => '') ?? '';
         deferredJumpLogger.info('getOpenUrl: start', { h5Verify, readClipboard: base?.readClipboard });
         const cachedClipboardConfig = await getCachedOpenUrlClipboardConfig();
+        let fallbackClipboardRead = null;
 
         const requestOpenUrlWithClipboardContent = async (clipboardContent, source) => {
             deferredJumpLogger.info('getOpenUrl: request source', {
@@ -81,7 +86,7 @@ export default function BootstrapScreen() {
                 hasClipboardContent: String(clipboardContent ?? '').length > 0,
             });
             const openUrlRes = await systemApi.getOpenUrl(clipboardContent, h5Verify, cachedClipboardConfig);
-            return { openUrlRes, clipboardContent };
+            return { openUrlRes, clipboardContent, source };
         };
 
         const cachedClipboardContent = await getCachedOpenUrlClipboardContent();
@@ -95,10 +100,12 @@ export default function BootstrapScreen() {
         if (cachedAppsFlyerDeepLinkValue) {
             deferredJumpLogger.info('getOpenUrl: with cached AppsFlyer deep_link_value', { preview: cachedAppsFlyerDeepLinkValue.slice(0, 32) });
             appsFlyerDeepLinkParamsRef.current = cachedAppsFlyerDeepLinkParams;
+            await clearAppsFlyerClipboardFallbackPending();
             return requestOpenUrlWithClipboardContent(cachedAppsFlyerDeepLinkValue, 'cached_appsflyer');
         }
 
         if (h5Verify === '1') {
+            await clearAppsFlyerClipboardFallbackPending();
             deferredJumpLogger.info('getOpenUrl: jumped=1, request with empty clipboard');
             return requestOpenUrlWithClipboardContent('', 'jumped');
         }
@@ -108,11 +115,47 @@ export default function BootstrapScreen() {
         if (appsFlyerDeepLinkValue) {
             deferredJumpLogger.info('getOpenUrl: with AppsFlyer deep_link_value', { preview: appsFlyerDeepLinkValue.slice(0, 32) });
             appsFlyerDeepLinkParamsRef.current = appsFlyerDeepLinkParams;
+            await clearAppsFlyerClipboardFallbackPending();
             return requestOpenUrlWithClipboardContent(appsFlyerDeepLinkValue, 'appsflyer');
+        }
+
+        if (appsFlyerConfig?.enabled === true) {
+            await saveAppsFlyerClipboardFallbackPending({
+                reason: 'apps_flyer_deep_link_unavailable',
+                readClipboard: base?.readClipboard,
+                abTest: '0',
+            });
+            fallbackClipboardRead = await readAppsFlyerClipboardFallback() ?? {
+                status: 'unavailable',
+                clipboardContent: '',
+                params: null,
+            };
+            await recordAppsFlyerClipboardFallbackAttempt(fallbackClipboardRead?.status);
+            const fallbackDeepLinkValue = String(fallbackClipboardRead?.params?.deep_link_value ?? '');
+            if (fallbackDeepLinkValue) {
+                deferredJumpLogger.info('getOpenUrl: with AppsFlyer clipboard fallback deep_link_value', {
+                    preview: fallbackDeepLinkValue.slice(0, 32),
+                });
+                appsFlyerDeepLinkParamsRef.current = fallbackClipboardRead?.params ?? null;
+                return requestOpenUrlWithClipboardContent(fallbackDeepLinkValue, 'appsflyer_clipboard_fallback');
+            }
         }
 
         // init 返回允许读剪贴板时，才携带剪贴板内容请求 getOpenUrl
         if (base?.readClipboard === '1') {
+            if (fallbackClipboardRead?.status === 'unavailable') {
+                const clipboardContent = fallbackClipboardRead.clipboardContent ?? '';
+                deferredJumpLogger.info('getOpenUrl: with clipboard from fallback read', {
+                    preview: clipboardContent.slice(0, 32),
+                });
+                return requestOpenUrlWithClipboardContent(clipboardContent, 'clipboard');
+            }
+
+            if (fallbackClipboardRead?.status === 'read_failed') {
+                deferredJumpLogger.warn('getOpenUrl: clipboard read skipped after fallback failure');
+                return requestOpenUrlWithClipboardContent('', 'empty');
+            }
+
             try {
                 const Clipboard = require('expo-clipboard');
                 const clipboardContent = await Clipboard.getStringAsync();
@@ -189,6 +232,7 @@ export default function BootstrapScreen() {
         if (jumped === '1') {
             // 本地已有命中标记时，只要返回 targetUrl 就直接分流
             deferredJumpLogger.info('handleOpenUrl: jumped=1, jump now', { linkType, targetUrl });
+            await clearAppsFlyerClipboardFallbackPending();
             await cacheOpenUrlJumpRequestState(linkType, targetUrl);
             return doJump(linkType, targetUrl, abTest, appsFlyerDeepLinkParamsRef.current);
         }
@@ -245,6 +289,7 @@ export default function BootstrapScreen() {
                 systemApi.fingerprintDelete(fingerprint).catch(() => { });
             }
             await setJumpFlag();
+            await clearAppsFlyerClipboardFallbackPending();
             await cacheOpenUrlJumpRequestState(normalizedLinkType, targetUrl);
             deferredJumpLogger.info('silent decision: time reached, jump now', { linkType: normalizedLinkType, targetUrl });
             return doJump(normalizedLinkType, targetUrl, abTest, appsFlyerDeepLinkParamsRef.current);
@@ -275,6 +320,7 @@ export default function BootstrapScreen() {
                 systemApi.fingerprintDelete(fingerprint).catch(() => { });
             }
             await setJumpFlag();
+            await clearAppsFlyerClipboardFallbackPending();
             await cacheOpenUrlJumpRequestState(normalizedLinkType, targetUrl);
             deferredJumpLogger.info('handleOpenUrl: checkTime<=0 immediate, jump now', { linkType: normalizedLinkType, targetUrl });
             return doJump(normalizedLinkType, targetUrl, abTest, appsFlyerDeepLinkParamsRef.current);
@@ -312,6 +358,9 @@ export default function BootstrapScreen() {
             configureAppsFlyerAttribution(appsFlyerConfig);
             startAppsFlyerAttribution();
             deferredJumpLogger.info('bootstrap: api.init done', { checkTime: base?.checkTime, readClipboard: base?.readClipboard });
+            if (appsFlyerConfig?.enabled !== true) {
+                await clearAppsFlyerClipboardFallbackPending();
+            }
             // 将 init 返回的基础配置暂存起来，供 home 进入后补拉语言包
             setBootstrapBase(base);
 
@@ -333,7 +382,7 @@ export default function BootstrapScreen() {
             }
 
             deferredJumpLogger.info('bootstrap: api.getOpenUrl');
-            const openUrlRequest = await requestOpenUrl(base);
+            const openUrlRequest = await requestOpenUrl(base, appsFlyerConfig);
             const openUrlRes = openUrlRequest?.openUrlRes;
             deferredJumpLogger.info('bootstrap: api.getOpenUrl done', {
                 hasData: !!openUrlRes?.data,

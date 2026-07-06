@@ -7,6 +7,7 @@ import {
     cacheOpenUrlClipboardConfigForJump,
     cacheOpenUrlClipboardContentForJump,
     clearDeferredJump,
+    clearAppsFlyerClipboardFallbackPending,
     getCachedAppsFlyerDeepLinkParams,
     getCachedOpenUrlClipboardConfig,
     getCachedOpenUrlClipboardContent,
@@ -56,6 +57,7 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
             const jumped = await getJumpFlag();
             if (jumped === '1') {
                 await clearDeferredJump();
+                await clearAppsFlyerClipboardFallbackPending();
                 deferredJumpLogger.info('deferred: jumped=1, cleared deferred');
                 return;
             }
@@ -148,6 +150,7 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                     targetUrl: nextTargetUrl,
                 });
                 await clearDeferredJump();
+                await clearAppsFlyerClipboardFallbackPending();
                 deferredJumpLogger.info('deferred: refreshed, jump now', { linkType: nextLinkType, targetUrl: nextTargetUrl });
                 await jumpByLinkType({
                     router,
