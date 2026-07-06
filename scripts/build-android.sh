@@ -13,8 +13,12 @@ for arg in "$@"; do
     --clear|-c)
       CLEAR=1
       ;;
-    apk|app)
+    apk|aab)
       BUILD_TYPE="$arg"
+      ;;
+    *)
+      printf 'Error: Unknown argument: %s\n' "$arg" >&2
+      exit 1
       ;;
   esac
 done
@@ -39,10 +43,10 @@ need_cmd() {
 install_js_dependencies() {
   if [ -f "$ROOT_DIR/package-lock.json" ]; then
     need_cmd npm
-    log "Installing JS dependencies with npm..."
+    log "Installing JS dependencies with npm ci..."
     (
       cd "$ROOT_DIR"
-      npm install
+      npm ci
     )
     return
   fi
@@ -108,14 +112,29 @@ try {
   )
 }
 
-# Validate build type
 case "$BUILD_TYPE" in
-  apk|app)
+  apk|aab)
     ;;
   *)
-    fail "Invalid build type: $BUILD_TYPE. Use 'apk' or 'app'."
+    fail "Invalid build type: $BUILD_TYPE. Use 'apk' or 'aab'."
     ;;
 esac
+
+case "$CONFIGURATION" in
+  Debug|Release)
+    ;;
+  debug)
+    CONFIGURATION=Debug
+    ;;
+  release)
+    CONFIGURATION=Release
+    ;;
+  *)
+    fail "Invalid configuration: $CONFIGURATION. Use 'Debug' or 'Release'."
+    ;;
+esac
+
+CONFIGURATION_DIR=$(printf '%s' "$CONFIGURATION" | tr '[:upper:]' '[:lower:]')
 
 need_cmd find
 
@@ -151,10 +170,10 @@ if [ "$BUILD_TYPE" = "apk" ]; then
   log "Building APK ($CONFIGURATION)..."
   (
     cd "$ANDROID_DIR"
-    ./gradlew assembleRelease
+    ./gradlew "assemble$CONFIGURATION"
   )
 
-  APK_DIR="$OUTPUT_DIR/apk/release"
+  APK_DIR="$OUTPUT_DIR/apk/$CONFIGURATION_DIR"
   if [ ! -d "$APK_DIR" ]; then
     fail "APK output directory not found: $APK_DIR"
   fi
@@ -165,7 +184,7 @@ if [ "$BUILD_TYPE" = "apk" ]; then
     fail "No .apk artifact found under $APK_DIR."
   fi
 
-  OUTPUT_NAME=${OUTPUT_NAME:-$(printf '%s-%s.apk' "$APP_DISPLAY_NAME" "$(date +%Y%m%d%H%M%S)" | tr ' ' '-')}
+  OUTPUT_NAME=${OUTPUT_NAME:-$(printf '%s-%s-%s.apk' "$APP_DISPLAY_NAME" "$CONFIGURATION_DIR" "$(date +%Y%m%d%H%M%S)" | tr ' ' '-')}
   FINAL_PATH="$OUTPUT_DIR/$OUTPUT_NAME"
   cp "$APK_PATH" "$FINAL_PATH"
   log "APK created: $FINAL_PATH"
@@ -174,10 +193,10 @@ else
   log "Building AAB ($CONFIGURATION)..."
   (
     cd "$ANDROID_DIR"
-    ./gradlew bundleRelease
+    ./gradlew "bundle$CONFIGURATION"
   )
 
-  AAB_DIR="$OUTPUT_DIR/bundle/release"
+  AAB_DIR="$OUTPUT_DIR/bundle/$CONFIGURATION_DIR"
   if [ ! -d "$AAB_DIR" ]; then
     fail "AAB output directory not found: $AAB_DIR"
   fi
@@ -188,7 +207,7 @@ else
     fail "No .aab artifact found under $AAB_DIR."
   fi
 
-  OUTPUT_NAME=${OUTPUT_NAME:-$(printf '%s-%s.aab' "$APP_DISPLAY_NAME" "$(date +%Y%m%d%H%M%S)" | tr ' ' '-')}
+  OUTPUT_NAME=${OUTPUT_NAME:-$(printf '%s-%s-%s.aab' "$APP_DISPLAY_NAME" "$CONFIGURATION_DIR" "$(date +%Y%m%d%H%M%S)" | tr ' ' '-')}
   FINAL_PATH="$OUTPUT_DIR/$OUTPUT_NAME"
   cp "$AAB_PATH" "$FINAL_PATH"
   log "AAB created: $FINAL_PATH"

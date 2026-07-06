@@ -4,8 +4,8 @@ set -eu
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 IOS_DIR="$ROOT_DIR/ios"
-CONFIGURATION=${CONFIGURATION:-Release}
-DESTINATION=${DESTINATION:-generic/platform=iOS}
+CONFIGURATION=Debug
+DESTINATION=${DESTINATION:-generic/platform=iOS Simulator}
 RCT_USE_RN_DEP=${RCT_USE_RN_DEP:-0}
 RCT_USE_PREBUILT_RNCORE=${RCT_USE_PREBUILT_RNCORE:-0}
 CLEAR=0
@@ -14,6 +14,10 @@ for arg in "$@"; do
   case "$arg" in
     --clear|-c)
       CLEAR=1
+      ;;
+    *)
+      printf 'Error: Unknown argument: %s\n' "$arg" >&2
+      exit 1
       ;;
   esac
 done
@@ -48,10 +52,10 @@ prefer_system_git() {
 install_js_dependencies() {
   if [ -f "$ROOT_DIR/package-lock.json" ]; then
     need_cmd npm
-    log "Installing JS dependencies with npm..."
+    log "Installing JS dependencies with npm ci..."
     (
       cd "$ROOT_DIR"
-      npm install
+      npm ci
     )
     return
   fi
@@ -176,8 +180,8 @@ fi
 
 SCHEME_NAME=$(resolve_scheme)
 BUILD_DIR="$IOS_DIR/build"
-DERIVED_DATA_DIR="$BUILD_DIR/derived-data"
-PRODUCTS_DIR="$DERIVED_DATA_DIR/Build/Products/${CONFIGURATION}-iphoneos"
+DERIVED_DATA_DIR="$BUILD_DIR/derived-data-simulator-debug"
+PRODUCTS_DIR="$DERIVED_DATA_DIR/Build/Products/${CONFIGURATION}-iphonesimulator"
 OUTPUT_DIR="$BUILD_DIR/output"
 APP_DISPLAY_NAME=$(resolve_expo_app_name || true)
 DEFAULT_OUTPUT_BASENAME=$SCHEME_NAME
@@ -186,9 +190,8 @@ if [ -n "$APP_DISPLAY_NAME" ]; then
   DEFAULT_OUTPUT_BASENAME=$APP_DISPLAY_NAME
 fi
 
-OUTPUT_NAME=${OUTPUT_NAME:-$(printf '%s-%s' "$DEFAULT_OUTPUT_BASENAME" "$(date +%Y%m%d%H%M%S)" | tr ' ' '-')}
-IPA_PATH="$OUTPUT_DIR/$OUTPUT_NAME.ipa"
-PAYLOAD_DIR="$OUTPUT_DIR/Payload"
+OUTPUT_NAME=${OUTPUT_NAME:-$(printf '%s-simulator-debug-%s' "$DEFAULT_OUTPUT_BASENAME" "$(date +%Y%m%d%H%M%S)" | tr ' ' '-')}
+ZIP_PATH="$OUTPUT_DIR/$OUTPUT_NAME.zip"
 
 log "React Native pods mode: RCT_USE_RN_DEP=$RCT_USE_RN_DEP, RCT_USE_PREBUILT_RNCORE=$RCT_USE_PREBUILT_RNCORE"
 log "Using git: $(command -v git)"
@@ -205,27 +208,23 @@ xcodebuild \
   -scheme "$SCHEME_NAME" \
   -configuration "$CONFIGURATION" \
   -destination "$DESTINATION" \
-  -sdk iphoneos \
+  -sdk iphonesimulator \
   -derivedDataPath "$DERIVED_DATA_DIR" \
-  CODE_SIGN_IDENTITY="" \
-  CODE_SIGNING_REQUIRED=NO \
   CODE_SIGNING_ALLOWED=NO \
   build
 
 APP_PATH=$(find "$PRODUCTS_DIR" -maxdepth 1 -type d -name '*.app' | sort | head -n 1)
 
 if [ -z "$APP_PATH" ]; then
-  fail "No .app artifact found under $PRODUCTS_DIR."
+  fail "No simulator .app artifact found under $PRODUCTS_DIR."
 fi
 
-rm -rf "$PAYLOAD_DIR" "$IPA_PATH"
 mkdir -p "$OUTPUT_DIR"
-mkdir -p "$PAYLOAD_DIR"
-cp -R "$APP_PATH" "$PAYLOAD_DIR/"
+rm -f "$ZIP_PATH"
 (
-  cd "$OUTPUT_DIR"
-  zip -qry "$IPA_PATH" Payload
+  cd "$(dirname "$APP_PATH")"
+  zip -qry "$ZIP_PATH" "$(basename "$APP_PATH")"
 )
-rm -rf "$PAYLOAD_DIR"
 
-log "IPA created: $IPA_PATH"
+log "Simulator app created: $APP_PATH"
+log "Simulator app archive created: $ZIP_PATH"

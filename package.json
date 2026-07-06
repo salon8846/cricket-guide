@@ -9,6 +9,12 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "build:ios-device-debug-ipa": "CONFIGURATION=Debug scripts/build-ios-device-ipa.sh",
+    "build:ios-device-release-ipa": "CONFIGURATION=Release scripts/build-ios-device-ipa.sh",
+    "build:ios-simulator-debug": "scripts/build-ios-simulator-debug.sh",
+    "build:android-debug-apk": "CONFIGURATION=Debug scripts/build-android.sh apk",
+    "build:android-release-apk": "CONFIGURATION=Release scripts/build-android.sh apk",
+    "build:android-release-aab": "CONFIGURATION=Release scripts/build-android.sh aab",
     "build:eruda": "node scripts/build-eruda-source.js",
     "build:vconsole": "node scripts/build-vconsole-source.js"
   },
