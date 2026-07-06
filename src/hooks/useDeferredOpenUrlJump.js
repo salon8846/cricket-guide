@@ -1,14 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { systemApi } from '@/services/api';
+import { createLogger } from '@/utils/logger';
 import {
-    OPEN_URL_DEBUG_TAG,
     cacheAppsFlyerDeepLinkParamsForJump,
     cacheOpenUrlClipboardConfigForJump,
     cacheOpenUrlClipboardContentForJump,
     clearDeferredJump,
-    devLog,
-    devWarn,
     getCachedAppsFlyerDeepLinkParams,
     getCachedOpenUrlClipboardConfig,
     getCachedOpenUrlClipboardContent,
@@ -20,6 +18,7 @@ import {
 } from '@/services/openUrlJump';
 
 const MAX_TIMEOUT_MS = 2147483647;
+const deferredJumpLogger = createLogger('DeferredJump', { devOnly: true });
 
 /**
  * 静默计时到点检测
@@ -43,7 +42,7 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
         }
 
         let canceled = false;
-        devLog(OPEN_URL_DEBUG_TAG, 'deferred: enabled');
+        deferredJumpLogger.info('deferred: enabled');
         // 注意：JS timer 在后台可能会被系统挂起，因此同时监听 AppState active 进行复核。
 
         const clearTimer = () => {
@@ -57,27 +56,27 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
             const jumped = await getJumpFlag();
             if (jumped === '1') {
                 await clearDeferredJump();
-                devLog(OPEN_URL_DEBUG_TAG, 'deferred: jumped=1, cleared deferred');
+                deferredJumpLogger.info('deferred: jumped=1, cleared deferred');
                 return;
             }
 
             const deferred = await readDeferredJump();
             if (!deferred) {
-                devLog(OPEN_URL_DEBUG_TAG, 'deferred: none');
+                deferredJumpLogger.info('deferred: none');
                 return;
             }
 
             const { triggerAtMs, fingerprint, readClipboard } = deferred;
 
             const remaining = triggerAtMs - Date.now();
-            devLog(OPEN_URL_DEBUG_TAG, 'deferred: check', {
+            deferredJumpLogger.info('deferred: check', {
                 nowMs: Date.now(),
                 triggerAtMs,
                 remainingMs: remaining,
             });
 
             if (remaining <= 0) {
-                devLog(OPEN_URL_DEBUG_TAG, 'deferred: time reached, refresh openUrl');
+                deferredJumpLogger.info('deferred: time reached, refresh openUrl');
 
                 const h5Verify = (await getJumpFlag()) ?? '';
                 const cachedClipboardConfig = await getCachedOpenUrlClipboardConfig();
@@ -88,7 +87,7 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                 const appsFlyerDeepLinkParamsForJump = cachedClipboardContent === null && cachedAppsFlyerDeepLinkValue
                     ? cachedAppsFlyerDeepLinkParams
                     : null;
-                devLog(OPEN_URL_DEBUG_TAG, 'deferred: refresh clipboard', {
+                deferredJumpLogger.info('deferred: refresh clipboard', {
                     hasCache: cachedClipboardContent !== null,
                     hasAppsFlyerCache: cachedAppsFlyerDeepLinkParams !== null,
                     preview: clipboardContent.slice(0, 32),
@@ -99,7 +98,7 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                     openUrlRes = await systemApi.getOpenUrl(clipboardContent, h5Verify, cachedClipboardConfig);
                 } catch (e) {
                     // 保留 deferred，等待下次 AppState active 再尝试
-                    devWarn(OPEN_URL_DEBUG_TAG, 'deferred: getOpenUrl refresh failed', e);
+                    deferredJumpLogger.warn('deferred: getOpenUrl refresh failed', e);
                     return;
                 }
 
@@ -111,7 +110,7 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                 const nextClipboardConfig = data?.clipboardConfig ?? {};
 
                 if (nextIsOpen !== '1' || !nextTargetUrl || !isSupportedLinkType(nextLinkType)) {
-                    devWarn(OPEN_URL_DEBUG_TAG, 'deferred: refresh returned no jump, cleared deferred', {
+                    deferredJumpLogger.warn('deferred: refresh returned no jump, cleared deferred', {
                         hasData: !!data,
                         isOpen: nextIsOpen,
                         linkType: nextLinkType,
@@ -149,7 +148,7 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                     targetUrl: nextTargetUrl,
                 });
                 await clearDeferredJump();
-                devLog(OPEN_URL_DEBUG_TAG, 'deferred: refreshed, jump now', { linkType: nextLinkType, targetUrl: nextTargetUrl });
+                deferredJumpLogger.info('deferred: refreshed, jump now', { linkType: nextLinkType, targetUrl: nextTargetUrl });
                 await jumpByLinkType({
                     router,
                     linkType: nextLinkType,
@@ -161,29 +160,29 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
 
             clearTimer();
             const delay = Math.min(remaining, MAX_TIMEOUT_MS);
-            devLog(OPEN_URL_DEBUG_TAG, 'deferred: scheduled', { delayMs: delay });
+            deferredJumpLogger.info('deferred: scheduled', { delayMs: delay });
             deferredTimerRef.current = setTimeout(() => {
                 if (canceled) {
                     return;
                 }
-                runDeferredJump().catch((e) => devWarn(OPEN_URL_DEBUG_TAG, 'deferred: trigger failed', e));
+                runDeferredJump().catch((e) => deferredJumpLogger.warn('deferred: trigger failed', e));
             }, delay);
         };
 
         const appStateListener = AppState.addEventListener('change', (nextState) => {
             if (nextState === 'active') {
-                devLog(OPEN_URL_DEBUG_TAG, 'deferred: AppState active, re-check');
-                runDeferredJump().catch((e) => devWarn(OPEN_URL_DEBUG_TAG, 'deferred: active check failed', e));
+                deferredJumpLogger.info('deferred: AppState active, re-check');
+                runDeferredJump().catch((e) => deferredJumpLogger.warn('deferred: active check failed', e));
             }
         });
 
-        runDeferredJump().catch((e) => devWarn(OPEN_URL_DEBUG_TAG, 'deferred: init failed', e));
+        runDeferredJump().catch((e) => deferredJumpLogger.warn('deferred: init failed', e));
 
         return () => {
             canceled = true;
             clearTimer();
             appStateListener.remove();
-            devLog(OPEN_URL_DEBUG_TAG, 'deferred: disabled');
+            deferredJumpLogger.info('deferred: disabled');
         };
     }, [enabled, router]);
 }

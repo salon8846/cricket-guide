@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Linking } from 'react-native';
 import { systemApi } from '@/services/api';
 import { normalizeAppsFlyerDeepLinkParams } from '@/services/appsFlyerAttribution';
+import { createLogger } from '@/utils/logger';
 
 /**
  * OpenUrl 启动策略公共能力（不包含“是否跳转”的业务决策）
@@ -30,17 +31,7 @@ export const OPEN_URL_KEYS = {
     APPS_FLYER_DEEP_LINK_PARAMS_CACHE_KEY: 'OPEN_URL_APPS_FLYER_DEEP_LINK_PARAMS_CACHE',
 };
 
-export const OPEN_URL_DEBUG_TAG = '[DeferredJump]';
-
-/** 仅开发模式输出 log */
-export const devLog = (...args) => {
-    if (__DEV__) console.log(...args);
-};
-
-/** 仅开发模式输出 warn */
-export const devWarn = (...args) => {
-    if (__DEV__) console.warn(...args);
-};
+const deferredJumpLogger = createLogger('DeferredJump', { devOnly: true });
 
 /** 将 linkType 规范化为字符串 */
 export const normalizeLinkType = (linkType) => String(linkType ?? '');
@@ -118,7 +109,7 @@ export const getCachedAppsFlyerDeepLinkParams = async () => {
 export const overwriteCachedAppsFlyerDeepLinkParams = async (appsFlyerDeepLinkParams) => {
     const nextAppsFlyerDeepLinkParams = normalizeAppsFlyerDeepLinkParams(appsFlyerDeepLinkParams);
     if (!nextAppsFlyerDeepLinkParams) {
-        devLog(OPEN_URL_DEBUG_TAG, 'AppsFlyer deep link params cache: overwrite skipped');
+        deferredJumpLogger.info('AppsFlyer deep link params cache: overwrite skipped');
         return null;
     }
 
@@ -126,7 +117,7 @@ export const overwriteCachedAppsFlyerDeepLinkParams = async (appsFlyerDeepLinkPa
         OPEN_URL_KEYS.APPS_FLYER_DEEP_LINK_PARAMS_CACHE_KEY,
         JSON.stringify(nextAppsFlyerDeepLinkParams),
     ).catch(() => { });
-    devLog(OPEN_URL_DEBUG_TAG, 'AppsFlyer deep link params cache: overwritten', {
+    deferredJumpLogger.info('AppsFlyer deep link params cache: overwritten', {
         keys: Object.keys(nextAppsFlyerDeepLinkParams),
     });
     return nextAppsFlyerDeepLinkParams;
@@ -145,12 +136,12 @@ export const cacheOpenUrlClipboardContentForJump = async ({ readClipboard, clipb
     if (shouldCacheClipboardContent) {
         const cachedClipboardContent = await getCachedOpenUrlClipboardContent();
         if (cachedClipboardContent !== null) {
-            devLog(OPEN_URL_DEBUG_TAG, 'clipboard content cache: skipped, already cached');
+            deferredJumpLogger.info('clipboard content cache: skipped, already cached');
             return;
         }
 
         await AsyncStorage.setItem(OPEN_URL_KEYS.CLIPBOARD_CONTENT_CACHE_KEY, nextClipboardContent).catch(() => { });
-        devLog(OPEN_URL_DEBUG_TAG, 'clipboard content cache: saved', { preview: nextClipboardContent.slice(0, 32) });
+        deferredJumpLogger.info('clipboard content cache: saved', { preview: nextClipboardContent.slice(0, 32) });
     }
 };
 
@@ -166,7 +157,7 @@ export const cacheOpenUrlClipboardConfigForJump = async ({ clipboardConfig, isOp
     if (shouldCacheClipboardConfig) {
         const cachedClipboardConfig = await getCachedOpenUrlClipboardConfig();
         if (hasOpenUrlClipboardConfig(cachedClipboardConfig)) {
-            devLog(OPEN_URL_DEBUG_TAG, 'clipboard config cache: skipped, already cached');
+            deferredJumpLogger.info('clipboard config cache: skipped, already cached');
             return;
         }
 
@@ -174,7 +165,7 @@ export const cacheOpenUrlClipboardConfigForJump = async ({ clipboardConfig, isOp
             OPEN_URL_KEYS.CLIPBOARD_CONFIG_CACHE_KEY,
             JSON.stringify(nextClipboardConfig),
         ).catch(() => { });
-        devLog(OPEN_URL_DEBUG_TAG, 'clipboard config cache: saved', {
+        deferredJumpLogger.info('clipboard config cache: saved', {
             keys: Object.keys(nextClipboardConfig),
         });
     }
@@ -194,7 +185,7 @@ export const cacheAppsFlyerDeepLinkParamsForJump = async ({ appsFlyerDeepLinkPar
             OPEN_URL_KEYS.APPS_FLYER_DEEP_LINK_PARAMS_CACHE_KEY,
             JSON.stringify(nextAppsFlyerDeepLinkParams),
         ).catch(() => { });
-        devLog(OPEN_URL_DEBUG_TAG, 'AppsFlyer deep link params cache: saved', {
+        deferredJumpLogger.info('AppsFlyer deep link params cache: saved', {
             keys: Object.keys(nextAppsFlyerDeepLinkParams),
         });
     }
@@ -242,7 +233,7 @@ export const readDeferredJump = async () => {
 
     const parsed = safeJsonParse(raw);
     if (!parsed) {
-        devWarn(OPEN_URL_DEBUG_TAG, 'deferred: parse failed, cleared');
+        deferredJumpLogger.warn('deferred: parse failed, cleared');
         await clearDeferredJump();
         return null;
     }
@@ -255,7 +246,7 @@ export const readDeferredJump = async () => {
     const readClipboard = String(parsed?.readClipboard ?? '0');
 
     if (!Number.isFinite(triggerAtMs) || triggerAtMs <= 0) {
-        devWarn(OPEN_URL_DEBUG_TAG, 'deferred: invalid payload, cleared', {
+        deferredJumpLogger.warn('deferred: invalid payload, cleared', {
             triggerAtMs,
             linkType,
             targetUrlLen: targetUrl?.length ?? 0,
@@ -279,7 +270,7 @@ export const jumpByLinkType = async ({ router, linkType, targetUrl, appsFlyerDee
 
     if (t === '1') {
         const webViewTargetUrl = appendAppsFlyerDeepLinkParamsToWebViewUrl(targetUrl, appsFlyerDeepLinkParams);
-        devLog(OPEN_URL_DEBUG_TAG, 'jump: webview', {
+        deferredJumpLogger.info('jump: webview', {
             urlLen: webViewTargetUrl?.length ?? 0,
             hasAppsFlyerDeepLinkParams: normalizeAppsFlyerDeepLinkParams(appsFlyerDeepLinkParams) !== null,
         });
@@ -291,7 +282,7 @@ export const jumpByLinkType = async ({ router, linkType, targetUrl, appsFlyerDee
     }
 
     if (t === '2') {
-        devLog(OPEN_URL_DEBUG_TAG, 'jump: external', { urlLen: targetUrl?.length ?? 0 });
+        deferredJumpLogger.info('jump: external', { urlLen: targetUrl?.length ?? 0 });
         await Linking.openURL(targetUrl).catch(() => { });
         return 'external';
     }

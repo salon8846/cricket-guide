@@ -1,8 +1,10 @@
 import { API_BASE_URL, API_HEALTH_PATH, IsDev, PROD_API_ROOT_URLS, REQUEST_TIMEOUT, buildApiBaseURL } from '@/constants/config';
+import { createLogger } from '@/utils/logger';
 
 let _activeBaseURL = API_BASE_URL;
 let _initialized = false;
 let _initPromise = null;
+const logger = createLogger('DomainSelector', { devOnly: true });
 
 async function checkRootUrl(rootUrl) {
     const url = `${rootUrl}${API_HEALTH_PATH}`;
@@ -24,10 +26,10 @@ async function detectRootUrl() {
     for (const rootUrl of PROD_API_ROOT_URLS) {
         const isAvailable = await checkRootUrl(rootUrl);
         if (isAvailable) {
-            if (__DEV__) console.log(`[DomainSelector] ✅ 可用服务根地址: ${rootUrl}`);
+            logger.info(`可用服务根地址: ${rootUrl}`);
             return rootUrl;
         }
-        if (__DEV__) console.warn(`[DomainSelector] ❌ 不可用: ${rootUrl}`);
+        logger.warn(`不可用: ${rootUrl}`);
     }
 
     return null;
@@ -41,7 +43,7 @@ export async function initDomain() {
     if (IsDev) {
         _activeBaseURL = API_BASE_URL;
         _initialized = true;
-        if (__DEV__) console.log(`[DomainSelector] 🛠 Dev 模式，使用: ${_activeBaseURL}`);
+        logger.info(`Dev 模式，使用: ${_activeBaseURL}`);
         return _activeBaseURL;
     }
 
@@ -55,11 +57,11 @@ export async function initDomain() {
                 _activeBaseURL = buildApiBaseURL(rootUrl);
             } else {
                 // 全部失败，使用优先级最高（第一个）域名兜底
-                if (__DEV__) console.warn('[DomainSelector] ⚠️ 所有域名不可达，使用兜底:', PROD_API_ROOT_URLS[0]);
+                logger.warn('所有域名不可达，使用兜底', { rootUrl: PROD_API_ROOT_URLS[0] });
                 _activeBaseURL = API_BASE_URL;
             }
         } catch (e) {
-            if (__DEV__) console.error('[DomainSelector] 检测异常:', e);
+            logger.error('检测异常', e);
         } finally {
             _initialized = true;
             _initPromise = null;

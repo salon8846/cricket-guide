@@ -5,9 +5,11 @@ import { gcm } from '@noble/ciphers/aes.js';
 import { API_BASE_URL, REQUEST_TIMEOUT, APP_CONFIG, IsDev } from '@/constants/config';
 import { getActiveBaseURL } from './domainSelector';
 import { getToken, getLanguage } from '@/utils/storage';
+import { createLogger } from '@/utils/logger';
 
 // 平台标识：android → 'android'，ios → 'ios'，web → 'h5'
 const PLATFORM = Platform.select({ android: 'android', ios: 'ios', web: 'h5' });
+const logger = createLogger('Request');
 
 // 创建 axios 实例
 const request = axios.create({
@@ -112,7 +114,7 @@ request.interceptors.response.use(
                 const decryptedText = decodeUtf8Bytes(decryptedBytes);
                 data.data = JSON.parse(decryptedText);
             } catch (e) {
-                console.error('[Request] 解密失败:', e);
+                logger.error('解密失败', e);
             }
         }
         return data;
@@ -123,19 +125,19 @@ request.interceptors.response.use(
             switch (status) {
                 case 401:
                     // Token 过期，可在此处理登出逻辑
-                    console.warn('[Request] 未授权，请重新登录');
+                    logger.warn('未授权，请重新登录');
                     break;
                 case 403:
-                    console.warn('[Request] 没有权限');
+                    logger.warn('没有权限');
                     break;
                 case 500:
-                    console.error('[Request] 服务器错误');
+                    logger.error('服务器错误');
                     break;
                 default:
-                    console.error(`[Request] 请求错误 ${status}`);
+                    logger.error(`请求错误 ${status}`);
             }
         } else if (error.request) {
-            console.error('[Request] 网络错误，请检查网络连接');
+            logger.error('网络错误，请检查网络连接');
         }
         return Promise.reject(error);
     }

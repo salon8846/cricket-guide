@@ -1,8 +1,10 @@
 import { Asset } from 'expo-asset';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { Vibration } from 'react-native';
+import { createLogger } from '@/utils/logger';
 
 const clickSoundAsset = require('@/assets/main/audio/click.mp3');
+const logger = createLogger('Feedback');
 
 let audioModeReady = false;
 
@@ -50,7 +52,7 @@ const playAsset = async (asset) => {
         player.play();
     } catch (error) {
         releasePlayer(player, subscription);
-        console.error('[Feedback] 播放音效失败', error);
+        logger.error('播放音效失败', error);
         throw error;
     }
 };

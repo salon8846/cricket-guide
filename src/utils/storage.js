@@ -1,5 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '@/constants/config';
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('Storage');
 
 /**
  * 通用存储工具，对 AsyncStorage 进行封装
@@ -11,7 +14,7 @@ export const setItem = async (key, value) => {
         const jsonValue = JSON.stringify(value);
         await AsyncStorage.setItem(key, jsonValue);
     } catch (e) {
-        console.error(`[Storage] setItem 失败 key=${key}`, e);
+        logger.error(`setItem 失败 key=${key}`, e);
     }
 };
 
@@ -21,7 +24,7 @@ export const getItem = async (key) => {
         const jsonValue = await AsyncStorage.getItem(key);
         return jsonValue != null ? JSON.parse(jsonValue) : null;
     } catch (e) {
-        console.error(`[Storage] getItem 失败 key=${key}`, e);
+        logger.error(`getItem 失败 key=${key}`, e);
         return null;
     }
 };
@@ -31,7 +34,7 @@ export const removeItem = async (key) => {
     try {
         await AsyncStorage.removeItem(key);
     } catch (e) {
-        console.error(`[Storage] removeItem 失败 key=${key}`, e);
+        logger.error(`removeItem 失败 key=${key}`, e);
     }
 };
 
@@ -40,7 +43,7 @@ export const clearAll = async () => {
     try {
         await AsyncStorage.clear();
     } catch (e) {
-        console.error('[Storage] clearAll 失败', e);
+        logger.error('clearAll 失败', e);
     }
 };
 

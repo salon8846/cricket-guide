@@ -1,9 +1,10 @@
 import Constants from 'expo-constants';
 import { Linking, NativeModules, Platform } from 'react-native';
 import { STORAGE_KEYS } from '@/constants/config';
+import { createLogger } from '@/utils/logger';
 import { getItem, setItem } from '@/utils/storage';
 
-const APPS_FLYER_DEBUG_TAG = '[AppsFlyer]';
+const appsFlyerLogger = createLogger('AppsFlyer', { devOnly: true });
 const APPS_FLYER_OPEN_URL_WAIT_MS = 5000;
 const APPS_FLYER_OPEN_URL_POLL_MS = 250;
 const APPS_FLYER_EVENT_LOG_TIMEOUT_MS = 8000;
@@ -36,14 +37,6 @@ let attributionListenersRegistered = false;
 let urlOpenListenerRegistered = false;
 let latestAppsFlyerDeepLink = null;
 let latestAppsFlyerInstallConversion = null;
-
-const devLog = (...args) => {
-    if (__DEV__) console.log(...args);
-};
-
-const devWarn = (...args) => {
-    if (__DEV__) console.warn(...args);
-};
 
 const wait = (timeoutMs) => new Promise((resolve) => {
     setTimeout(resolve, timeoutMs);
@@ -143,7 +136,7 @@ const saveUrlOpenSnapshot = (url, source) => {
             openedAt: new Date().toISOString(),
         },
     }).catch((error) => {
-        devWarn(APPS_FLYER_DEBUG_TAG, 'url open save failed', error);
+        appsFlyerLogger.warn('url open save failed', error);
     });
 };
 
@@ -255,11 +248,11 @@ export const registerAppsFlyerUrlOpenListener = () => {
                     openedAt,
                 },
             }).catch((error) => {
-                devWarn(APPS_FLYER_DEBUG_TAG, 'initial url save failed', error);
+                appsFlyerLogger.warn('initial url save failed', error);
             });
         })
         .catch((error) => {
-            devWarn(APPS_FLYER_DEBUG_TAG, 'initial url read failed', error);
+            appsFlyerLogger.warn('initial url read failed', error);
         });
 
     Linking.addEventListener('url', (event) => {
@@ -281,7 +274,7 @@ const canLoadAppsFlyerSdk = () => {
 
 const readAppsFlyerModule = () => {
     if (!canLoadAppsFlyerSdk()) {
-        devLog(APPS_FLYER_DEBUG_TAG, 'native module unavailable, skipped');
+        appsFlyerLogger.info('native module unavailable, skipped');
         return null;
     }
 
@@ -311,17 +304,17 @@ const normalizeAppsFlyerEventValues = (eventValues) => {
 
 const validateAppsFlyerConfig = (config) => {
     if (!config.enabled) {
-        devLog(APPS_FLYER_DEBUG_TAG, 'disabled by config');
+        appsFlyerLogger.info('disabled by config');
         return false;
     }
 
     if (!hasConfiguredValue(config.devKey)) {
-        devWarn(APPS_FLYER_DEBUG_TAG, 'missing devKey, skipped');
+        appsFlyerLogger.warn('missing devKey, skipped');
         return false;
     }
 
     if (Platform.OS === 'ios' && !hasConfiguredValue(config.iosAppId)) {
-        devWarn(APPS_FLYER_DEBUG_TAG, 'missing iosAppId, skipped');
+        appsFlyerLogger.warn('missing iosAppId, skipped');
         return false;
     }
 
@@ -335,7 +328,7 @@ export const configureAppsFlyerAttribution = (config) => {
     appsFlyerRuntimeConfig = nextConfig;
 
     if (configChanged && !appsFlyerStartTask) {
-        devLog(APPS_FLYER_DEBUG_TAG, 'config updated');
+        appsFlyerLogger.info('config updated');
     }
 
     return appsFlyerRuntimeConfig;
@@ -348,33 +341,33 @@ const registerAppsFlyerAttributionListeners = (appsFlyer) => {
 
     appsFlyer.onInstallConversionData((data) => {
         latestAppsFlyerInstallConversion = data;
-        devLog(APPS_FLYER_DEBUG_TAG, 'install conversion', data);
-        devLog(APPS_FLYER_DEBUG_TAG, 'install conversion summary', readAppsFlyerCallbackSummary(data));
+        appsFlyerLogger.info('install conversion', data);
+        appsFlyerLogger.info('install conversion summary', readAppsFlyerCallbackSummary(data));
         saveAppsFlyerAttributionSnapshot({
             installConversion: data,
             installConversionFailure: null,
         }).catch((error) => {
-            devWarn(APPS_FLYER_DEBUG_TAG, 'install conversion save failed', error);
+            appsFlyerLogger.warn('install conversion save failed', error);
         });
     });
 
     appsFlyer.onInstallConversionFailure((error) => {
-        devWarn(APPS_FLYER_DEBUG_TAG, 'install conversion failure', error);
+        appsFlyerLogger.warn('install conversion failure', error);
         saveAppsFlyerAttributionSnapshot({
             installConversionFailure: error,
         }).catch((saveError) => {
-            devWarn(APPS_FLYER_DEBUG_TAG, 'install conversion failure save failed', saveError);
+            appsFlyerLogger.warn('install conversion failure save failed', saveError);
         });
     });
 
     appsFlyer.onDeepLink((data) => {
         latestAppsFlyerDeepLink = data;
-        devLog(APPS_FLYER_DEBUG_TAG, 'deep link', data);
-        devLog(APPS_FLYER_DEBUG_TAG, 'deep link summary', readAppsFlyerCallbackSummary(data));
+        appsFlyerLogger.info('deep link', data);
+        appsFlyerLogger.info('deep link summary', readAppsFlyerCallbackSummary(data));
         saveAppsFlyerAttributionSnapshot({
             deepLink: data,
         }).catch((error) => {
-            devWarn(APPS_FLYER_DEBUG_TAG, 'deep link save failed', error);
+            appsFlyerLogger.warn('deep link save failed', error);
         });
     });
 
@@ -385,7 +378,7 @@ const readAppsFlyerUidFromSdk = (appsFlyer) => {
     return new Promise((resolve) => {
         appsFlyer.getAppsFlyerUID((error, uid) => {
             if (error) {
-                devWarn(APPS_FLYER_DEBUG_TAG, 'uid read failed', error);
+                appsFlyerLogger.warn('uid read failed', error);
                 resolve(null);
                 return;
             }
@@ -394,9 +387,9 @@ const readAppsFlyerUidFromSdk = (appsFlyer) => {
             saveAppsFlyerAttributionSnapshot({
                 appsFlyerId: appsFlyerAttributionId,
             }).catch((saveError) => {
-                devWarn(APPS_FLYER_DEBUG_TAG, 'uid save failed', saveError);
+                appsFlyerLogger.warn('uid save failed', saveError);
             });
-            devLog(APPS_FLYER_DEBUG_TAG, 'uid', appsFlyerAttributionId);
+            appsFlyerLogger.info('uid', appsFlyerAttributionId);
             resolve(appsFlyerAttributionId);
         });
     });
@@ -431,7 +424,7 @@ export const startAppsFlyerAttribution = () => {
             initOptions.appId = config.iosAppId;
         }
 
-        devLog(APPS_FLYER_DEBUG_TAG, 'init options', {
+        appsFlyerLogger.info('init options', {
             isDebug: initOptions.isDebug,
             appId: initOptions.appId,
             hasDevKey: hasConfiguredValue(initOptions.devKey),
@@ -439,12 +432,12 @@ export const startAppsFlyerAttribution = () => {
             onDeepLinkListener: initOptions.onDeepLinkListener,
         });
         await appsFlyer.initSdk(initOptions);
-        devLog(APPS_FLYER_DEBUG_TAG, 'initialized');
+        appsFlyerLogger.info('initialized');
 
         return await readAppsFlyerUidFromSdk(appsFlyer);
     })().catch((error) => {
         appsFlyerStartTask = null;
-        devWarn(APPS_FLYER_DEBUG_TAG, 'init failed', error);
+        appsFlyerLogger.warn('init failed', error);
         return null;
     });
 
@@ -472,7 +465,7 @@ export const readCurrentAppsFlyerDeepLinkParams = async () => {
     await startAppsFlyerAttribution();
 
     const deadlineAt = Date.now() + APPS_FLYER_OPEN_URL_WAIT_MS;
-    devLog(APPS_FLYER_DEBUG_TAG, 'openUrl attribution wait start', {
+    appsFlyerLogger.info('openUrl attribution wait start', {
         waitMs: APPS_FLYER_OPEN_URL_WAIT_MS,
         hasDeepLinkCallback: latestAppsFlyerDeepLink !== null,
         hasInstallConversionCallback: latestAppsFlyerInstallConversion !== null,
@@ -480,7 +473,7 @@ export const readCurrentAppsFlyerDeepLinkParams = async () => {
     while (Date.now() <= deadlineAt) {
         const deepLinkParams = readAppsFlyerDeepLinkParams(latestAppsFlyerDeepLink);
         if (deepLinkParams) {
-            devLog(APPS_FLYER_DEBUG_TAG, 'deep link params ready', {
+            appsFlyerLogger.info('deep link params ready', {
                 source: 'deep_link',
                 keys: Object.keys(deepLinkParams),
             });
@@ -489,7 +482,7 @@ export const readCurrentAppsFlyerDeepLinkParams = async () => {
 
         const installConversionDeepLinkParams = readAppsFlyerInstallConversionDeepLinkParams(latestAppsFlyerInstallConversion);
         if (installConversionDeepLinkParams) {
-            devLog(APPS_FLYER_DEBUG_TAG, 'deep link params ready', {
+            appsFlyerLogger.info('deep link params ready', {
                 source: 'install_conversion',
                 keys: Object.keys(installConversionDeepLinkParams),
             });
@@ -497,7 +490,7 @@ export const readCurrentAppsFlyerDeepLinkParams = async () => {
         }
 
         if (latestAppsFlyerDeepLink && latestAppsFlyerInstallConversion) {
-            devWarn(APPS_FLYER_DEBUG_TAG, 'openUrl deep link params unavailable', {
+            appsFlyerLogger.warn('openUrl deep link params unavailable', {
                 deepLinkStatus: latestAppsFlyerDeepLink?.deepLinkStatus,
                 deepLinkSummary: readAppsFlyerCallbackSummary(latestAppsFlyerDeepLink),
                 installConversionAfStatus: readAppsFlyerCallbackFields(latestAppsFlyerInstallConversion)?.af_status,
@@ -510,7 +503,7 @@ export const readCurrentAppsFlyerDeepLinkParams = async () => {
         await wait(APPS_FLYER_OPEN_URL_POLL_MS);
     }
 
-    devWarn(APPS_FLYER_DEBUG_TAG, 'openUrl deep link callback unavailable', {
+    appsFlyerLogger.warn('openUrl deep link callback unavailable', {
         hasDeepLinkCallback: latestAppsFlyerDeepLink !== null,
         hasInstallConversionCallback: latestAppsFlyerInstallConversion !== null,
         deepLinkStatus: latestAppsFlyerDeepLink?.deepLinkStatus,
@@ -569,7 +562,7 @@ export const logAppsFlyerEvent = async (eventName, eventValues = {}) => {
             APPS_FLYER_EVENT_LOG_TIMEOUT_MS,
             'event_log_timeout',
         );
-        devLog(APPS_FLYER_DEBUG_TAG, 'event logged', {
+        appsFlyerLogger.info('event logged', {
             eventName: normalizedEventName,
             eventValues: normalizedEventValues,
             sdkResponse,
@@ -582,7 +575,7 @@ export const logAppsFlyerEvent = async (eventName, eventValues = {}) => {
             loggedAt: new Date().toISOString(),
         };
     } catch (error) {
-        devWarn(APPS_FLYER_DEBUG_TAG, 'event log failed', {
+        appsFlyerLogger.warn('event log failed', {
             eventName: normalizedEventName,
             error,
         });

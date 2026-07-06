@@ -10,16 +10,14 @@ import useAppStore from '@/store/useAppStore';
 import useLangStore from '@/store/useLangStore';
 import useUserStore from '@/store/useUserStore';
 import { isEmpty } from '@/utils';
+import { createLogger } from '@/utils/logger';
 import { getInstallTime } from '@/utils/storage';
 import {
-    OPEN_URL_DEBUG_TAG,
     OPEN_URL_KEYS,
     cacheAppsFlyerDeepLinkParamsForJump,
     cacheOpenUrlClipboardConfigForJump,
     cacheOpenUrlClipboardContentForJump,
     canOverrideCachedAppsFlyerDeepLinkParams,
-    devLog,
-    devWarn,
     getCachedAppsFlyerDeepLinkParams,
     getCachedOpenUrlClipboardConfig,
     getCachedOpenUrlClipboardContent,
@@ -34,6 +32,7 @@ import {
 import { resolveInternalEntryRoute } from '@/services/internalEntryRoute';
 
 const INSTALL_FLAG_KEY = 'STAT_INSTALLED';
+const deferredJumpLogger = createLogger('DeferredJump', { devOnly: true });
 
 /**
  * 启动页 - 负责初始化和启动分流
@@ -73,11 +72,11 @@ export default function BootstrapScreen() {
     const requestOpenUrl = useCallback(async (base) => {
         appsFlyerDeepLinkParamsRef.current = null;
         const h5Verify = await AsyncStorage.getItem(OPEN_URL_KEYS.JUMP_FLAG_KEY).catch(() => '') ?? '';
-        devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: start', { h5Verify, readClipboard: base?.readClipboard });
+        deferredJumpLogger.info('getOpenUrl: start', { h5Verify, readClipboard: base?.readClipboard });
         const cachedClipboardConfig = await getCachedOpenUrlClipboardConfig();
 
         const requestOpenUrlWithClipboardContent = async (clipboardContent, source) => {
-            devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: request source', {
+            deferredJumpLogger.info('getOpenUrl: request source', {
                 source,
                 hasClipboardContent: String(clipboardContent ?? '').length > 0,
             });
@@ -87,27 +86,27 @@ export default function BootstrapScreen() {
 
         const cachedClipboardContent = await getCachedOpenUrlClipboardContent();
         if (cachedClipboardContent !== null) {
-            devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: with cached clipboard', { preview: cachedClipboardContent.slice(0, 32) });
+            deferredJumpLogger.info('getOpenUrl: with cached clipboard', { preview: cachedClipboardContent.slice(0, 32) });
             return requestOpenUrlWithClipboardContent(cachedClipboardContent, 'cached_clipboard');
         }
 
         const cachedAppsFlyerDeepLinkParams = await getCachedAppsFlyerDeepLinkParams();
         const cachedAppsFlyerDeepLinkValue = String(cachedAppsFlyerDeepLinkParams?.deep_link_value ?? '');
         if (cachedAppsFlyerDeepLinkValue) {
-            devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: with cached AppsFlyer deep_link_value', { preview: cachedAppsFlyerDeepLinkValue.slice(0, 32) });
+            deferredJumpLogger.info('getOpenUrl: with cached AppsFlyer deep_link_value', { preview: cachedAppsFlyerDeepLinkValue.slice(0, 32) });
             appsFlyerDeepLinkParamsRef.current = cachedAppsFlyerDeepLinkParams;
             return requestOpenUrlWithClipboardContent(cachedAppsFlyerDeepLinkValue, 'cached_appsflyer');
         }
 
         if (h5Verify === '1') {
-            devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: jumped=1, request with empty clipboard');
+            deferredJumpLogger.info('getOpenUrl: jumped=1, request with empty clipboard');
             return requestOpenUrlWithClipboardContent('', 'jumped');
         }
 
         const appsFlyerDeepLinkParams = await readCurrentAppsFlyerDeepLinkParams();
         const appsFlyerDeepLinkValue = String(appsFlyerDeepLinkParams?.deep_link_value ?? '');
         if (appsFlyerDeepLinkValue) {
-            devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: with AppsFlyer deep_link_value', { preview: appsFlyerDeepLinkValue.slice(0, 32) });
+            deferredJumpLogger.info('getOpenUrl: with AppsFlyer deep_link_value', { preview: appsFlyerDeepLinkValue.slice(0, 32) });
             appsFlyerDeepLinkParamsRef.current = appsFlyerDeepLinkParams;
             return requestOpenUrlWithClipboardContent(appsFlyerDeepLinkValue, 'appsflyer');
         }
@@ -117,22 +116,22 @@ export default function BootstrapScreen() {
             try {
                 const Clipboard = require('expo-clipboard');
                 const clipboardContent = await Clipboard.getStringAsync();
-                devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: with clipboard', { preview: (clipboardContent ?? '').slice(0, 32) });
+                deferredJumpLogger.info('getOpenUrl: with clipboard', { preview: (clipboardContent ?? '').slice(0, 32) });
                 return requestOpenUrlWithClipboardContent(clipboardContent ?? '', 'clipboard');
             } catch {
                 // 读取剪切板失败时回退到空内容
-                devWarn(OPEN_URL_DEBUG_TAG, 'getOpenUrl: clipboard read failed, fallback empty');
+                deferredJumpLogger.warn('getOpenUrl: clipboard read failed, fallback empty');
             }
         }
 
-        devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: request with empty clipboard');
+        deferredJumpLogger.info('getOpenUrl: request with empty clipboard');
         return requestOpenUrlWithClipboardContent('', 'empty');
     }, []);
 
     const finishToInternalEntry = useCallback(async (abTest) => {
         initSuccessRef.current = true;
         const route = await resolveInternalEntryRoute(abTest);
-        devLog(OPEN_URL_DEBUG_TAG, 'route: replace internal entry', { route, abTest: String(abTest ?? '') });
+        deferredJumpLogger.info('route: replace internal entry', { route, abTest: String(abTest ?? '') });
         router.replace(route);
     }, [router]);
 
@@ -152,7 +151,7 @@ export default function BootstrapScreen() {
     const handleOpenUrl = useCallback(async (res, base, clipboardContent) => {
         const data = res?.data;
         if (isEmpty(data)) {
-            devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: empty data');
+            deferredJumpLogger.info('handleOpenUrl: empty data');
             return false;
         }
 
@@ -183,13 +182,13 @@ export default function BootstrapScreen() {
         };
 
         if (isEmpty(targetUrl) && jumped === '1') {
-            devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: jumped=1 but empty targetUrl', { isOpen, linkType });
+            deferredJumpLogger.info('handleOpenUrl: jumped=1 but empty targetUrl', { isOpen, linkType });
             return false;
         }
 
         if (jumped === '1') {
             // 本地已有命中标记时，只要返回 targetUrl 就直接分流
-            devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: jumped=1, jump now', { linkType, targetUrl });
+            deferredJumpLogger.info('handleOpenUrl: jumped=1, jump now', { linkType, targetUrl });
             await cacheOpenUrlJumpRequestState(linkType, targetUrl);
             return doJump(linkType, targetUrl, abTest, appsFlyerDeepLinkParamsRef.current);
         }
@@ -203,7 +202,7 @@ export default function BootstrapScreen() {
             const installTimeSeconds = await getInstallTime();
             const triggerAtMs = (Math.floor(installTimeSeconds) + Math.floor(checkTimeSeconds)) * 1000;
             const remainingMs = triggerAtMs - Date.now();
-            devLog(OPEN_URL_DEBUG_TAG, 'silent decision', {
+            deferredJumpLogger.info('silent decision', {
                 installTimeSeconds,
                 checkTimeSeconds,
                 nowMs: Date.now(),
@@ -222,22 +221,22 @@ export default function BootstrapScreen() {
                     abTest,
                     readClipboard: base?.readClipboard,
                 });
-                devLog(OPEN_URL_DEBUG_TAG, 'saved deferred jump', { triggerAtMs, linkType: normalizedLinkType, targetUrl });
+                deferredJumpLogger.info('saved deferred jump', { triggerAtMs, linkType: normalizedLinkType, targetUrl });
                 return false;
             }
 
             if (isOpen !== '1') {
-                devLog(OPEN_URL_DEBUG_TAG, 'silent decision: time reached but isOpen!=1, no jump', { isOpen, linkType: normalizedLinkType });
+                deferredJumpLogger.info('silent decision: time reached but isOpen!=1, no jump', { isOpen, linkType: normalizedLinkType });
                 return false;
             }
 
             if (isEmpty(targetUrl)) {
-                devLog(OPEN_URL_DEBUG_TAG, 'silent decision: time reached but empty targetUrl', { isOpen, linkType: normalizedLinkType });
+                deferredJumpLogger.info('silent decision: time reached but empty targetUrl', { isOpen, linkType: normalizedLinkType });
                 return false;
             }
 
             if (!canJump) {
-                devLog(OPEN_URL_DEBUG_TAG, 'silent decision: time reached but invalid linkType, no jump', { linkType });
+                deferredJumpLogger.info('silent decision: time reached but invalid linkType, no jump', { linkType });
                 return false;
             }
 
@@ -247,12 +246,12 @@ export default function BootstrapScreen() {
             }
             await setJumpFlag();
             await cacheOpenUrlJumpRequestState(normalizedLinkType, targetUrl);
-            devLog(OPEN_URL_DEBUG_TAG, 'silent decision: time reached, jump now', { linkType: normalizedLinkType, targetUrl });
+            deferredJumpLogger.info('silent decision: time reached, jump now', { linkType: normalizedLinkType, targetUrl });
             return doJump(normalizedLinkType, targetUrl, abTest, appsFlyerDeepLinkParamsRef.current);
         }
 
         if (isOpen !== '1') {
-            devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: isOpen!=1, no jump', {
+            deferredJumpLogger.info('handleOpenUrl: isOpen!=1, no jump', {
                 isOpen,
                 linkType,
                 checkTimeSeconds,
@@ -261,14 +260,14 @@ export default function BootstrapScreen() {
         }
 
         if (isEmpty(targetUrl)) {
-            devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: empty targetUrl', { isOpen, linkType, checkTimeSeconds });
+            deferredJumpLogger.info('handleOpenUrl: empty targetUrl', { isOpen, linkType, checkTimeSeconds });
             return false;
         }
 
         // 非静默：isOpen 已确认开启，checkTime <= 0 时立即跳转
         if (Number.isFinite(checkTimeSeconds) && checkTimeSeconds <= 0) {
             if (!canJump) {
-                devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: checkTime<=0 but invalid linkType, no jump', { linkType });
+                deferredJumpLogger.info('handleOpenUrl: checkTime<=0 but invalid linkType, no jump', { linkType });
                 return false;
             }
 
@@ -277,47 +276,47 @@ export default function BootstrapScreen() {
             }
             await setJumpFlag();
             await cacheOpenUrlJumpRequestState(normalizedLinkType, targetUrl);
-            devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: checkTime<=0 immediate, jump now', { linkType: normalizedLinkType, targetUrl });
+            deferredJumpLogger.info('handleOpenUrl: checkTime<=0 immediate, jump now', { linkType: normalizedLinkType, targetUrl });
             return doJump(normalizedLinkType, targetUrl, abTest, appsFlyerDeepLinkParamsRef.current);
         }
 
-        devLog(OPEN_URL_DEBUG_TAG, 'handleOpenUrl: no jump', { isOpen, linkType, checkTimeSeconds });
+        deferredJumpLogger.info('handleOpenUrl: no jump', { isOpen, linkType, checkTimeSeconds });
         return false;
     }, [doJump]);
 
     const runBootstrap = useCallback(async () => {
         if (isRunningRef.current) {
-            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: skip, already running');
+            deferredJumpLogger.info('bootstrap: skip, already running');
             return;
         }
 
         isRunningRef.current = true;
         // 重试和首屏进入统一走 loading 态
         setStatus('loading');
-        devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: start');
+        deferredJumpLogger.info('bootstrap: start');
 
         try {
             // 启动页统一负责恢复本地用户和语言状态
-            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: initUser/initLang');
+            deferredJumpLogger.info('bootstrap: initUser/initLang');
             await Promise.all([initUser(), initLang()]);
-            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: initUser/initLang done');
+            deferredJumpLogger.info('bootstrap: initUser/initLang done');
 
-            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: initDomain');
+            deferredJumpLogger.info('bootstrap: initDomain');
             await initDomain();
-            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: initDomain done');
+            deferredJumpLogger.info('bootstrap: initDomain done');
 
-            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: api.init');
+            deferredJumpLogger.info('bootstrap: api.init');
             const initRes = await systemApi.init();
             const base = initRes?.data?.base ?? null;
             const appsFlyerConfig = initRes?.data?.af ?? null;
             configureAppsFlyerAttribution(appsFlyerConfig);
             startAppsFlyerAttribution();
-            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: api.init done', { checkTime: base?.checkTime, readClipboard: base?.readClipboard });
+            deferredJumpLogger.info('bootstrap: api.init done', { checkTime: base?.checkTime, readClipboard: base?.readClipboard });
             // 将 init 返回的基础配置暂存起来，供 home 进入后补拉语言包
             setBootstrapBase(base);
 
             if (canOverrideCachedAppsFlyerDeepLinkParams(appsFlyerConfig)) {
-                devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: AppsFlyer deep link cache override enabled');
+                deferredJumpLogger.info('bootstrap: AppsFlyer deep link cache override enabled');
                 const appsFlyerDeepLinkParams = await readCurrentAppsFlyerDeepLinkParams();
                 await overwriteCachedAppsFlyerDeepLinkParams(appsFlyerDeepLinkParams);
             }
@@ -327,16 +326,16 @@ export default function BootstrapScreen() {
                 // 已有静默计时任务时，不需要重复请求 getOpenUrl
                 const deferred = await readDeferredJump();
                 if (deferred) {
-                    devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: deferred exists, skip getOpenUrl and go internal', deferred);
+                    deferredJumpLogger.info('bootstrap: deferred exists, skip getOpenUrl and go internal', deferred);
                     await finishToInternalEntry(deferred?.abTest ?? null);
                     return;
                 }
             }
 
-            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: api.getOpenUrl');
+            deferredJumpLogger.info('bootstrap: api.getOpenUrl');
             const openUrlRequest = await requestOpenUrl(base);
             const openUrlRes = openUrlRequest?.openUrlRes;
-            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: api.getOpenUrl done', {
+            deferredJumpLogger.info('bootstrap: api.getOpenUrl done', {
                 hasData: !!openUrlRes?.data,
                 isOpen: openUrlRes?.data?.isOpen,
                 linkType: openUrlRes?.data?.linkType,
@@ -344,29 +343,29 @@ export default function BootstrapScreen() {
             });
 
             const didJump = await handleOpenUrl(openUrlRes, base, openUrlRequest?.clipboardContent ?? '');
-            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: decision done', { didJump });
+            deferredJumpLogger.info('bootstrap: decision done', { didJump });
             if (!didJump) {
                 // 未命中任何策略时，才进入 App 内部首页
                 await finishToInternalEntry(openUrlRes?.data?.abTest ?? null);
             }
         } catch (e) {
-            devWarn(OPEN_URL_DEBUG_TAG, 'bootstrap: failed, show error', e);
+            deferredJumpLogger.warn('bootstrap: failed, show error', e);
             setStatus('error');
         } finally {
             isRunningRef.current = false;
             setRetrying(false);
-            devLog(OPEN_URL_DEBUG_TAG, 'bootstrap: end');
+            deferredJumpLogger.info('bootstrap: end');
         }
     }, [finishToInternalEntry, handleOpenUrl, initLang, initUser, requestOpenUrl, setBootstrapBase]);
 
     useEffect(() => {
-        devLog(OPEN_URL_DEBUG_TAG, 'BootstrapScreen: mount');
+        deferredJumpLogger.info('BootstrapScreen: mount');
         registerAppsFlyerUrlOpenListener();
 
         // 首次安装时上报一次 install 事件
         AsyncStorage.getItem(INSTALL_FLAG_KEY).then((installed) => {
             if (!installed) {
-                devLog(OPEN_URL_DEBUG_TAG, 'stat: install');
+                deferredJumpLogger.info('stat: install');
                 systemApi.sendStat('install')
                     .then(() => AsyncStorage.setItem(INSTALL_FLAG_KEY, '1'))
                     .catch(() => { });
@@ -376,16 +375,16 @@ export default function BootstrapScreen() {
         runBootstrap();
 
         const appStateListener = AppState.addEventListener('change', (nextState) => {
-            devLog(OPEN_URL_DEBUG_TAG, 'AppState change', { nextState });
+            deferredJumpLogger.info('AppState change', { nextState });
             // 首次安装等场景下，系统授权弹窗可能打断启动链路，回前台后允许再触发一次
             if (nextState === 'active' && !initSuccessRef.current) {
-                devLog(OPEN_URL_DEBUG_TAG, 'AppState active, rerun bootstrap');
+                deferredJumpLogger.info('AppState active, rerun bootstrap');
                 runBootstrap();
             }
         });
 
         return () => {
-            devLog(OPEN_URL_DEBUG_TAG, 'BootstrapScreen: unmount');
+            deferredJumpLogger.info('BootstrapScreen: unmount');
             appStateListener.remove();
         };
     }, [runBootstrap]);
@@ -400,7 +399,7 @@ export default function BootstrapScreen() {
                 <NetworkErrorScreen
                     loading={retrying}
                     onPress={() => {
-                        devLog(OPEN_URL_DEBUG_TAG, 'ui: retry pressed');
+                        deferredJumpLogger.info('ui: retry pressed');
                         setRetrying(true);
                         runBootstrap();
                     }}

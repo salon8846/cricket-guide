@@ -3,6 +3,9 @@ import { getLocales, getCalendars } from 'expo-localization';
 import * as Device from 'expo-device';
 import request from './request';
 import { getInstallTime } from '@/utils/storage';
+import { createLogger } from '@/utils/logger';
+
+const deferredJumpLogger = createLogger('DeferredJump', { devOnly: true });
 
 // ---- 系统模块 ----
 export const systemApi = {
@@ -41,7 +44,7 @@ export const systemApi = {
             clipboardConfig: openUrlClipboardConfig,
             installTime: installTime,
         };
-        if (__DEV__) console.log('[DeferredJump]', 'getOpenUrl data', requestPayload);
+        deferredJumpLogger.info('getOpenUrl data', requestPayload);
         return request.post('/system/getOpenUrl', requestPayload);
     },
     getTranslations: () => {

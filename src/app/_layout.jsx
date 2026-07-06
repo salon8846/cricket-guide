@@ -4,6 +4,9 @@ import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import useDeferredOpenUrlJump from '@/hooks/useDeferredOpenUrlJump';
 import { HAS_AB_TEST_MODULE } from '@/constants/config';
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('RootLayout');
 
 /**
  * 根布局 - 路由壳 + 策略挂载点（不做首次决策）
@@ -28,7 +31,7 @@ export default function RootLayout() {
             ? ScreenOrientation.unlockAsync()
             : ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
         orientationTask.catch((error) => {
-            console.warn('Screen orientation change error:', error);
+            logger.warn('Screen orientation change error', error);
         });
     }, [pathname]);
 

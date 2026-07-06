@@ -19,6 +19,7 @@ import NetworkErrorScreen from '@/components/common/NetworkErrorScreen';
 import Toast from '@/components/common/Toast';
 import useWebViewAuthStore from '@/store/useWebViewAuthStore';
 import { APP_SCHEME } from '@/constants/config';
+import { createLogger } from '@/utils/logger';
 import { readAppsFlyerAttributionSnapshot, startAppsFlyerAttribution } from '@/services/appsFlyerAttribution';
 import { readWebViewOpenWindowUrl, reportWebViewAppsFlyerEvent } from '@/services/webViewAppsFlyerEvents';
 import {
@@ -66,6 +67,8 @@ const GOOGLE_AUTH_REDIRECT_URL = `${APP_SCHEME}://auth/google`;
 const TELEGRAM_AUTH_REDIRECT_URL = `${APP_SCHEME}://auth/telegram`;
 const WEBVIEW_ORIGIN_WHITELIST = ['*'];
 const WEBVIEW_AUTH_SESSION_DEBOUNCE_MS = 500;
+const logger = createLogger('WebView');
+const debugLogger = createLogger('WebViewDebug');
 
 const RETRYABLE_LOAD_ERROR_CODES = new Set([
     -1009, // iOS: not connected to internet
@@ -86,7 +89,7 @@ function isRetryableLoadError(nativeEvent) {
 
 function logWebViewDebug(enabled, eventName, payload) {
     if (!enabled) return;
-    console.warn('[WebViewDebug]', eventName, payload);
+    debugLogger.warn(eventName, payload);
 }
 
 function buildNativeSafeAreaEventScript(safeTop, safeBottom) {
@@ -366,7 +369,7 @@ export default function WebViewScreen() {
         try {
             WebBrowser.dismissAuthSession();
         } catch (e) {
-            console.warn('WebView auth dismiss error:', e);
+            logger.warn('auth dismiss error', e);
         }
     }, []);
 
@@ -383,7 +386,7 @@ export default function WebViewScreen() {
             }
         } catch (e) {
             if (authSessionId !== latestWebViewAuthSessionIdRef.current) return;
-            console.warn('Google auth error:', e);
+            logger.warn('Google auth error', e);
             postWebViewMessage('googleAuthError', {
                 message: e?.message ?? String(e),
             });
@@ -403,7 +406,7 @@ export default function WebViewScreen() {
             }
         } catch (e) {
             if (authSessionId !== latestWebViewAuthSessionIdRef.current) return;
-            console.warn('Telegram auth error:', e);
+            logger.warn('Telegram auth error', e);
             postWebViewMessage('telegramAuthError', {
                 message: e?.message ?? String(e),
             });
@@ -518,7 +521,7 @@ export default function WebViewScreen() {
                             postWebViewMessage('appsFlyerEventResult', appsFlyerEventReport ?? null);
                         })
                         .catch((appsFlyerEventError) => {
-                            console.warn('WebView AppsFlyer event report error:', appsFlyerEventError);
+                            logger.warn('AppsFlyer event report error', appsFlyerEventError);
                         });
                     Linking.openURL(openWindowUrl).catch(() => { });
                     return;
@@ -549,7 +552,7 @@ export default function WebViewScreen() {
                 injectNativeSafeArea();
             }
         } catch (e) {
-            console.warn('WebView message parse error:', e);
+            logger.warn('message parse error', e);
         }
     }, [injectNativeSafeArea, openGoogleAuthSession, openTelegramAuthSession, postWebViewMessage, runWebViewAuthSession]);
 

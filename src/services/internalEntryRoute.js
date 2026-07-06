@@ -1,15 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AB_TEST_ENTRY_ROUTE, HAS_AB_TEST_MODULE } from '@/constants/config';
+import { createLogger } from '@/utils/logger';
 
 export const INTERNAL_ENTRY_KEYS = {
     STICKY_B_KEY: 'AB_TEST_STICKY_B',
 };
 
-const INTERNAL_ENTRY_DEBUG_TAG = '[InternalEntry]';
-
-const devLog = (...args) => {
-    if (__DEV__) console.log(...args);
-};
+const internalEntryLogger = createLogger('InternalEntry', { devOnly: true });
 
 export const getStickyB = async () => {
     return await AsyncStorage.getItem(INTERNAL_ENTRY_KEYS.STICKY_B_KEY);
@@ -26,23 +23,23 @@ export const setStickyB = async () => {
  */
 export const resolveInternalEntryRoute = async (abTest) => {
     if (!HAS_AB_TEST_MODULE) {
-        devLog(INTERNAL_ENTRY_DEBUG_TAG, 'resolve: module disabled, route=/home');
+        internalEntryLogger.info('resolve: module disabled, route=/home');
         return '/home';
     }
 
     const sticky = await getStickyB();
     if (sticky === '1') {
-        devLog(INTERNAL_ENTRY_DEBUG_TAG, 'resolve: sticky hit, route=B', { route: AB_TEST_ENTRY_ROUTE });
+        internalEntryLogger.info('resolve: sticky hit, route=B', { route: AB_TEST_ENTRY_ROUTE });
         return AB_TEST_ENTRY_ROUTE;
     }
 
     const normalized = String(abTest ?? '0');
     if (normalized === '1') {
         await setStickyB();
-        devLog(INTERNAL_ENTRY_DEBUG_TAG, 'resolve: abTest=1, set sticky, route=B', { route: AB_TEST_ENTRY_ROUTE });
+        internalEntryLogger.info('resolve: abTest=1, set sticky, route=B', { route: AB_TEST_ENTRY_ROUTE });
         return AB_TEST_ENTRY_ROUTE;
     }
 
-    devLog(INTERNAL_ENTRY_DEBUG_TAG, 'resolve: abTest!=1, route=/home', { abTest: normalized });
+    internalEntryLogger.info('resolve: abTest!=1, route=/home', { abTest: normalized });
     return '/home';
 };
