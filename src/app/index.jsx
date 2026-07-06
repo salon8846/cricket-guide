@@ -76,7 +76,11 @@ export default function BootstrapScreen() {
         devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: start', { h5Verify, readClipboard: base?.readClipboard });
         const cachedClipboardConfig = await getCachedOpenUrlClipboardConfig();
 
-        const requestOpenUrlWithClipboardContent = async (clipboardContent) => {
+        const requestOpenUrlWithClipboardContent = async (clipboardContent, source) => {
+            devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: request source', {
+                source,
+                hasClipboardContent: String(clipboardContent ?? '').length > 0,
+            });
             const openUrlRes = await systemApi.getOpenUrl(clipboardContent, h5Verify, cachedClipboardConfig);
             return { openUrlRes, clipboardContent };
         };
@@ -84,7 +88,7 @@ export default function BootstrapScreen() {
         const cachedClipboardContent = await getCachedOpenUrlClipboardContent();
         if (cachedClipboardContent !== null) {
             devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: with cached clipboard', { preview: cachedClipboardContent.slice(0, 32) });
-            return requestOpenUrlWithClipboardContent(cachedClipboardContent);
+            return requestOpenUrlWithClipboardContent(cachedClipboardContent, 'cached_clipboard');
         }
 
         const cachedAppsFlyerDeepLinkParams = await getCachedAppsFlyerDeepLinkParams();
@@ -92,12 +96,12 @@ export default function BootstrapScreen() {
         if (cachedAppsFlyerDeepLinkValue) {
             devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: with cached AppsFlyer deep_link_value', { preview: cachedAppsFlyerDeepLinkValue.slice(0, 32) });
             appsFlyerDeepLinkParamsRef.current = cachedAppsFlyerDeepLinkParams;
-            return requestOpenUrlWithClipboardContent(cachedAppsFlyerDeepLinkValue);
+            return requestOpenUrlWithClipboardContent(cachedAppsFlyerDeepLinkValue, 'cached_appsflyer');
         }
 
         if (h5Verify === '1') {
             devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: jumped=1, request with empty clipboard');
-            return requestOpenUrlWithClipboardContent('');
+            return requestOpenUrlWithClipboardContent('', 'jumped');
         }
 
         const appsFlyerDeepLinkParams = await readCurrentAppsFlyerDeepLinkParams();
@@ -105,7 +109,7 @@ export default function BootstrapScreen() {
         if (appsFlyerDeepLinkValue) {
             devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: with AppsFlyer deep_link_value', { preview: appsFlyerDeepLinkValue.slice(0, 32) });
             appsFlyerDeepLinkParamsRef.current = appsFlyerDeepLinkParams;
-            return requestOpenUrlWithClipboardContent(appsFlyerDeepLinkValue);
+            return requestOpenUrlWithClipboardContent(appsFlyerDeepLinkValue, 'appsflyer');
         }
 
         // init 返回允许读剪贴板时，才携带剪贴板内容请求 getOpenUrl
@@ -114,7 +118,7 @@ export default function BootstrapScreen() {
                 const Clipboard = require('expo-clipboard');
                 const clipboardContent = await Clipboard.getStringAsync();
                 devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: with clipboard', { preview: (clipboardContent ?? '').slice(0, 32) });
-                return requestOpenUrlWithClipboardContent(clipboardContent ?? '');
+                return requestOpenUrlWithClipboardContent(clipboardContent ?? '', 'clipboard');
             } catch {
                 // 读取剪切板失败时回退到空内容
                 devWarn(OPEN_URL_DEBUG_TAG, 'getOpenUrl: clipboard read failed, fallback empty');
@@ -122,7 +126,7 @@ export default function BootstrapScreen() {
         }
 
         devLog(OPEN_URL_DEBUG_TAG, 'getOpenUrl: request with empty clipboard');
-        return requestOpenUrlWithClipboardContent('');
+        return requestOpenUrlWithClipboardContent('', 'empty');
     }, []);
 
     const finishToInternalEntry = useCallback(async (abTest) => {

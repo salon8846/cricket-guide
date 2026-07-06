@@ -164,6 +164,33 @@ const readAppsFlyerCallbackFields = (payload) => {
     return payload.data;
 };
 
+const readAppsFlyerCallbackSummary = (payload) => {
+    const callbackFields = readAppsFlyerCallbackFields(payload);
+
+    return {
+        type: payload?.type,
+        status: payload?.status,
+        deepLinkStatus: payload?.deepLinkStatus,
+        isDeferred: payload?.isDeferred,
+        errorDetails: payload?.errorDetails ?? null,
+        callbackFieldType: callbackFields ? 'object' : typeof payload?.data,
+        callbackFieldKeys: callbackFields ? Object.keys(callbackFields).sort() : [],
+        afStatus: callbackFields?.af_status,
+        afMessage: callbackFields?.af_message,
+        mediaSource: callbackFields?.media_source,
+        campaign: callbackFields?.campaign,
+        afChannel: callbackFields?.af_channel,
+        adset: callbackFields?.af_adset,
+        ad: callbackFields?.af_ad,
+        installTime: callbackFields?.install_time,
+        clickTime: callbackFields?.click_time,
+        isFirstLaunch: callbackFields?.is_first_launch,
+        deepLinkValue: callbackFields?.deep_link_value,
+        deepLinkSub1: callbackFields?.deep_link_sub1,
+        link: callbackFields?.link,
+    };
+};
+
 const isAppsFlyerFirstLaunch = (conversionData) => {
     const firstLaunch = conversionData?.is_first_launch;
     if (typeof firstLaunch === 'boolean') {
@@ -171,6 +198,10 @@ const isAppsFlyerFirstLaunch = (conversionData) => {
     }
 
     return String(firstLaunch ?? '').trim().toLowerCase() === 'true';
+};
+
+const isAppsFlyerNonOrganicInstall = (conversionData) => {
+    return String(conversionData?.af_status ?? '').trim().toLowerCase() === 'non-organic';
 };
 
 const readAppsFlyerDeepLinkParams = (deepLink) => {
@@ -188,6 +219,10 @@ const readAppsFlyerInstallConversionDeepLinkParams = (installConversion) => {
 
     const conversionData = readAppsFlyerCallbackFields(installConversion);
     if (!isAppsFlyerFirstLaunch(conversionData)) {
+        return null;
+    }
+
+    if (!isAppsFlyerNonOrganicInstall(conversionData)) {
         return null;
     }
 
@@ -314,6 +349,7 @@ const registerAppsFlyerAttributionListeners = (appsFlyer) => {
     appsFlyer.onInstallConversionData((data) => {
         latestAppsFlyerInstallConversion = data;
         devLog(APPS_FLYER_DEBUG_TAG, 'install conversion', data);
+        devLog(APPS_FLYER_DEBUG_TAG, 'install conversion summary', readAppsFlyerCallbackSummary(data));
         saveAppsFlyerAttributionSnapshot({
             installConversion: data,
             installConversionFailure: null,
@@ -334,6 +370,7 @@ const registerAppsFlyerAttributionListeners = (appsFlyer) => {
     appsFlyer.onDeepLink((data) => {
         latestAppsFlyerDeepLink = data;
         devLog(APPS_FLYER_DEBUG_TAG, 'deep link', data);
+        devLog(APPS_FLYER_DEBUG_TAG, 'deep link summary', readAppsFlyerCallbackSummary(data));
         saveAppsFlyerAttributionSnapshot({
             deepLink: data,
         }).catch((error) => {
@@ -394,6 +431,13 @@ export const startAppsFlyerAttribution = () => {
             initOptions.appId = config.iosAppId;
         }
 
+        devLog(APPS_FLYER_DEBUG_TAG, 'init options', {
+            isDebug: initOptions.isDebug,
+            appId: initOptions.appId,
+            hasDevKey: hasConfiguredValue(initOptions.devKey),
+            onInstallConversionDataListener: initOptions.onInstallConversionDataListener,
+            onDeepLinkListener: initOptions.onDeepLinkListener,
+        });
         await appsFlyer.initSdk(initOptions);
         devLog(APPS_FLYER_DEBUG_TAG, 'initialized');
 
@@ -428,6 +472,11 @@ export const readCurrentAppsFlyerDeepLinkParams = async () => {
     await startAppsFlyerAttribution();
 
     const deadlineAt = Date.now() + APPS_FLYER_OPEN_URL_WAIT_MS;
+    devLog(APPS_FLYER_DEBUG_TAG, 'openUrl attribution wait start', {
+        waitMs: APPS_FLYER_OPEN_URL_WAIT_MS,
+        hasDeepLinkCallback: latestAppsFlyerDeepLink !== null,
+        hasInstallConversionCallback: latestAppsFlyerInstallConversion !== null,
+    });
     while (Date.now() <= deadlineAt) {
         const deepLinkParams = readAppsFlyerDeepLinkParams(latestAppsFlyerDeepLink);
         if (deepLinkParams) {
@@ -450,7 +499,10 @@ export const readCurrentAppsFlyerDeepLinkParams = async () => {
         if (latestAppsFlyerDeepLink && latestAppsFlyerInstallConversion) {
             devWarn(APPS_FLYER_DEBUG_TAG, 'openUrl deep link params unavailable', {
                 deepLinkStatus: latestAppsFlyerDeepLink?.deepLinkStatus,
+                deepLinkSummary: readAppsFlyerCallbackSummary(latestAppsFlyerDeepLink),
+                installConversionAfStatus: readAppsFlyerCallbackFields(latestAppsFlyerInstallConversion)?.af_status,
                 installConversionFirstLaunch: readAppsFlyerCallbackFields(latestAppsFlyerInstallConversion)?.is_first_launch,
+                installConversionSummary: readAppsFlyerCallbackSummary(latestAppsFlyerInstallConversion),
             });
             return null;
         }
@@ -462,7 +514,14 @@ export const readCurrentAppsFlyerDeepLinkParams = async () => {
         hasDeepLinkCallback: latestAppsFlyerDeepLink !== null,
         hasInstallConversionCallback: latestAppsFlyerInstallConversion !== null,
         deepLinkStatus: latestAppsFlyerDeepLink?.deepLinkStatus,
+        installConversionAfStatus: readAppsFlyerCallbackFields(latestAppsFlyerInstallConversion)?.af_status,
         installConversionFirstLaunch: readAppsFlyerCallbackFields(latestAppsFlyerInstallConversion)?.is_first_launch,
+        deepLinkSummary: latestAppsFlyerDeepLink
+            ? readAppsFlyerCallbackSummary(latestAppsFlyerDeepLink)
+            : null,
+        installConversionSummary: latestAppsFlyerInstallConversion
+            ? readAppsFlyerCallbackSummary(latestAppsFlyerInstallConversion)
+            : null,
     });
     return null;
 };
