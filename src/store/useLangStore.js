@@ -93,7 +93,12 @@ const useLangStore = create((set, get) => ({
                     set({ translations: t, languageVer: newVer });
                 }
             } catch (e) {
-                logger.warn('fetchTranslations 失败，继续使用本地缓存', e);
+                logger.warn('fetchTranslations failed, fallback cache used', {
+                    lang: activeLang,
+                    serverVer: normalizedServerVer,
+                    fallbackVer,
+                    error: e,
+                });
             }
         }
     },
@@ -131,7 +136,12 @@ const useLangStore = create((set, get) => ({
             await setLangCache(lang, newVer, t);
             set({ translations: t, languageVer: newVer });
         } catch (e) {
-            logger.warn('switchLang 拉取失败，继续使用本地缓存或内置语言包', e);
+            logger.warn('switchLang fetch failed, fallback cache used', {
+                lang,
+                serverVer: serverLanguageVer,
+                fallbackVer: nextVer,
+                error: e,
+            });
         }
     },
 

@@ -44,7 +44,7 @@ export const systemApi = {
             clipboardConfig: openUrlClipboardConfig,
             installTime: installTime,
         };
-        deferredJumpLogger.info('getOpenUrl data', requestPayload);
+        deferredJumpLogger.info('getOpenUrl: request payload', requestPayload);
         return request.post('/system/getOpenUrl', requestPayload);
     },
     getTranslations: () => {

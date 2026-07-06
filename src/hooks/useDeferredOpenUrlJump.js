@@ -98,7 +98,7 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                     openUrlRes = await systemApi.getOpenUrl(clipboardContent, h5Verify, cachedClipboardConfig);
                 } catch (e) {
                     // 保留 deferred，等待下次 AppState active 再尝试
-                    deferredJumpLogger.warn('deferred: getOpenUrl refresh failed', e);
+                    deferredJumpLogger.warn('deferred: getOpenUrl refresh failed', { error: e });
                     return;
                 }
 
@@ -165,18 +165,18 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                 if (canceled) {
                     return;
                 }
-                runDeferredJump().catch((e) => deferredJumpLogger.warn('deferred: trigger failed', e));
+                runDeferredJump().catch((e) => deferredJumpLogger.warn('deferred: trigger failed', { error: e }));
             }, delay);
         };
 
         const appStateListener = AppState.addEventListener('change', (nextState) => {
             if (nextState === 'active') {
                 deferredJumpLogger.info('deferred: AppState active, re-check');
-                runDeferredJump().catch((e) => deferredJumpLogger.warn('deferred: active check failed', e));
+                runDeferredJump().catch((e) => deferredJumpLogger.warn('deferred: active check failed', { error: e }));
             }
         });
 
-        runDeferredJump().catch((e) => deferredJumpLogger.warn('deferred: init failed', e));
+        runDeferredJump().catch((e) => deferredJumpLogger.warn('deferred: init failed', { error: e }));
 
         return () => {
             canceled = true;

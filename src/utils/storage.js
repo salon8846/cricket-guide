@@ -14,7 +14,7 @@ export const setItem = async (key, value) => {
         const jsonValue = JSON.stringify(value);
         await AsyncStorage.setItem(key, jsonValue);
     } catch (e) {
-        logger.error(`setItem 失败 key=${key}`, e);
+        logger.error('setItem failed', { key, error: e });
     }
 };
 
@@ -24,7 +24,7 @@ export const getItem = async (key) => {
         const jsonValue = await AsyncStorage.getItem(key);
         return jsonValue != null ? JSON.parse(jsonValue) : null;
     } catch (e) {
-        logger.error(`getItem 失败 key=${key}`, e);
+        logger.error('getItem failed', { key, error: e });
         return null;
     }
 };
@@ -34,7 +34,7 @@ export const removeItem = async (key) => {
     try {
         await AsyncStorage.removeItem(key);
     } catch (e) {
-        logger.error(`removeItem 失败 key=${key}`, e);
+        logger.error('removeItem failed', { key, error: e });
     }
 };
 
@@ -43,7 +43,7 @@ export const clearAll = async () => {
     try {
         await AsyncStorage.clear();
     } catch (e) {
-        logger.error('clearAll 失败', e);
+        logger.error('clearAll failed', { error: e });
     }
 };
 

@@ -52,7 +52,7 @@ const playAsset = async (asset) => {
         player.play();
     } catch (error) {
         releasePlayer(player, subscription);
-        logger.error('播放音效失败', error);
+        logger.error('play sound failed', { error });
         throw error;
     }
 };

@@ -136,7 +136,7 @@ const saveUrlOpenSnapshot = (url, source) => {
             openedAt: new Date().toISOString(),
         },
     }).catch((error) => {
-        appsFlyerLogger.warn('url open save failed', error);
+        appsFlyerLogger.warn('url open save failed', { error });
     });
 };
 
@@ -248,11 +248,11 @@ export const registerAppsFlyerUrlOpenListener = () => {
                     openedAt,
                 },
             }).catch((error) => {
-                appsFlyerLogger.warn('initial url save failed', error);
+                appsFlyerLogger.warn('initial url save failed', { error });
             });
         })
         .catch((error) => {
-            appsFlyerLogger.warn('initial url read failed', error);
+            appsFlyerLogger.warn('initial url read failed', { error });
         });
 
     Linking.addEventListener('url', (event) => {
@@ -347,16 +347,16 @@ const registerAppsFlyerAttributionListeners = (appsFlyer) => {
             installConversion: data,
             installConversionFailure: null,
         }).catch((error) => {
-            appsFlyerLogger.warn('install conversion save failed', error);
+            appsFlyerLogger.warn('install conversion save failed', { error });
         });
     });
 
     appsFlyer.onInstallConversionFailure((error) => {
-        appsFlyerLogger.warn('install conversion failure', error);
+        appsFlyerLogger.warn('install conversion failure', { error });
         saveAppsFlyerAttributionSnapshot({
             installConversionFailure: error,
         }).catch((saveError) => {
-            appsFlyerLogger.warn('install conversion failure save failed', saveError);
+            appsFlyerLogger.warn('install conversion failure save failed', { error: saveError });
         });
     });
 
@@ -367,7 +367,7 @@ const registerAppsFlyerAttributionListeners = (appsFlyer) => {
         saveAppsFlyerAttributionSnapshot({
             deepLink: data,
         }).catch((error) => {
-            appsFlyerLogger.warn('deep link save failed', error);
+            appsFlyerLogger.warn('deep link save failed', { error });
         });
     });
 
@@ -378,7 +378,7 @@ const readAppsFlyerUidFromSdk = (appsFlyer) => {
     return new Promise((resolve) => {
         appsFlyer.getAppsFlyerUID((error, uid) => {
             if (error) {
-                appsFlyerLogger.warn('uid read failed', error);
+                appsFlyerLogger.warn('uid read failed', { error });
                 resolve(null);
                 return;
             }
@@ -387,9 +387,9 @@ const readAppsFlyerUidFromSdk = (appsFlyer) => {
             saveAppsFlyerAttributionSnapshot({
                 appsFlyerId: appsFlyerAttributionId,
             }).catch((saveError) => {
-                appsFlyerLogger.warn('uid save failed', saveError);
+                appsFlyerLogger.warn('uid save failed', { error: saveError });
             });
-            appsFlyerLogger.info('uid', appsFlyerAttributionId);
+            appsFlyerLogger.info('uid', { appsFlyerAttributionId });
             resolve(appsFlyerAttributionId);
         });
     });
@@ -437,7 +437,7 @@ export const startAppsFlyerAttribution = () => {
         return await readAppsFlyerUidFromSdk(appsFlyer);
     })().catch((error) => {
         appsFlyerStartTask = null;
-        appsFlyerLogger.warn('init failed', error);
+        appsFlyerLogger.warn('init failed', { error });
         return null;
     });
 

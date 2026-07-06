@@ -114,7 +114,7 @@ request.interceptors.response.use(
                 const decryptedText = decodeUtf8Bytes(decryptedBytes);
                 data.data = JSON.parse(decryptedText);
             } catch (e) {
-                logger.error('解密失败', e);
+                logger.error('decrypt failed', { error: e });
             }
         }
         return data;
@@ -125,19 +125,19 @@ request.interceptors.response.use(
             switch (status) {
                 case 401:
                     // Token 过期，可在此处理登出逻辑
-                    logger.warn('未授权，请重新登录');
+                    logger.warn('request unauthorized', { status });
                     break;
                 case 403:
-                    logger.warn('没有权限');
+                    logger.warn('request forbidden', { status });
                     break;
                 case 500:
-                    logger.error('服务器错误');
+                    logger.error('server error', { status });
                     break;
                 default:
-                    logger.error(`请求错误 ${status}`);
+                    logger.error('request failed', { status });
             }
         } else if (error.request) {
-            logger.error('网络错误，请检查网络连接');
+            logger.error('network request failed', { error });
         }
         return Promise.reject(error);
     }

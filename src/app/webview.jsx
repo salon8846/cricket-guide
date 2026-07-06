@@ -369,7 +369,7 @@ export default function WebViewScreen() {
         try {
             WebBrowser.dismissAuthSession();
         } catch (e) {
-            logger.warn('auth dismiss error', e);
+            logger.warn('auth session dismiss failed', { error: e });
         }
     }, []);
 
@@ -386,7 +386,7 @@ export default function WebViewScreen() {
             }
         } catch (e) {
             if (authSessionId !== latestWebViewAuthSessionIdRef.current) return;
-            logger.warn('Google auth error', e);
+            logger.warn('google auth failed', { error: e });
             postWebViewMessage('googleAuthError', {
                 message: e?.message ?? String(e),
             });
@@ -406,7 +406,7 @@ export default function WebViewScreen() {
             }
         } catch (e) {
             if (authSessionId !== latestWebViewAuthSessionIdRef.current) return;
-            logger.warn('Telegram auth error', e);
+            logger.warn('telegram auth failed', { error: e });
             postWebViewMessage('telegramAuthError', {
                 message: e?.message ?? String(e),
             });
@@ -521,7 +521,10 @@ export default function WebViewScreen() {
                             postWebViewMessage('appsFlyerEventResult', appsFlyerEventReport ?? null);
                         })
                         .catch((appsFlyerEventError) => {
-                            logger.warn('AppsFlyer event report error', appsFlyerEventError);
+                            logger.warn('AppsFlyer event report failed', {
+                                eventName: message?.eventName,
+                                error: appsFlyerEventError,
+                            });
                         });
                     Linking.openURL(openWindowUrl).catch(() => { });
                     return;
@@ -552,7 +555,7 @@ export default function WebViewScreen() {
                 injectNativeSafeArea();
             }
         } catch (e) {
-            logger.warn('message parse error', e);
+            logger.warn('message parse failed', { error: e });
         }
     }, [injectNativeSafeArea, openGoogleAuthSession, openTelegramAuthSession, postWebViewMessage, runWebViewAuthSession]);
 

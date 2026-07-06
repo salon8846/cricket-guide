@@ -31,7 +31,7 @@ export default function RootLayout() {
             ? ScreenOrientation.unlockAsync()
             : ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
         orientationTask.catch((error) => {
-            logger.warn('Screen orientation change error', error);
+            logger.warn('screen orientation change failed', { pathname, error });
         });
     }, [pathname]);
 

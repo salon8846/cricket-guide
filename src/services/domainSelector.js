@@ -26,10 +26,10 @@ async function detectRootUrl() {
     for (const rootUrl of PROD_API_ROOT_URLS) {
         const isAvailable = await checkRootUrl(rootUrl);
         if (isAvailable) {
-            logger.info(`可用服务根地址: ${rootUrl}`);
+            logger.info('service root available', { rootUrl });
             return rootUrl;
         }
-        logger.warn(`不可用: ${rootUrl}`);
+        logger.warn('service root unavailable', { rootUrl });
     }
 
     return null;
@@ -43,7 +43,7 @@ export async function initDomain() {
     if (IsDev) {
         _activeBaseURL = API_BASE_URL;
         _initialized = true;
-        logger.info(`Dev 模式，使用: ${_activeBaseURL}`);
+        logger.info('dev base url selected', { baseURL: _activeBaseURL });
         return _activeBaseURL;
     }
 
@@ -57,11 +57,11 @@ export async function initDomain() {
                 _activeBaseURL = buildApiBaseURL(rootUrl);
             } else {
                 // 全部失败，使用优先级最高（第一个）域名兜底
-                logger.warn('所有域名不可达，使用兜底', { rootUrl: PROD_API_ROOT_URLS[0] });
+                logger.warn('all service roots unavailable, fallback selected', { rootUrl: PROD_API_ROOT_URLS[0] });
                 _activeBaseURL = API_BASE_URL;
             }
         } catch (e) {
-            logger.error('检测异常', e);
+            logger.error('service root detection failed', { error: e });
         } finally {
             _initialized = true;
             _initPromise = null;

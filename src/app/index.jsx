@@ -349,7 +349,7 @@ export default function BootstrapScreen() {
                 await finishToInternalEntry(openUrlRes?.data?.abTest ?? null);
             }
         } catch (e) {
-            deferredJumpLogger.warn('bootstrap: failed, show error', e);
+            deferredJumpLogger.warn('bootstrap: failed, show error', { error: e });
             setStatus('error');
         } finally {
             isRunningRef.current = false;
