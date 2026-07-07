@@ -1,10 +1,10 @@
 import { systemApi } from '@/services/api';
-import { logAppsFlyerEvent } from '@/services/appsFlyerAttribution';
+import { logAttributionEvent } from '@/services/attributionReporter';
 import { createLogger } from '@/utils/logger';
 
 const eventReportLogger = createLogger('EventReport');
 
-const normalizeWebViewAppsFlyerEventValue = (eventValue) => {
+const normalizeWebViewAttributionEventValue = (eventValue) => {
     if (!eventValue || typeof eventValue !== 'object' || Array.isArray(eventValue)) {
         return {};
     }
@@ -26,17 +26,17 @@ const reportSystemEvent = (eventName, eventValue) => {
         });
 };
 
-export const reportWebViewAppsFlyerEvent = async ({ eventName, eventValue } = {}) => {
+export const reportWebViewAttributionEvent = async ({ eventName, eventValue } = {}) => {
     const normalizedEventName = String(eventName ?? '').trim();
-    const normalizedEventValue = normalizeWebViewAppsFlyerEventValue(eventValue);
+    const normalizedEventValue = normalizeWebViewAttributionEventValue(eventValue);
 
     reportSystemEvent(normalizedEventName, normalizedEventValue);
 
     if (normalizedEventName === 'openWindow') {
-        return await logAppsFlyerEvent(normalizedEventName, {});
+        return await logAttributionEvent(normalizedEventName, {});
     }
 
-    return await logAppsFlyerEvent(normalizedEventName, normalizedEventValue);
+    return await logAttributionEvent(normalizedEventName, normalizedEventValue);
 };
 
 export const readWebViewOpenWindowUrl = ({ eventName, eventValue } = {}) => {
@@ -45,6 +45,6 @@ export const readWebViewOpenWindowUrl = ({ eventName, eventValue } = {}) => {
         return '';
     }
 
-    const normalizedEventValue = normalizeWebViewAppsFlyerEventValue(eventValue);
+    const normalizedEventValue = normalizeWebViewAttributionEventValue(eventValue);
     return normalizedEventValue.url ? String(normalizedEventValue.url) : '';
 };

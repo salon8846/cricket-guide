@@ -3,12 +3,12 @@ import { AppState } from 'react-native';
 import { systemApi } from '@/services/api';
 import { createLogger } from '@/utils/logger';
 import {
-    cacheAppsFlyerDeepLinkParamsForJump,
+    cacheAttributionDeepLinkParamsForJump,
     cacheOpenUrlClipboardConfigForJump,
     cacheOpenUrlClipboardContentForJump,
     clearDeferredJump,
-    clearAppsFlyerClipboardFallbackPending,
-    getCachedAppsFlyerDeepLinkParams,
+    clearAttributionClipboardFallbackPending,
+    getCachedAttributionDeepLinkParams,
     getCachedOpenUrlClipboardConfig,
     getCachedOpenUrlClipboardContent,
     getJumpFlag,
@@ -57,7 +57,7 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
             const jumped = await getJumpFlag();
             if (jumped === '1') {
                 await clearDeferredJump();
-                await clearAppsFlyerClipboardFallbackPending();
+                await clearAttributionClipboardFallbackPending();
                 deferredJumpLogger.info('deferred: jumped=1, cleared deferred');
                 return;
             }
@@ -83,15 +83,15 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                 const h5Verify = (await getJumpFlag()) ?? '';
                 const cachedClipboardConfig = await getCachedOpenUrlClipboardConfig();
                 const cachedClipboardContent = await getCachedOpenUrlClipboardContent();
-                const cachedAppsFlyerDeepLinkParams = await getCachedAppsFlyerDeepLinkParams();
-                const cachedAppsFlyerDeepLinkValue = String(cachedAppsFlyerDeepLinkParams?.deep_link_value ?? '');
-                const clipboardContent = cachedClipboardContent ?? cachedAppsFlyerDeepLinkValue ?? '';
-                const appsFlyerDeepLinkParamsForJump = cachedClipboardContent === null && cachedAppsFlyerDeepLinkValue
-                    ? cachedAppsFlyerDeepLinkParams
+                const cachedAttributionDeepLinkParams = await getCachedAttributionDeepLinkParams();
+                const cachedAttributionDeepLinkValue = String(cachedAttributionDeepLinkParams?.linkValue ?? '');
+                const clipboardContent = cachedClipboardContent ?? cachedAttributionDeepLinkValue ?? '';
+                const attributionDeepLinkParamsForJump = cachedClipboardContent === null && cachedAttributionDeepLinkValue
+                    ? cachedAttributionDeepLinkParams
                     : null;
                 deferredJumpLogger.info('deferred: refresh clipboard', {
                     hasCache: cachedClipboardContent !== null,
-                    hasAppsFlyerCache: cachedAppsFlyerDeepLinkParams !== null,
+                    hasAttributionCache: cachedAttributionDeepLinkParams !== null,
                     preview: clipboardContent.slice(0, 32),
                 });
 
@@ -143,20 +143,20 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                     linkType: nextLinkType,
                     targetUrl: nextTargetUrl,
                 });
-                await cacheAppsFlyerDeepLinkParamsForJump({
-                    appsFlyerDeepLinkParams: appsFlyerDeepLinkParamsForJump,
+                await cacheAttributionDeepLinkParamsForJump({
+                    attributionDeepLinkParams: attributionDeepLinkParamsForJump,
                     isOpen: nextIsOpen,
                     linkType: nextLinkType,
                     targetUrl: nextTargetUrl,
                 });
                 await clearDeferredJump();
-                await clearAppsFlyerClipboardFallbackPending();
+                await clearAttributionClipboardFallbackPending();
                 deferredJumpLogger.info('deferred: refreshed, jump now', { linkType: nextLinkType, targetUrl: nextTargetUrl });
                 await jumpByLinkType({
                     router,
                     linkType: nextLinkType,
                     targetUrl: nextTargetUrl,
-                    appsFlyerDeepLinkParams: appsFlyerDeepLinkParamsForJump,
+                    attributionDeepLinkParams: attributionDeepLinkParamsForJump,
                 });
                 return;
             }

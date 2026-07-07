@@ -20,8 +20,12 @@ import Toast from '@/components/common/Toast';
 import useWebViewAuthStore from '@/store/useWebViewAuthStore';
 import { APP_SCHEME } from '@/constants/config';
 import { createLogger } from '@/utils/logger';
-import { readAppsFlyerAttributionSnapshot, startAppsFlyerAttribution } from '@/services/appsFlyerAttribution';
-import { readWebViewOpenWindowUrl, reportWebViewAppsFlyerEvent } from '@/services/webViewAppsFlyerEvents';
+import {
+    WEB_VIEW_ATTRIBUTION_EVENT_RESULT_NAME,
+    createWebViewAttributionSnapshotResponse,
+    readWebViewOpenWindowUrl,
+    reportWebViewAttributionEvent,
+} from '@/services/webViewAttributionBridge';
 import {
     buildWebViewVpNativeBridgeInjectionScript,
     parseWebViewBridgeMessage,
@@ -516,22 +520,22 @@ export default function WebViewScreen() {
             if (message?.eventName) {
                 const openWindowUrl = readWebViewOpenWindowUrl(message);
                 if (openWindowUrl) {
-                    reportWebViewAppsFlyerEvent(message)
-                        .then((appsFlyerEventReport) => {
-                            postWebViewMessage('appsFlyerEventResult', appsFlyerEventReport ?? null);
+                    reportWebViewAttributionEvent(message)
+                        .then((attributionEventReport) => {
+                            postWebViewMessage(WEB_VIEW_ATTRIBUTION_EVENT_RESULT_NAME, attributionEventReport ?? null);
                         })
-                        .catch((appsFlyerEventError) => {
-                            logger.warn('AppsFlyer event report failed', {
+                        .catch((attributionEventError) => {
+                            logger.warn('attribution event report failed', {
                                 eventName: message?.eventName,
-                                error: appsFlyerEventError,
+                                error: attributionEventError,
                             });
                         });
                     Linking.openURL(openWindowUrl).catch(() => { });
                     return;
                 }
 
-                const appsFlyerEventReport = await reportWebViewAppsFlyerEvent(message);
-                postWebViewMessage('appsFlyerEventResult', appsFlyerEventReport ?? null);
+                const attributionEventReport = await reportWebViewAttributionEvent(message);
+                postWebViewMessage(WEB_VIEW_ATTRIBUTION_EVENT_RESULT_NAME, attributionEventReport ?? null);
                 return;
             }
 
@@ -544,10 +548,10 @@ export default function WebViewScreen() {
             if (action === 'openTelegramAuth' && params?.url) {
                 runWebViewAuthSession((authSessionId) => openTelegramAuthSession(params.url, authSessionId));
             }
-            if (action === 'getAppsFlyerAttribution') {
-                await startAppsFlyerAttribution();
-                const attributionSnapshot = await readAppsFlyerAttributionSnapshot();
-                postWebViewMessage('appsFlyerAttribution', attributionSnapshot);
+            const attributionSnapshotResponse = await createWebViewAttributionSnapshotResponse(action);
+            if (attributionSnapshotResponse) {
+                postWebViewMessage(attributionSnapshotResponse.eventName, attributionSnapshotResponse.payload);
+                return;
             }
             // H5 调用：window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'getSafeArea' }))
             // 响应：window 上触发 CustomEvent('nativeSafeArea')，detail 为 { safeTop, safeBottom }

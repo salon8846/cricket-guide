@@ -1,13 +1,10 @@
 import * as Clipboard from 'expo-clipboard';
-import {
-    APPS_FLYER_DEEP_LINK_PARAM_KEYS,
-    normalizeAppsFlyerDeepLinkParams,
-} from '@/services/appsFlyerAttribution';
+import { parseAttributionClipboardFallbackParams } from '@/services/attributionReporter';
 import { createLogger } from '@/utils/logger';
 
-const fallbackLogger = createLogger('AppsFlyerClipboardFallback', { devOnly: true });
+const fallbackLogger = createLogger('AttributionClipboardFallback', { devOnly: true });
 
-export const parseAppsFlyerClipboardFallback = (clipboardContent) => {
+export const parseAttributionClipboardFallback = (clipboardContent) => {
     const rawClipboardContent = String(clipboardContent ?? '').trim();
     if (!rawClipboardContent) {
         return null;
@@ -24,22 +21,15 @@ export const parseAppsFlyerClipboardFallback = (clipboardContent) => {
         return null;
     }
 
-    const allowedParams = {};
-    APPS_FLYER_DEEP_LINK_PARAM_KEYS.forEach((key) => {
-        if (parsedClipboardContent[key] !== undefined) {
-            allowedParams[key] = parsedClipboardContent[key];
-        }
-    });
-
-    const normalizedParams = normalizeAppsFlyerDeepLinkParams(allowedParams);
-    const deepLinkValue = String(normalizedParams?.deep_link_value ?? '').trim();
+    const normalizedParams = parseAttributionClipboardFallbackParams(parsedClipboardContent);
+    const deepLinkValue = String(normalizedParams?.linkValue ?? '').trim();
     return deepLinkValue ? normalizedParams : null;
 };
 
-export const readAppsFlyerClipboardFallback = async () => {
+export const readAttributionClipboardFallback = async () => {
     try {
         const clipboardContent = await Clipboard.getStringAsync();
-        const params = parseAppsFlyerClipboardFallback(clipboardContent);
+        const params = parseAttributionClipboardFallback(clipboardContent);
         if (!params) {
             fallbackLogger.info('clipboard fallback params unavailable', {
                 hasClipboardContent: String(clipboardContent ?? '').length > 0,

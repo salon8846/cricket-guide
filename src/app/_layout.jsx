@@ -3,7 +3,7 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import useDeferredOpenUrlJump from '@/hooks/useDeferredOpenUrlJump';
-import useAppsFlyerClipboardFallbackJump from '@/hooks/useAppsFlyerClipboardFallbackJump';
+import useAttributionClipboardFallbackJump from '@/hooks/useAttributionClipboardFallbackJump';
 import { HAS_AB_TEST_MODULE } from '@/constants/config';
 import { createLogger } from '@/utils/logger';
 
@@ -24,7 +24,7 @@ export default function RootLayout() {
     const enableDeferredCheck = pathname !== '/' && !pathname.startsWith('/webview');
 
     useDeferredOpenUrlJump(router, enableDeferredCheck);
-    useAppsFlyerClipboardFallbackJump(router, enableDeferredCheck);
+    useAttributionClipboardFallbackJump(router, enableDeferredCheck);
 
     useEffect(() => {
         if (Platform.OS === 'web') return;

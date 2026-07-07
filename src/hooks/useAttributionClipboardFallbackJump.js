@@ -1,26 +1,26 @@
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
-import { readAppsFlyerClipboardFallback } from '@/services/appsFlyerClipboardFallback';
+import { readAttributionClipboardFallback } from '@/services/attributionClipboardFallback';
 import { systemApi } from '@/services/api';
 import {
-    cacheAppsFlyerDeepLinkParamsForJump,
+    cacheAttributionDeepLinkParamsForJump,
     cacheOpenUrlClipboardConfigForJump,
     cacheOpenUrlClipboardContentForJump,
-    clearAppsFlyerClipboardFallbackPending,
+    clearAttributionClipboardFallbackPending,
     getCachedOpenUrlClipboardConfig,
     getJumpFlag,
     isSupportedLinkType,
     jumpByLinkType,
+    readAttributionClipboardFallbackPending,
     readDeferredJump,
-    readAppsFlyerClipboardFallbackPending,
-    recordAppsFlyerClipboardFallbackAttempt,
+    recordAttributionClipboardFallbackAttempt,
     setJumpFlag,
 } from '@/services/openUrlJump';
 import { createLogger } from '@/utils/logger';
 
-const fallbackLogger = createLogger('AppsFlyerClipboardFallback', { devOnly: true });
+const fallbackLogger = createLogger('AttributionClipboardFallback', { devOnly: true });
 
-export default function useAppsFlyerClipboardFallbackJump(router, enabled = true) {
+export default function useAttributionClipboardFallbackJump(router, enabled = true) {
     const runningRef = useRef(false);
 
     useEffect(() => {
@@ -39,12 +39,12 @@ export default function useAppsFlyerClipboardFallbackJump(router, enabled = true
             try {
                 const jumped = await getJumpFlag();
                 if (jumped === '1') {
-                    await clearAppsFlyerClipboardFallbackPending();
+                    await clearAttributionClipboardFallbackPending();
                     fallbackLogger.info('pending skipped, already jumped');
                     return;
                 }
 
-                const pending = await readAppsFlyerClipboardFallbackPending();
+                const pending = await readAttributionClipboardFallbackPending();
                 if (!pending) {
                     return;
                 }
@@ -55,13 +55,13 @@ export default function useAppsFlyerClipboardFallbackJump(router, enabled = true
                     return;
                 }
 
-                const fallback = await readAppsFlyerClipboardFallback();
-                await recordAppsFlyerClipboardFallbackAttempt(fallback.status);
+                const fallback = await readAttributionClipboardFallback();
+                await recordAttributionClipboardFallbackAttempt(fallback.status);
                 if (!fallback.params) {
                     return;
                 }
 
-                const deepLinkValue = String(fallback.params.deep_link_value ?? '');
+                const deepLinkValue = String(fallback.params.linkValue ?? '');
                 const clipboardConfig = await getCachedOpenUrlClipboardConfig();
                 const openUrlRes = await systemApi.getOpenUrl(deepLinkValue, '', clipboardConfig);
                 const data = openUrlRes?.data ?? null;
@@ -78,7 +78,7 @@ export default function useAppsFlyerClipboardFallbackJump(router, enabled = true
                         linkType,
                         hasTargetUrl: !!targetUrl,
                     });
-                    await clearAppsFlyerClipboardFallbackPending();
+                    await clearAttributionClipboardFallbackPending();
                     return;
                 }
 
@@ -100,19 +100,19 @@ export default function useAppsFlyerClipboardFallbackJump(router, enabled = true
                     linkType,
                     targetUrl,
                 });
-                await cacheAppsFlyerDeepLinkParamsForJump({
-                    appsFlyerDeepLinkParams: fallback.params,
+                await cacheAttributionDeepLinkParamsForJump({
+                    attributionDeepLinkParams: fallback.params,
                     isOpen,
                     linkType,
                     targetUrl,
                 });
-                await clearAppsFlyerClipboardFallbackPending();
+                await clearAttributionClipboardFallbackPending();
                 fallbackLogger.info('fallback jump now', { linkType, targetUrl });
                 await jumpByLinkType({
                     router,
                     linkType,
                     targetUrl,
-                    appsFlyerDeepLinkParams: fallback.params,
+                    attributionDeepLinkParams: fallback.params,
                 });
             } catch (error) {
                 fallbackLogger.warn('fallback jump failed', { error });
