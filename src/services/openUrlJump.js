@@ -73,6 +73,11 @@ export const canOverrideCachedAppsFlyerDeepLinkParams = (appsFlyerConfig) => {
     return appsFlyerConfig?.allowDeepLinkOverride === true;
 };
 
+/** 判断 init.data.af 是否允许 AppsFlyer DDL 失败后读取剪贴板兜底 */
+export const canUseAppsFlyerClipboardFallback = (appsFlyerConfig) => {
+    return appsFlyerConfig?.enabled === true && appsFlyerConfig?.clipboardFallbackEnabled === true;
+};
+
 /** 读取已跳转标记 */
 export const getJumpFlag = async () => {
     return await AsyncStorage.getItem(OPEN_URL_KEYS.JUMP_FLAG_KEY).catch(() => null);

@@ -19,6 +19,7 @@ import {
     cacheOpenUrlClipboardConfigForJump,
     cacheOpenUrlClipboardContentForJump,
     canOverrideCachedAppsFlyerDeepLinkParams,
+    canUseAppsFlyerClipboardFallback,
     clearAppsFlyerClipboardFallbackPending,
     getCachedAppsFlyerDeepLinkParams,
     getCachedOpenUrlClipboardConfig,
@@ -119,7 +120,7 @@ export default function BootstrapScreen() {
             return requestOpenUrlWithClipboardContent(appsFlyerDeepLinkValue, 'appsflyer');
         }
 
-        if (appsFlyerConfig?.enabled === true) {
+        if (canUseAppsFlyerClipboardFallback(appsFlyerConfig)) {
             await saveAppsFlyerClipboardFallbackPending({
                 reason: 'apps_flyer_deep_link_unavailable',
                 readClipboard: base?.readClipboard,
@@ -357,8 +358,12 @@ export default function BootstrapScreen() {
             const appsFlyerConfig = initRes?.data?.af ?? null;
             configureAppsFlyerAttribution(appsFlyerConfig);
             startAppsFlyerAttribution();
-            deferredJumpLogger.info('bootstrap: api.init done', { checkTime: base?.checkTime, readClipboard: base?.readClipboard });
-            if (appsFlyerConfig?.enabled !== true) {
+            deferredJumpLogger.info('bootstrap: api.init done', {
+                checkTime: base?.checkTime,
+                readClipboard: base?.readClipboard,
+                appsFlyerClipboardFallbackEnabled: canUseAppsFlyerClipboardFallback(appsFlyerConfig),
+            });
+            if (!canUseAppsFlyerClipboardFallback(appsFlyerConfig)) {
                 await clearAppsFlyerClipboardFallbackPending();
             }
             // 将 init 返回的基础配置暂存起来，供 home 进入后补拉语言包
