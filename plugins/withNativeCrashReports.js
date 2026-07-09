@@ -498,6 +498,13 @@ const addAndroidNativeCrashPackage = (source) => {
         return source;
     }
 
+    const packageListApplyPattern = /^([ \t]*)PackageList\(this\)\.packages\.apply\s*\{\n/m;
+    if (packageListApplyPattern.test(source)) {
+        return source.replace(packageListApplyPattern, (match, indent) => (
+            `${match}${indent}  add(AppNativeCrashReportsPackage())\n`
+        ));
+    }
+
     const packageListPattern = /(val packages = PackageList\(this\)\.packages\n)/;
     if (packageListPattern.test(source)) {
         return source.replace(packageListPattern, `$1      packages.add(AppNativeCrashReportsPackage())\n`);
@@ -508,7 +515,7 @@ const addAndroidNativeCrashPackage = (source) => {
         return source.replace(directReturnPattern, 'return PackageList(this).packages + AppNativeCrashReportsPackage()');
     }
 
-    throw new Error('[NativeCrashReportsPlugin] MainApplication.kt getPackages shape is unsupported');
+    throw new Error('[NativeCrashReportsPlugin] MainApplication.kt package list shape is unsupported');
 };
 
 const applyAndroidPatch = (source) => {
@@ -559,21 +566,31 @@ const addSwiftImport = (source, importLine) => {
 };
 
 const addIosKSCrashInstaller = (source) => {
-    if (source.includes('private enum NativeCrashReports')) {
-        return source;
+    const withoutInstaller = source.replace(
+        /\n\nprivate enum NativeCrashReports \{\n\s*static func installKSCrash\(\) \{\n[\s\S]*?\n\s*\}\n\}/,
+        '',
+    );
+
+    const mainIndex = withoutInstaller.indexOf('\n@main');
+    if (mainIndex !== -1) {
+        return `${withoutInstaller.slice(0, mainIndex)}${IOS_KSCRASH_SOURCE}${withoutInstaller.slice(mainIndex)}`;
     }
 
-    const classIndex = source.indexOf('\nclass AppDelegate');
+    const classIndex = withoutInstaller.indexOf('\nclass AppDelegate');
     if (classIndex === -1) {
         throw new Error('[NativeCrashReportsPlugin] AppDelegate.swift class declaration not found');
     }
 
-    return `${source.slice(0, classIndex)}${IOS_KSCRASH_SOURCE}${source.slice(classIndex)}`;
+    return `${withoutInstaller.slice(0, classIndex)}${IOS_KSCRASH_SOURCE}${withoutInstaller.slice(classIndex)}`;
+};
+
+const normalizeIosInstallCallIndent = (source) => {
+    return source.replace(/^[ \t]*NativeCrashReports\.installKSCrash\(\)$/m, `    ${IOS_KSCRASH_INSTALL}`);
 };
 
 const addIosInstallCall = (source) => {
     if (source.includes(IOS_KSCRASH_INSTALL)) {
-        return source;
+        return normalizeIosInstallCallIndent(source);
     }
 
     const launchPattern = /(?:^|\n)([ \t]*)(?:public\s+)?override\s+func\s+application\s*\(/g;
@@ -586,7 +603,7 @@ const addIosInstallCall = (source) => {
 
         const methodHeader = source.slice(launchMatch.index, bodyStartIndex);
         if (methodHeader.includes('didFinishLaunchingWithOptions')) {
-            const bodyIndent = `${launchMatch[1]}    `;
+            const bodyIndent = `${launchMatch[1]}  `;
             return `${source.slice(0, bodyStartIndex + 1)}\n${bodyIndent}${IOS_KSCRASH_INSTALL}${source.slice(bodyStartIndex + 1)}`;
         }
 

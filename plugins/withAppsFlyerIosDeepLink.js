@@ -2,9 +2,9 @@ const fs = require('fs');
 const path = require('path');
 const { withAppDelegate, withDangerousMod } = require('@expo/config-plugins');
 
-const RN_APPS_FLYER_HEADER_IMPORT = '#import "RNAppsFlyer.h"';
+const RN_APPS_FLYER_HEADER_IMPORT = '#import <RNAppsFlyer.h>';
 const APPS_FLYER_OPEN_URL_FORWARDING = 'AppsFlyerAttribution.shared().handleOpen(url, options: options)';
-const APPS_FLYER_UNIVERSAL_LINK_SELECTOR = 'NSSelectorFromString("continueUserActivity:restorationHandler:")';
+const APPS_FLYER_UNIVERSAL_LINK_FORWARDING = 'AppsFlyerAttribution.shared().continue(userActivity, restorationHandler: nil)';
 
 const APPS_FLYER_OPEN_URL_METHOD = `
   public override func application(
@@ -23,11 +23,7 @@ const APPS_FLYER_UNIVERSAL_LINK_METHOD = `
     continue userActivity: NSUserActivity,
     restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
   ) -> Bool {
-    let selector = NSSelectorFromString("continueUserActivity:restorationHandler:")
-    let appsFlyerAttribution = AppsFlyerAttribution.shared()
-    if appsFlyerAttribution.responds(to: selector) {
-      _ = appsFlyerAttribution.perform(selector, with: userActivity, with: restorationHandler)
-    }
+    AppsFlyerAttribution.shared().continue(userActivity, restorationHandler: nil)
     let result = RCTLinkingManager.application(application, continue: userActivity, restorationHandler: restorationHandler)
     return super.application(application, continue: userActivity, restorationHandler: restorationHandler) || result
   }
@@ -61,40 +57,46 @@ const addAppsFlyerOpenUrlForwarding = (source) => {
     return insertSwiftMethodBeforeClassEnd(source, APPS_FLYER_OPEN_URL_METHOD);
 };
 
+const removeAppsFlyerUniversalLinkSelectorForwarding = (source) => {
+    const selectorForwardingPattern = /\n\s*let selector = NSSelectorFromString\("continueUserActivity:restorationHandler:"\)\n(?:\s*\n)?\s*let appsFlyerAttribution = AppsFlyerAttribution\.shared\(\)\n(?:\s*\n)?\s*if appsFlyerAttribution\.responds\(to: selector\) \{\n(?:\s*\n)?\s*_ = appsFlyerAttribution\.perform\(selector, with: userActivity, with: restorationHandler\)\n(?:\s*\n)?\s*\}\n/g;
+    return source.replace(selectorForwardingPattern, '\n');
+};
+
 const addAppsFlyerUniversalLinkForwarding = (source) => {
-    if (source.includes(APPS_FLYER_UNIVERSAL_LINK_SELECTOR)) {
-        return source;
+    const withoutSelectorForwarding = removeAppsFlyerUniversalLinkSelectorForwarding(source);
+
+    if (withoutSelectorForwarding.includes(APPS_FLYER_UNIVERSAL_LINK_FORWARDING)) {
+        return withoutSelectorForwarding;
     }
 
     const universalLinkAnchorPattern = /(\s*)let result = RCTLinkingManager\.application\(application, continue: userActivity, restorationHandler: restorationHandler\)/;
-    if (universalLinkAnchorPattern.test(source)) {
-        return source.replace(universalLinkAnchorPattern, (match, indent) => (
-            `${indent}let selector = ${APPS_FLYER_UNIVERSAL_LINK_SELECTOR}\n`
-            + `${indent}let appsFlyerAttribution = AppsFlyerAttribution.shared()\n`
-            + `${indent}if appsFlyerAttribution.responds(to: selector) {\n`
-            + `${indent}  _ = appsFlyerAttribution.perform(selector, with: userActivity, with: restorationHandler)\n`
-            + `${indent}}\n`
-            + match
+    if (universalLinkAnchorPattern.test(withoutSelectorForwarding)) {
+        return withoutSelectorForwarding.replace(universalLinkAnchorPattern, (match, indent) => (
+            `${indent}${APPS_FLYER_UNIVERSAL_LINK_FORWARDING}\n${match}`
         ));
     }
 
-    if (source.includes('continue userActivity: NSUserActivity')) {
+    if (withoutSelectorForwarding.includes('continue userActivity: NSUserActivity')) {
         throw new Error('[AppsFlyerIosDeepLinkPlugin] AppDelegate.swift Universal Link method shape is unsupported');
     }
 
-    return insertSwiftMethodBeforeClassEnd(source, APPS_FLYER_UNIVERSAL_LINK_METHOD);
+    return insertSwiftMethodBeforeClassEnd(withoutSelectorForwarding, APPS_FLYER_UNIVERSAL_LINK_METHOD);
 };
 
 const applyAppsFlyerIosDeepLinkPatch = (source) => {
     return addAppsFlyerUniversalLinkForwarding(addAppsFlyerOpenUrlForwarding(source));
 };
 
-const addAppsFlyerBridgingHeaderImport = (source) => {
-    if (source.includes(RN_APPS_FLYER_HEADER_IMPORT)) {
-        return source;
-    }
+const isAppsFlyerBridgingHeaderImport = (line) => {
+    return /^#import\s+[<"]RNAppsFlyer\.h[>"]\s*$/.test(line);
+};
 
-    const trimmedSource = source.replace(/\s*$/, '');
+const applyAppsFlyerBridgingHeaderImport = (source) => {
+    const trimmedSource = source
+        .split('\n')
+        .filter((line) => !isAppsFlyerBridgingHeaderImport(line))
+        .join('\n')
+        .replace(/\s*$/, '');
     return `${trimmedSource}\n${RN_APPS_FLYER_HEADER_IMPORT}\n`;
 };
 
@@ -139,7 +141,7 @@ const withAppsFlyerIosBridgingHeader = (config) => {
 
             bridgingHeaderPaths.forEach((bridgingHeaderPath) => {
                 const currentSource = fs.readFileSync(bridgingHeaderPath, 'utf8');
-                const nextSource = addAppsFlyerBridgingHeaderImport(currentSource);
+                const nextSource = applyAppsFlyerBridgingHeaderImport(currentSource);
                 if (nextSource !== currentSource) {
                     fs.writeFileSync(bridgingHeaderPath, nextSource);
                 }
