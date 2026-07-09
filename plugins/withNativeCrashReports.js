@@ -576,12 +576,24 @@ const addIosInstallCall = (source) => {
         return source;
     }
 
-    const launchPattern = /(\s*(?:public\s+)?override func application\([\s\S]*?didFinishLaunchingWithOptions launchOptions: \[UIApplication\.LaunchOptionsKey: Any\]\?\s*\) -> Bool \{\n)/;
-    if (!launchPattern.test(source)) {
-        throw new Error('[NativeCrashReportsPlugin] AppDelegate.swift didFinishLaunching shape is unsupported');
+    const launchPattern = /(?:^|\n)([ \t]*)(?:public\s+)?override\s+func\s+application\s*\(/g;
+    let launchMatch = launchPattern.exec(source);
+    while (launchMatch) {
+        const bodyStartIndex = source.indexOf('{', launchMatch.index);
+        if (bodyStartIndex === -1) {
+            throw new Error('[NativeCrashReportsPlugin] AppDelegate.swift didFinishLaunching body is unsupported');
+        }
+
+        const methodHeader = source.slice(launchMatch.index, bodyStartIndex);
+        if (methodHeader.includes('didFinishLaunchingWithOptions')) {
+            const bodyIndent = `${launchMatch[1]}    `;
+            return `${source.slice(0, bodyStartIndex + 1)}\n${bodyIndent}${IOS_KSCRASH_INSTALL}${source.slice(bodyStartIndex + 1)}`;
+        }
+
+        launchMatch = launchPattern.exec(source);
     }
 
-    return source.replace(launchPattern, `$1    ${IOS_KSCRASH_INSTALL}\n`);
+    throw new Error('[NativeCrashReportsPlugin] AppDelegate.swift didFinishLaunching shape is unsupported');
 };
 
 const applyIosPatch = (source) => {
