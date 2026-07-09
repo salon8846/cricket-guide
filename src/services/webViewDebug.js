@@ -1,132 +1,8 @@
 import erudaSource from '@/constants/erudaSource';
 import vConsoleSource from '@/constants/vconsoleSource';
-import { getItem, setItem } from '@/utils/storage';
 
-export const WEBVIEW_DEBUG_PANEL_TAP_COUNT = 10;
-export const WEBVIEW_DEBUG_PANEL_TAP_WINDOW_MS = 1500;
-export const WEBVIEW_DEBUG_PANEL_TYPE_ERUDA = 'eruda';
-export const WEBVIEW_DEBUG_PANEL_TYPE_VCONSOLE = 'vconsole';
-
-const WEBVIEW_DEBUG_PANEL_ENABLED_STORAGE_KEY = 'webview:debug-panel-enabled';
-const DEFAULT_WEBVIEW_DEBUG_HOTSPOT = {
-    width: 30,
-    height: 30,
-    top: null,
-    right: null,
-    bottom: null,
-    left: 0,
-    backgroundColor: 'transparent',
-};
-
-export function getStoredWebViewDebugPanelEnabled() {
-    return getItem(WEBVIEW_DEBUG_PANEL_ENABLED_STORAGE_KEY);
-}
-
-export function setStoredWebViewDebugPanelEnabled(enabled) {
-    return setItem(WEBVIEW_DEBUG_PANEL_ENABLED_STORAGE_KEY, enabled);
-}
-
-export function parseWebViewDebugPanelSourceUrl(rawUrl) {
-    if (!rawUrl) return '';
-    try {
-        const parsed = new URL(String(rawUrl).trim());
-        if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return '';
-        return parsed.toString();
-    } catch {
-        return '';
-    }
-}
-
-export function parseWebViewDebugPanelType(rawType) {
-    if (String(rawType).trim().toLowerCase() === WEBVIEW_DEBUG_PANEL_TYPE_VCONSOLE) {
-        return WEBVIEW_DEBUG_PANEL_TYPE_VCONSOLE;
-    }
-    return WEBVIEW_DEBUG_PANEL_TYPE_ERUDA;
-}
-
-function parseHotspotNumber(value, min, max) {
-    const number = Number(value);
-    if (!Number.isFinite(number)) return null;
-    return Math.min(Math.max(number, min), max);
-}
-
-function isStyleValue(value) {
-    return (
-        value === null
-        || typeof value === 'string'
-        || typeof value === 'number'
-        || typeof value === 'boolean'
-    );
-}
-
-function parseDebugHotspotStyleValue(key, value) {
-    if (!isStyleValue(value)) return undefined;
-    if (['width', 'height'].includes(key)) {
-        return parseHotspotNumber(value, 1, 240);
-    }
-    if (['top', 'right', 'bottom', 'left'].includes(key)) {
-        return parseHotspotNumber(value, 0, 2000);
-    }
-    if (typeof value === 'string' && value.length > 120) return undefined;
-    return value;
-}
-
-export function parseWebViewDebugHotspotStyle(rawStyle) {
-    if (!rawStyle) return DEFAULT_WEBVIEW_DEBUG_HOTSPOT;
-    try {
-        const parsed = JSON.parse(String(rawStyle));
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-            return DEFAULT_WEBVIEW_DEBUG_HOTSPOT;
-        }
-
-        const style = { ...DEFAULT_WEBVIEW_DEBUG_HOTSPOT };
-        Object.entries(parsed).forEach(([key, value]) => {
-            const styleValue = parseDebugHotspotStyleValue(key, value);
-            if (styleValue !== undefined) {
-                style[key] = styleValue;
-            }
-        });
-
-        if (style.left !== null && style.right !== null && parsed.left !== undefined) {
-            delete style.right;
-        }
-        if (style.bottom !== null && style.top !== null && parsed.bottom !== undefined) {
-            delete style.top;
-        }
-
-        return style;
-    } catch {
-        return DEFAULT_WEBVIEW_DEBUG_HOTSPOT;
-    }
-}
-
-export function buildWebViewDebugHotspotStyle(hotspotStyle, safeTop, safeBottom) {
-    const style = { ...hotspotStyle };
-
-    if (style.left === null) {
-        delete style.left;
-    }
-    if (style.right === null) {
-        delete style.right;
-    }
-    if (style.bottom === null) {
-        delete style.bottom;
-    }
-
-    if (style.bottom !== undefined) {
-        style.bottom = safeBottom + style.bottom;
-        if (style.top === null) {
-            delete style.top;
-        }
-    } else {
-        style.top = safeTop + (style.top === null ? 0 : style.top);
-    }
-
-    return style;
-}
-
-export function buildErudaDebugPanelInjectionScript(debugPanelSourceUrl, webViewUrl) {
-    const sourceUrl = JSON.stringify(debugPanelSourceUrl);
+export function buildErudaDebugPanelInjectionScript(debugPanelScriptUrl, webViewUrl) {
+    const scriptUrl = JSON.stringify(debugPanelScriptUrl);
     const loggedUrl = JSON.stringify(webViewUrl);
     return `
         (function() {
@@ -210,14 +86,14 @@ export function buildErudaDebugPanelInjectionScript(debugPanelSourceUrl, webView
                     return;
                 }
 
-                var debugPanelSourceUrl = ${sourceUrl};
-                if (debugPanelSourceUrl) {
+                var debugPanelScriptUrl = ${scriptUrl};
+                if (debugPanelScriptUrl) {
                     if (window.__nativeErudaLoading) {
                         return;
                     }
                     window.__nativeErudaLoading = true;
                     var script = document.createElement('script');
-                    script.src = debugPanelSourceUrl;
+                    script.src = debugPanelScriptUrl;
                     script.onload = function() {
                         window.__nativeErudaLoading = false;
                         if (window.__nativeErudaEnabled) {
@@ -244,8 +120,8 @@ export function buildErudaDebugPanelInjectionScript(debugPanelSourceUrl, webView
     `;
 }
 
-export function buildVConsoleDebugPanelInjectionScript(debugPanelSourceUrl, webViewUrl) {
-    const sourceUrl = JSON.stringify(debugPanelSourceUrl);
+export function buildVConsoleDebugPanelInjectionScript(debugPanelScriptUrl, webViewUrl) {
+    const scriptUrl = JSON.stringify(debugPanelScriptUrl);
     const loggedUrl = JSON.stringify(webViewUrl);
     return `
         (function() {
@@ -290,10 +166,10 @@ export function buildVConsoleDebugPanelInjectionScript(debugPanelSourceUrl, webV
                     return;
                 }
 
-                var debugPanelSourceUrl = ${sourceUrl};
-                if (debugPanelSourceUrl) {
+                var debugPanelScriptUrl = ${scriptUrl};
+                if (debugPanelScriptUrl) {
                     var script = document.createElement('script');
-                    script.src = debugPanelSourceUrl;
+                    script.src = debugPanelScriptUrl;
                     script.onload = function() {
                         if (window.__nativeVConsoleEnabled) {
                             createVConsole();

@@ -16,10 +16,10 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import NetworkErrorScreen from '@/components/common/NetworkErrorScreen';
-import Toast from '@/components/common/Toast';
 import useWebViewAuthStore from '@/store/useWebViewAuthStore';
 import { APP_SCHEME } from '@/constants/config';
 import { createLogger } from '@/utils/logger';
+import { useAppDebugSnapshot } from '@/services/appDebug';
 import {
     WEB_VIEW_ATTRIBUTION_EVENT_RESULT_NAME,
     createWebViewAttributionSnapshotResponse,
@@ -31,22 +31,14 @@ import {
     parseWebViewBridgeMessage,
 } from '@/services/webViewVpNativeBridge';
 import {
-    WEBVIEW_DEBUG_PANEL_TAP_COUNT,
-    WEBVIEW_DEBUG_PANEL_TAP_WINDOW_MS,
-    WEBVIEW_DEBUG_PANEL_TYPE_VCONSOLE,
     buildErudaDebugPanelInjectionScript,
     buildVConsoleDebugPanelInjectionScript,
-    buildWebViewDebugHotspotStyle,
     buildWebViewDebugPanelRemovalScript,
-    getStoredWebViewDebugPanelEnabled,
-    parseWebViewDebugHotspotStyle,
-    parseWebViewDebugPanelType,
-    parseWebViewDebugPanelSourceUrl,
-    setStoredWebViewDebugPanelEnabled,
 } from '@/services/webViewDebug';
+import { WEBVIEW_DEBUG_PANEL_TYPE_VCONSOLE } from '@/services/webViewDebugPanelConfig';
 
 // X* 控制参数的 key 列表
-const X_PARAMS = ['XFullScreen', 'XShowFloatButton', 'XSafeBottom', 'XSafeTop', 'XBackgroundColor', 'XStatusBarStyle', 'XSafeBottomStatus', 'XSafeTopStatus', 'XWebViewDebug', 'XWebViewDebugPanel', 'XWebViewDebugPanelUrl', 'XWebViewDebugHotspot'];
+const X_PARAMS = ['XFullScreen', 'XShowFloatButton', 'XSafeBottom', 'XSafeTop', 'XBackgroundColor', 'XStatusBarStyle', 'XSafeBottomStatus', 'XSafeTopStatus'];
 
 // 默认值
 const X_DEFAULTS = {
@@ -61,10 +53,6 @@ const X_DEFAULTS = {
     XStatusBarStyle: 'auto',
     XSafeBottomStatus: '0',
     XSafeTopStatus: '0',
-    XWebViewDebug: '0',
-    XWebViewDebugPanel: 'eruda',
-    XWebViewDebugPanelUrl: '',
-    XWebViewDebugHotspot: '',
 };
 
 const GOOGLE_AUTH_REDIRECT_URL = `${APP_SCHEME}://auth/google`;
@@ -170,10 +158,6 @@ export default function WebViewScreen() {
         XStatusBarStyle,
         XSafeBottomStatus,
         XSafeTopStatus,
-        XWebViewDebug,
-        XWebViewDebugPanel,
-        XWebViewDebugPanelUrl,
-        XWebViewDebugHotspot,
     } = xParams;
 
     // 全屏状态（可动态切换）
@@ -186,11 +170,7 @@ export default function WebViewScreen() {
     const [showInitOverlay, setShowInitOverlay] = useState(true);
     const [showLoadError, setShowLoadError] = useState(false);
     const [retryingLoad, setRetryingLoad] = useState(false);
-    const [debugPanelEnabled, setDebugPanelEnabled] = useState(false);
-    const [toastMessage, setToastMessage] = useState('');
-    const debugPanelTapCountRef = useRef(0);
-    const debugPanelTapResetTimerRef = useRef(null);
-    const toastTimerRef = useRef(null);
+    const appDebug = useAppDebugSnapshot();
     const lastGoogleAuthResultUrlRef = useRef(null);
     const lastTelegramAuthResultUrlRef = useRef(null);
     const webViewAuthSessionTimerRef = useRef(null);
@@ -205,20 +185,19 @@ export default function WebViewScreen() {
     const showFloatButton = XShowFloatButton === '1';
     const hasSafeBottom = XSafeBottom === '1';
     const hasSafeTop = XSafeTop === '1';
-    const webViewDebug = XWebViewDebug === '1';
+    const webViewDebug = appDebug.enabled;
     const vpNativeBridgeInjectionScript = useMemo(() => (
         buildWebViewVpNativeBridgeInjectionScript(webViewDebug)
     ), [webViewDebug]);
-    const debugPanelType = useMemo(() => parseWebViewDebugPanelType(XWebViewDebugPanel), [XWebViewDebugPanel]);
-    const debugPanelSourceUrl = useMemo(() => parseWebViewDebugPanelSourceUrl(XWebViewDebugPanelUrl), [XWebViewDebugPanelUrl]);
-    const debugHotspotStyleConfig = useMemo(() => parseWebViewDebugHotspotStyle(XWebViewDebugHotspot), [XWebViewDebugHotspot]);
+    const debugPanelType = appDebug.webViewDebugPanel.type;
+    const debugPanelScriptUrl = appDebug.webViewDebugPanel.scriptUrl;
 
     const injectDebugPanel = useCallback(() => {
         const injectionScript = debugPanelType === WEBVIEW_DEBUG_PANEL_TYPE_VCONSOLE
-            ? buildVConsoleDebugPanelInjectionScript(debugPanelSourceUrl, cleanUrl)
-            : buildErudaDebugPanelInjectionScript(debugPanelSourceUrl, cleanUrl);
+            ? buildVConsoleDebugPanelInjectionScript(debugPanelScriptUrl, cleanUrl)
+            : buildErudaDebugPanelInjectionScript(debugPanelScriptUrl, cleanUrl);
         webViewRef.current?.injectJavaScript(injectionScript);
-    }, [cleanUrl, debugPanelSourceUrl, debugPanelType]);
+    }, [cleanUrl, debugPanelScriptUrl, debugPanelType]);
 
     const removeDebugPanel = useCallback(() => {
         webViewRef.current?.injectJavaScript(buildWebViewDebugPanelRemovalScript());
@@ -228,9 +207,6 @@ export default function WebViewScreen() {
     const insets = useSafeAreaInsets();
     const currentSafeTop = Math.round(insets.top);
     const currentSafeBottom = Math.round(insets.bottom);
-    const debugHotspotStyle = useMemo(() => (
-        buildWebViewDebugHotspotStyle(debugHotspotStyleConfig, insets.top, insets.bottom)
-    ), [debugHotspotStyleConfig, insets.top, insets.bottom]);
 
     const injectNativeSafeArea = useCallback(() => {
         webViewRef.current?.injectJavaScript(buildNativeSafeAreaEventScript(currentSafeTop, currentSafeBottom));
@@ -240,67 +216,15 @@ export default function WebViewScreen() {
         webViewRef.current?.injectJavaScript(vpNativeBridgeInjectionScript);
     }, [vpNativeBridgeInjectionScript]);
 
-    const showToast = useCallback((message) => {
-        if (toastTimerRef.current) {
-            clearTimeout(toastTimerRef.current);
-        }
-        setToastMessage(message);
-        toastTimerRef.current = setTimeout(() => {
-            setToastMessage('');
-            toastTimerRef.current = null;
-        }, 1400);
-    }, []);
-
-    const handleDebugHotspotPress = useCallback(() => {
-        if (debugPanelTapResetTimerRef.current) {
-            clearTimeout(debugPanelTapResetTimerRef.current);
-        }
-
-        debugPanelTapCountRef.current += 1;
-        if (debugPanelTapCountRef.current >= WEBVIEW_DEBUG_PANEL_TAP_COUNT) {
-            debugPanelTapCountRef.current = 0;
-            debugPanelTapResetTimerRef.current = null;
-            const nextEnabled = !debugPanelEnabled;
-            setDebugPanelEnabled(nextEnabled);
-            setStoredWebViewDebugPanelEnabled(nextEnabled);
-            showToast(nextEnabled ? 'on' : 'off');
-            if (nextEnabled) {
-                injectDebugPanel();
-            } else {
-                removeDebugPanel();
-            }
+    useEffect(() => {
+        if (webViewDebug) {
+            injectDebugPanel();
             return;
         }
-
-        debugPanelTapResetTimerRef.current = setTimeout(() => {
-            debugPanelTapCountRef.current = 0;
-            debugPanelTapResetTimerRef.current = null;
-        }, WEBVIEW_DEBUG_PANEL_TAP_WINDOW_MS);
-    }, [debugPanelEnabled, injectDebugPanel, removeDebugPanel, showToast]);
-
-    useEffect(() => {
-        let active = true;
-        getStoredWebViewDebugPanelEnabled().then((enabled) => {
-            if (!active || typeof enabled !== 'boolean') return;
-            setDebugPanelEnabled(enabled);
-        });
-        return () => {
-            active = false;
-        };
-    }, []);
-
-    useEffect(() => {
-        if (!webViewDebug || !debugPanelEnabled) return;
-        injectDebugPanel();
-    }, [debugPanelEnabled, injectDebugPanel, webViewDebug]);
+        removeDebugPanel();
+    }, [injectDebugPanel, removeDebugPanel, webViewDebug]);
 
     useEffect(() => () => {
-        if (debugPanelTapResetTimerRef.current) {
-            clearTimeout(debugPanelTapResetTimerRef.current);
-        }
-        if (toastTimerRef.current) {
-            clearTimeout(toastTimerRef.current);
-        }
         if (webViewAuthSessionTimerRef.current) {
             clearTimeout(webViewAuthSessionTimerRef.current);
         }
@@ -616,7 +540,7 @@ export default function WebViewScreen() {
                 logWebViewDebug(webViewDebug, 'loadEnd', {
                     url: event.nativeEvent?.url,
                 });
-                if (webViewDebug && debugPanelEnabled) {
+                if (webViewDebug) {
                     injectDebugPanel();
                 }
                 injectVpNativeBridge();
@@ -740,14 +664,6 @@ export default function WebViewScreen() {
                         </TouchableOpacity>
                     </Animated.View>
                 )}
-                {webViewDebug && (
-                    <TouchableOpacity
-                        activeOpacity={1}
-                        onPress={handleDebugHotspotPress}
-                        style={[styles.debugHotspot, debugHotspotStyle]}
-                    />
-                )}
-                <Toast message={toastMessage} top={insets.top + 64} />
             </View>
             {showLoadError && (
                 <NetworkErrorScreen
@@ -814,9 +730,5 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.45)',
         borderRadius: 20,
         padding: 8,
-    },
-    debugHotspot: {
-        position: 'absolute',
-        zIndex: 10000,
     },
 });

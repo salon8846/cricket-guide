@@ -4,6 +4,8 @@ import { MD5 } from 'crypto-js';
 import { gcm } from '@noble/ciphers/aes.js';
 import { API_BASE_URL, REQUEST_TIMEOUT, APP_CONFIG, IsDev } from '@/constants/config';
 import { getActiveBaseURL } from './domainSelector';
+import { getAppDebugRequestHeaderValues } from '@/services/appDebug';
+import { readInstallId } from '@/services/installIdentity';
 import { getToken, getLanguage } from '@/utils/storage';
 import { createLogger } from '@/utils/logger';
 
@@ -24,6 +26,8 @@ const request = axios.create({
 });
 
 const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+const createRequestSignature = (timestamp) => MD5(APP_CONFIG.appKey + String(timestamp)).toString();
 
 // 避免依赖运行时是否注入 atob / TextDecoder，保证独立发布包解密链路稳定。
 const decodeBase64ToBytes = (value) => {
@@ -80,7 +84,7 @@ request.interceptors.request.use(
 
         // 每次请求重新计算时间戳和签名，保证时效性
         const timestamp = new Date().getTime();
-        const signature = MD5(APP_CONFIG.appKey + String(timestamp)).toString();
+        const signature = createRequestSignature(timestamp);
         config.headers['Verify-Time'] = timestamp;
         config.headers['Verify-Encrypt'] = signature;
 
@@ -91,6 +95,13 @@ request.interceptors.request.use(
         if (token) {
             config.headers['X-token'] = token;
         }
+
+        config.headers['X-App-Client'] = await readInstallId();
+
+        const debugHeaders = getAppDebugRequestHeaderValues();
+        Object.entries(debugHeaders).forEach(([key, value]) => {
+            config.headers[key] = value;
+        });
         return config;
     },
     (error) => Promise.reject(error)

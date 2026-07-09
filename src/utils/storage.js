@@ -11,11 +11,15 @@ const logger = createLogger('Storage');
 /** 存储任意数据（自动 JSON 序列化） */
 export const setItem = async (key, value) => {
     try {
-        const jsonValue = JSON.stringify(value);
-        await AsyncStorage.setItem(key, jsonValue);
+        await setItemOrThrow(key, value);
     } catch (e) {
         logger.error('setItem failed', { key, error: e });
     }
+};
+
+export const setItemOrThrow = async (key, value) => {
+    const jsonValue = JSON.stringify(value);
+    await AsyncStorage.setItem(key, jsonValue);
 };
 
 /** 读取任意数据（自动 JSON 反序列化） */
@@ -32,19 +36,27 @@ export const getItem = async (key) => {
 /** 删除指定 key */
 export const removeItem = async (key) => {
     try {
-        await AsyncStorage.removeItem(key);
+        await removeItemOrThrow(key);
     } catch (e) {
         logger.error('removeItem failed', { key, error: e });
     }
 };
 
+export const removeItemOrThrow = async (key) => {
+    await AsyncStorage.removeItem(key);
+};
+
 /** 清空所有存储 */
 export const clearAll = async () => {
     try {
-        await AsyncStorage.clear();
+        await clearAllOrThrow();
     } catch (e) {
         logger.error('clearAll failed', { error: e });
     }
+};
+
+export const clearAllOrThrow = async () => {
+    await AsyncStorage.clear();
 };
 
 const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);

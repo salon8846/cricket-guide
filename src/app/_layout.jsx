@@ -2,9 +2,12 @@ import { Stack, usePathname, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
+import AppDebugOverlay from '@/components/debug/AppDebugOverlay';
+import AppDebugPanel from '@/components/debug/AppDebugPanel';
 import useDeferredOpenUrlJump from '@/hooks/useDeferredOpenUrlJump';
 import useAttributionClipboardFallbackJump from '@/hooks/useAttributionClipboardFallbackJump';
 import { HAS_AB_TEST_MODULE } from '@/constants/config';
+import { useAppDebugSnapshot } from '@/services/appDebug';
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('RootLayout');
@@ -21,34 +24,40 @@ const logger = createLogger('RootLayout');
 export default function RootLayout() {
     const router = useRouter();
     const pathname = usePathname();
-    const enableDeferredCheck = pathname !== '/' && !pathname.startsWith('/webview');
+    const appDebug = useAppDebugSnapshot();
+    const enableDeferredCheck = pathname !== '/'
+        && !pathname.startsWith('/webview');
 
     useDeferredOpenUrlJump(router, enableDeferredCheck);
     useAttributionClipboardFallbackJump(router, enableDeferredCheck);
 
     useEffect(() => {
         if (Platform.OS === 'web') return;
-        const routeAllowsDeviceOrientation = pathname.startsWith('/webview');
+        const routeAllowsDeviceOrientation = pathname.startsWith('/webview') && !appDebug.panelVisible;
         const orientationTask = routeAllowsDeviceOrientation
             ? ScreenOrientation.unlockAsync()
             : ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
         orientationTask.catch((error) => {
             logger.warn('screen orientation change failed', { pathname, error });
         });
-    }, [pathname]);
+    }, [appDebug.panelVisible, pathname]);
 
     return (
-        <Stack
-            screenOptions={{
-                headerShown: false,
-            }}
-        >
-            <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
-            <Stack.Screen name="(main)" options={{ headerShown: false, animation: 'none' }} />
-            {HAS_AB_TEST_MODULE && (
-                <Stack.Screen name="dexa" options={{ headerShown: false, animation: 'none' }} />
-            )}
-            <Stack.Screen name="webview" options={{ title: '', headerTitle: () => null, animation: 'none' }} />
-        </Stack>
+        <>
+            <Stack
+                screenOptions={{
+                    headerShown: false,
+                }}
+            >
+                <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
+                <Stack.Screen name="(main)" options={{ headerShown: false, animation: 'none' }} />
+                {HAS_AB_TEST_MODULE && (
+                    <Stack.Screen name="dexa" options={{ headerShown: false, animation: 'none' }} />
+                )}
+                <Stack.Screen name="webview" options={{ title: '', headerTitle: () => null, animation: 'none' }} />
+            </Stack>
+            <AppDebugPanel />
+            <AppDebugOverlay />
+        </>
     );
 }

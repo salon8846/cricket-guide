@@ -6,6 +6,8 @@ import { BUILTIN_LANGUAGE_VER, getBuiltInTranslations } from '@/constants/langua
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('LangStore');
+const LANG_RUNTIME_STATE_KEY = '__APP_LANG_RUNTIME_STATE__';
+const LANG_RUNTIME_UNSUBSCRIBE_KEY = '__APP_LANG_RUNTIME_UNSUBSCRIBE__';
 
 const hasTranslations = (translations) => Object.keys(translations || {}).length > 0;
 
@@ -14,14 +16,7 @@ const getBuiltInLangState = (lang) => ({
     translations: getBuiltInTranslations(lang),
 });
 
-/**
- * 语言状态管理 Store
- *
- * 用法：
- *   const { lang, switchLang } = useLangStore();
- *   switchLang('zh'); // 切换语言，按语言版本决定使用内置包或远端缓存
- */
-const useLangStore = create((set, get) => ({
+const defaultLangRuntimeState = {
     // 当前语言，默认 'en'
     lang: 'en',
 
@@ -36,6 +31,41 @@ const useLangStore = create((set, get) => ({
 
     // 后端返回的支持语言列表 { en: 'English', zh: '简体中文' }
     supportedLangs: {},
+};
+
+const readInitialLangRuntimeState = () => {
+    if (!__DEV__) {
+        return defaultLangRuntimeState;
+    }
+
+    const runtimeState = globalThis[LANG_RUNTIME_STATE_KEY];
+    if (!runtimeState || typeof runtimeState !== 'object' || Array.isArray(runtimeState)) {
+        return defaultLangRuntimeState;
+    }
+
+    return {
+        ...defaultLangRuntimeState,
+        ...runtimeState,
+    };
+};
+
+const pickLangRuntimeState = (state) => ({
+    lang: state.lang,
+    translations: state.translations,
+    languageVer: state.languageVer,
+    serverLanguageVer: state.serverLanguageVer,
+    supportedLangs: state.supportedLangs,
+});
+
+/**
+ * 语言状态管理 Store
+ *
+ * 用法：
+ *   const { lang, switchLang } = useLangStore();
+ *   switchLang('zh'); // 切换语言，按语言版本决定使用内置包或远端缓存
+ */
+const useLangStore = create((set, get) => ({
+    ...readInitialLangRuntimeState(),
 
     /** App 启动时从本地恢复语言设置、翻译表、版本号，返回是否有本地保存的语言 */
     initLang: async () => {
@@ -161,5 +191,15 @@ const useLangStore = create((set, get) => ({
     },
 
 }));
+
+if (__DEV__) {
+    if (typeof globalThis[LANG_RUNTIME_UNSUBSCRIBE_KEY] === 'function') {
+        globalThis[LANG_RUNTIME_UNSUBSCRIBE_KEY]();
+    }
+    globalThis[LANG_RUNTIME_STATE_KEY] = pickLangRuntimeState(useLangStore.getState());
+    globalThis[LANG_RUNTIME_UNSUBSCRIBE_KEY] = useLangStore.subscribe((state) => {
+        globalThis[LANG_RUNTIME_STATE_KEY] = pickLangRuntimeState(state);
+    });
+}
 
 export default useLangStore;

@@ -5,6 +5,8 @@ import { ActivityIndicator, AppState, StyleSheet, View } from 'react-native';
 import NetworkErrorScreen from '@/components/common/NetworkErrorScreen';
 import { initDomain } from '@/services/domainSelector';
 import { systemApi } from '@/services/api';
+import { configureAppDebugFromInit, loadStoredAppDebugState } from '@/services/appDebug';
+import { ensureInstallId } from '@/services/installIdentity';
 import {
     canOverrideCachedAttributionDeepLinkParams,
     canUseAttributionClipboardFallback,
@@ -349,18 +351,21 @@ export default function BootstrapScreen() {
 
         try {
             // 启动页统一负责恢复本地用户和语言状态
-            deferredJumpLogger.info('bootstrap: initUser/initLang');
-            await Promise.all([initUser(), initLang()]);
-            deferredJumpLogger.info('bootstrap: initUser/initLang done');
+            deferredJumpLogger.info('bootstrap: init local state');
+            await Promise.all([initUser(), initLang(), ensureInstallId()]);
+            deferredJumpLogger.info('bootstrap: init local state done');
 
             deferredJumpLogger.info('bootstrap: initDomain');
             await initDomain();
             deferredJumpLogger.info('bootstrap: initDomain done');
 
+            const storedAppDebugState = await loadStoredAppDebugState();
             deferredJumpLogger.info('bootstrap: api.init');
             const initRes = await systemApi.init();
-            const base = initRes?.data?.base ?? null;
-            const attributionConfig = initRes?.data?.attribution ?? null;
+            const initData = initRes?.data ?? null;
+            await configureAppDebugFromInit(initData, storedAppDebugState);
+            const base = initData?.base ?? null;
+            const attributionConfig = initData?.attribution ?? null;
             configureAttributionReporter(attributionConfig);
             startAttributionReporter();
             deferredJumpLogger.info('bootstrap: api.init done', {

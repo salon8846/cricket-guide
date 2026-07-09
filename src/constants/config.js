@@ -51,6 +51,7 @@ export const STORAGE_KEYS = {
     USER_INFO: '@app_user_info',
     SETTINGS: '@app_settings',
     LANGUAGE: '@app_language',
+    INSTALL_ID: '@app_install_id',
     INSTALL_TIME: '@app_install_time',
     ATTRIBUTION_REPORT: '@app_attribution_report',
     LANG_VER: '@lang_ver',
