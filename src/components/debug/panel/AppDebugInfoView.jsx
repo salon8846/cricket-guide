@@ -6,11 +6,11 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppDebugSnapshot } from '@/services/appDebug';
+import { useAppDebugSnapshot } from '@/services/appDebug/appDebugStore';
 import {
     buildAppDebugDiagnosticsSections,
     formatAppDebugValue,
-} from '@/services/appDebugDiagnostics';
+} from '@/services/appDebug/appDebugDiagnostics';
 
 const surfaceShadow = {
     shadowColor: '#0F172A',
@@ -20,10 +20,15 @@ const surfaceShadow = {
     elevation: 2,
 };
 function DebugRow({ label, value }) {
+    const formattedValue = formatAppDebugValue(value);
+    const multiline = formattedValue.includes('\n');
+
     return (
-        <View style={styles.row}>
-            <Text style={styles.rowLabel}>{label}</Text>
-            <Text style={styles.rowValue} selectable>{formatAppDebugValue(value)}</Text>
+        <View style={[styles.row, multiline && styles.multilineRow]}>
+            <Text style={[styles.rowLabel, multiline && styles.multilineRowLabel]}>{label}</Text>
+            <Text style={[styles.rowValue, multiline && styles.multilineRowValue]} selectable>
+                {formattedValue}
+            </Text>
         </View>
     );
 }
@@ -79,8 +84,8 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     contentInner: {
-        paddingHorizontal: 16,
-        paddingTop: 16,
+        paddingHorizontal: 10,
+        paddingTop: 10,
     },
     summary: {
         minHeight: 72,
@@ -89,7 +94,7 @@ const styles = StyleSheet.create({
         borderColor: '#CBD3DF',
         paddingHorizontal: 14,
         paddingVertical: 12,
-        marginBottom: 12,
+        marginBottom: 10,
         flexDirection: 'row',
         alignItems: 'center',
         ...surfaceShadow,
@@ -128,7 +133,7 @@ const styles = StyleSheet.create({
         lineHeight: 17,
     },
     section: {
-        marginBottom: 14,
+        marginBottom: 10,
         borderRadius: 8,
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: '#CBD3DF',
@@ -169,8 +174,25 @@ const styles = StyleSheet.create({
     },
     rowValue: {
         flex: 1,
+        minWidth: 0,
         fontSize: 13,
         color: '#111827',
         lineHeight: 20,
+    },
+    multilineRow: {
+        alignItems: 'flex-start',
+    },
+    multilineRowLabel: {
+        fontWeight: '700',
+    },
+    multilineRowValue: {
+        flex: 1,
+        minWidth: 0,
+        padding: 10,
+        borderRadius: 6,
+        backgroundColor: '#F8FAFC',
+        fontFamily: 'Courier',
+        fontSize: 12,
+        lineHeight: 17,
     },
 });

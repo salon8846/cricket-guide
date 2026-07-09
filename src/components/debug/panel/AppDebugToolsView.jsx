@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -7,18 +6,23 @@ import {
     ScrollView,
     StyleSheet,
     Text,
-    TouchableOpacity,
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AppDebugCrashTestSection from '@/components/debug/tools/AppDebugCrashTestSection';
+import AppDebugToolButton from '@/components/debug/tools/AppDebugToolButton';
+import { useAppDebugToast } from '@/components/debug/panel/AppDebugToastContext';
+import { replaceWithBootstrapRestart } from '@/services/bootstrapRestart';
 import {
-    clearAppStorageKeepingDebugState,
     resetAppDebugFloatingButtonPosition,
     setAppDebugEnabled,
     setAppDebugPanelVisible,
     useAppDebugSnapshot,
-} from '@/services/appDebug';
-import { buildAppDebugDiagnostics } from '@/services/appDebugDiagnostics';
+} from '@/services/appDebug/appDebugStore';
+import { buildAppDebugDiagnostics } from '@/services/appDebug/appDebugDiagnostics';
+import { clearAppStorageKeepingDebugState } from '@/services/appDebug/appDebugStorage';
+import { clearInstallIdMemoryCache } from '@/services/installIdentity';
+import { clearAllLogFiles } from '@/services/logging/jsonlLogFiles';
 import { createLogger } from '@/utils/logger';
 import { clearAllOrThrow } from '@/utils/storage';
 
@@ -32,36 +36,11 @@ const toolShadow = {
     elevation: 2,
 };
 
-function DebugToolButton({ icon, title, detail, onPress, danger, disabled, loading }) {
-    return (
-        <TouchableOpacity
-            activeOpacity={0.78}
-            disabled={disabled || loading}
-            onPress={onPress}
-            style={[
-                styles.toolButton,
-                danger && styles.toolButtonDanger,
-                (disabled || loading) && styles.toolButtonDisabled,
-            ]}
-        >
-            <View style={[styles.toolIcon, danger && styles.toolIconDanger]}>
-                <Ionicons name={icon} size={20} color={danger ? '#B42318' : '#0F766E'} />
-            </View>
-            <View style={styles.toolText}>
-                <Text style={[styles.toolTitle, danger && styles.toolTitleDanger]}>
-                    {title}
-                </Text>
-                <Text style={styles.toolDetail}>{detail}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
-        </TouchableOpacity>
-    );
-}
-
 export default function AppDebugToolsView() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const appDebug = useAppDebugSnapshot();
+    const showToast = useAppDebugToast();
     const [copyingSnapshot, setCopyingSnapshot] = useState(false);
     const [clearingStorage, setClearingStorage] = useState(false);
     const [clearingAllStorage, setClearingAllStorage] = useState(false);
@@ -71,7 +50,7 @@ export default function AppDebugToolsView() {
 
     const restartBootstrap = () => {
         setAppDebugPanelVisible(false);
-        router.replace('/');
+        replaceWithBootstrapRestart(router);
     };
 
     const copyDebugSnapshot = async () => {
@@ -80,7 +59,7 @@ export default function AppDebugToolsView() {
         try {
             const payload = buildAppDebugDiagnostics(appDebug);
             await Clipboard.setStringAsync(JSON.stringify(payload, null, 2));
-            Alert.alert('Copied', 'Debug snapshot copied to clipboard.');
+            showToast('Debug snapshot copied.');
         } catch (error) {
             logger.warn('copy debug snapshot failed', { error });
             Alert.alert('Copy Failed', 'Please try again later.');
@@ -94,6 +73,7 @@ export default function AppDebugToolsView() {
         setResettingButtonPosition(true);
         try {
             await resetAppDebugFloatingButtonPosition();
+            showToast('Button position reset.');
         } catch (error) {
             logger.warn('reset debug button position failed', { error });
             Alert.alert('Reset Failed', 'Please try again later.');
@@ -137,6 +117,8 @@ export default function AppDebugToolsView() {
         setClearingAllStorage(true);
         try {
             await clearAllOrThrow();
+            await clearAllLogFiles();
+            clearInstallIdMemoryCache();
             restartBootstrap();
         } catch (error) {
             logger.warn('clear all app storage failed', { error });
@@ -167,7 +149,7 @@ export default function AppDebugToolsView() {
         setClosingDebug(true);
         try {
             await setAppDebugEnabled(false);
-            router.replace('/');
+            replaceWithBootstrapRestart(router);
         } catch (error) {
             logger.warn('close app debug failed', { error });
             Alert.alert('Close Failed', 'Please try again later.');
@@ -199,7 +181,7 @@ export default function AppDebugToolsView() {
         >
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Actions</Text>
-                <DebugToolButton
+                <AppDebugToolButton
                     disabled={busy}
                     icon="copy-outline"
                     loading={copyingSnapshot}
@@ -207,7 +189,7 @@ export default function AppDebugToolsView() {
                     detail="Copy redacted diagnostics"
                     onPress={copyDebugSnapshot}
                 />
-                <DebugToolButton
+                <AppDebugToolButton
                     disabled={busy}
                     icon="locate-outline"
                     loading={resettingButtonPosition}
@@ -215,14 +197,14 @@ export default function AppDebugToolsView() {
                     detail="Move floating button to default"
                     onPress={resetButtonPosition}
                 />
-                <DebugToolButton
+                <AppDebugToolButton
                     disabled={busy}
                     icon="refresh-outline"
                     title="Restart Bootstrap"
                     detail="Return to the startup chain"
                     onPress={restartBootstrap}
                 />
-                <DebugToolButton
+                <AppDebugToolButton
                     danger
                     disabled={busy}
                     icon="trash-outline"
@@ -231,16 +213,16 @@ export default function AppDebugToolsView() {
                     detail="Keep debug state"
                     onPress={confirmClearStorage}
                 />
-                <DebugToolButton
+                <AppDebugToolButton
                     danger
                     disabled={busy}
                     icon="warning-outline"
                     loading={clearingAllStorage}
                     title="Clear All Data"
-                    detail="Clear every local storage key"
+                    detail="Clear local app data"
                     onPress={confirmClearAllStorage}
                 />
-                <DebugToolButton
+                <AppDebugToolButton
                     danger
                     disabled={!appDebug.enabled || busy}
                     icon="power-outline"
@@ -250,6 +232,7 @@ export default function AppDebugToolsView() {
                     onPress={confirmCloseDebug}
                 />
             </View>
+            <AppDebugCrashTestSection disabled={busy} />
         </ScrollView>
     );
 }
@@ -259,8 +242,8 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     contentInner: {
-        paddingHorizontal: 16,
-        paddingTop: 16,
+        paddingHorizontal: 10,
+        paddingTop: 10,
     },
     section: {
         borderRadius: 8,
@@ -281,49 +264,5 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         color: '#4B5563',
         textTransform: 'uppercase',
-    },
-    toolButton: {
-        minHeight: 68,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: '#E2E6EC',
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    toolButtonDanger: {
-        backgroundColor: '#FFFDFD',
-    },
-    toolButtonDisabled: {
-        opacity: 0.48,
-    },
-    toolIcon: {
-        width: 36,
-        height: 36,
-        borderRadius: 8,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#E6F7F4',
-    },
-    toolIconDanger: {
-        backgroundColor: '#FEF3F2',
-    },
-    toolText: {
-        flex: 1,
-    },
-    toolTitle: {
-        fontSize: 15,
-        fontWeight: '800',
-        color: '#111827',
-        marginBottom: 3,
-    },
-    toolTitleDanger: {
-        color: '#B42318',
-    },
-    toolDetail: {
-        fontSize: 12,
-        color: '#64748B',
-        lineHeight: 17,
     },
 });

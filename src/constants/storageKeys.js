@@ -22,6 +22,9 @@ export const APP_STORAGE_KEYS = {
         sessionId: 'app.debug.sessionId',
         floatingButtonPosition: 'app.debug.floatingButtonPosition',
     },
+    clientError: {
+        uploadState: 'app.clientError.uploadState',
+    },
     openUrl: {
         jumped: 'app.openUrl.jumped',
         deferredJump: 'app.openUrl.deferredJump',

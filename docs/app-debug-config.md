@@ -88,10 +88,35 @@
 - 开启或关闭后，App 会回到 `/` 重新执行启动链路。
 - 本机 debug 开启后，App 会显示可拖动的 Debug 悬浮入口，悬浮位置会持久化，重启 App 后保持不变。
 - 点击悬浮按钮只切换全局 Debug 面板显示状态，不走路由，不重载当前业务页面。
-- Debug 面板常驻挂载在根布局里，内部 tabbar 当前包含 `Info` 和 `Tools`；这里不使用 Expo Router 的 `(tabs)` 或动态路由。
+- Debug 面板常驻挂载在根布局里，内部 tabbar 当前包含 `Info`、`Logs` 和 `Tools`；这里不使用 Expo Router 的 `(tabs)` 或动态路由。
 - `Info` 会展示 App、设备、Build / Runtime、Debug 状态、服务器 `debug` 配置和请求头；后端新增字段会自动显示在 `Server Debug Config` 区域，`token` / `password` / `secret` / `key` 等敏感字段会脱敏。
-- `Tools` 提供复制脱敏 Debug 快照、重置悬浮按钮位置、重新初始化、清除本地数据、清除全部本地数据、关闭 Debug；清除本地数据会二次确认，其中 `Clear Data` 会保留 Debug 状态、`installId` 和悬浮按钮位置，`Clear All Data` 会清空全部 AsyncStorage。
+- `Logs` 会展示本机 Debug 日志和客户端异常记录，支持刷新、复制、清理；Debug 日志只在本机 Debug 开启时写入，并按每次 App 启动单独保存文件，页面使用启动列表/详情结构，可删除单个启动日志文件；客户端异常记录不依赖 Debug 开关，页面使用异常列表/详情结构，详情展示 stack、breadcrumbs 和 extra。
+- `Tools` 提供复制脱敏 Debug 快照、重置悬浮按钮位置、重新初始化、清除本地数据、清除全部本地数据、关闭 Debug 和异常链路测试；清除本地数据会二次确认，其中 `Clear Data` 会保留 Debug 状态、`installId`、悬浮按钮位置和日志文件，`Clear All Data` 会清空全部 AsyncStorage 和 App 私有日志文件。
 - Debug 面板文案固定使用英文，不接入 App 语言包。
+
+## Crash Tests
+
+`Tools` 里的 `Crash Tests` 用于验证客户端异常记录链路：
+
+- `JS Fatal Error`：在 React render 之外抛出 JS 异常，验证全局 JS fatal 捕获；开发环境通常显示错误页，release 包可能关闭或重启当前 App。
+- `Report Fatal Error`：调用 `ErrorUtils.reportFatalError`，验证 React Native fatal report 链路；Expo Go 通常显示 fatal 错误页，不保证杀掉宿主 App 进程。
+- `Unhandled Promise`：触发未处理 Promise rejection，验证 React Native promise rejection tracking；记录可能有短暂延迟。
+- `Render Error`：在 React render 阶段抛错，验证 `ClientErrorBoundary`。
+- `Manual Error Report`：不闪退，直接写入一条客户端异常记录，用于验证本地文件、`Logs -> Errors` 和后续上报链路。
+- `Native Crash`：通过原生模块触发 Android RuntimeException / iOS fatal signal，验证 ACRA / KSCrash 到自建 API 的链路。
+
+Expo Go / 纯 JS 侧不能可靠模拟 native 进程崩溃。需要验证真实 native crash 时，应使用包含 `withNativeCrashReports` config plugin 的 dev client 或正式包。
+
+## Debug 面板扩展约定
+
+- Debug 面板是根布局上的内部调试工作台，不使用 Expo Router 页面、动态路由或额外 route group。
+- `AppDebugPanel` 只负责面板壳、顶部标题、底部 tabbar 和各 tab 的常驻挂载；具体功能状态由各 tab 自己持有。
+- 新增功能优先作为独立 tab 或 tab 内部页面实现。tab 内部如果有列表/详情，应使用内部页面状态切换，固定操作区和滚动内容分开，避免刷新、复制、删除、返回按钮随长内容滚走。
+- 业务主模块不应依赖 Debug 面板状态；悬浮按钮只切换面板可见性，不退出当前业务页面。
+- 需要重新执行启动链路的操作必须显式调用对应工具动作，例如 `Restart Bootstrap`、关闭 Debug 或清理本地数据。
+
+## Debug 请求头
+
 - 原生 API 请求会始终携带当前安装实例：
 
 ```http

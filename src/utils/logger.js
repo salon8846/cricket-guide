@@ -1,3 +1,16 @@
+import { createLogEntry } from '@/services/logging/redaction/logRedaction';
+
+const LOGGER_STATE_KEY = '__APP_LOGGER_STATE__';
+const loggerState = (() => {
+    if (!globalThis[LOGGER_STATE_KEY]) {
+        globalThis[LOGGER_STATE_KEY] = {
+            receivers: new Set(),
+        };
+    }
+
+    return globalThis[LOGGER_STATE_KEY];
+})();
+
 const writeConsole = (level, args) => {
     if (level === 'error') {
         console.error(...args);
@@ -12,21 +25,19 @@ const writeConsole = (level, args) => {
     console.log(...args);
 };
 
-const isError = (value) => value instanceof Error;
-
-const normalizeError = (error) => ({
+const normalizeConsoleError = (error) => ({
     name: error.name,
     message: error.message,
     stack: error.stack,
 });
 
-const normalizePayload = (payload) => {
+const normalizeConsolePayload = (payload) => {
     if (payload === undefined) {
         return undefined;
     }
 
-    if (isError(payload)) {
-        return { error: normalizeError(payload) };
+    if (payload instanceof Error) {
+        return { error: normalizeConsoleError(payload) };
     }
 
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
@@ -36,23 +47,53 @@ const normalizePayload = (payload) => {
     return Object.fromEntries(
         Object.entries(payload).map(([key, value]) => [
             key,
-            isError(value) ? normalizeError(value) : value,
+            value instanceof Error ? normalizeConsoleError(value) : value,
         ]),
     );
 };
 
+const emitLogEntry = (entry) => {
+    loggerState.receivers.forEach((receiver) => {
+        try {
+            receiver(entry);
+        } catch {
+            // File logging must never break the app flow.
+        }
+    });
+};
+
+export const registerLogReceiver = (receiver) => {
+    if (typeof receiver !== 'function') {
+        return () => { };
+    }
+
+    loggerState.receivers.add(receiver);
+    return () => {
+        loggerState.receivers.delete(receiver);
+    };
+};
+
 export const createLogger = (tag, options = {}) => {
-    const label = `[${String(tag ?? '').trim() || 'App'}]`;
+    const normalizedTag = String(tag ?? '').trim() || 'App';
+    const label = `[${normalizedTag}]`;
     const devOnly = options.devOnly === true;
     const write = (level, message, payload) => {
         if (devOnly && !__DEV__) {
             return;
         }
 
-        const normalizedPayload = normalizePayload(payload);
-        const args = normalizedPayload === undefined
+        emitLogEntry(createLogEntry({
+            level,
+            tag: normalizedTag,
+            message,
+            payload,
+            source: devOnly ? 'devOnlyLogger' : 'logger',
+        }));
+
+        const consolePayload = normalizeConsolePayload(payload);
+        const args = consolePayload === undefined
             ? [label, message]
-            : [label, message, normalizedPayload];
+            : [label, message, consolePayload];
         writeConsole(level, args);
     };
 

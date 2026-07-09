@@ -2,7 +2,6 @@ import { useSyncExternalStore } from 'react';
 import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
 import { readInstallId } from '@/services/installIdentity';
 import {
-    clearAllOrThrow,
     getItem,
     removeItemOrThrow,
     setItemOrThrow,
@@ -10,11 +9,11 @@ import {
 import {
     DEFAULT_DEBUG_TAP_AREA,
     safelyParseDebugTapArea,
-} from '@/services/debugTapArea';
+} from '@/services/appDebug/debugTapArea';
 import {
     DEFAULT_WEBVIEW_DEBUG_PANEL,
     normalizeWebViewDebugPanel,
-} from '@/services/webViewDebugPanelConfig';
+} from '@/services/appDebug/webViewDebugPanelConfig';
 
 const APP_DEBUG_RUNTIME_STORE_KEY = '__APP_DEBUG_RUNTIME_STORE__';
 
@@ -264,48 +263,4 @@ export const resetAppDebugFloatingButtonPosition = async () => {
     };
     setSnapshot(nextSnapshot);
     return nextSnapshot;
-};
-
-export const clearAppStorageKeepingDebugState = async () => {
-    const currentSnapshot = getAppDebugSnapshot();
-    const debugEnabled = currentSnapshot.enabled;
-    const debugSessionId = currentSnapshot.sessionId;
-    const installId = currentSnapshot.installId;
-    const buttonPosition = await readAppDebugFloatingButtonPosition();
-
-    await clearAllOrThrow();
-
-    const restoreTasks = [
-        setItemOrThrow(APP_STORAGE_KEYS.appDebug.enabled, debugEnabled),
-    ];
-
-    if (debugEnabled && debugSessionId) {
-        restoreTasks.push(setItemOrThrow(APP_STORAGE_KEYS.appDebug.sessionId, debugSessionId));
-    }
-
-    if (installId) {
-        restoreTasks.push(setItemOrThrow(APP_STORAGE_KEYS.identity.installId, installId));
-    }
-
-    if (buttonPosition) {
-        restoreTasks.push(saveAppDebugFloatingButtonPosition(buttonPosition));
-    }
-
-    await Promise.all(restoreTasks);
-};
-
-export const getAppDebugRequestHeaderValues = () => {
-    const currentSnapshot = getAppDebugSnapshot();
-
-    if (!currentSnapshot.enabled) {
-        return {};
-    }
-
-    const headers = {
-        'X-App-Debug': '1',
-    };
-
-    headers['X-App-Debug-Session'] = currentSnapshot.sessionId;
-
-    return headers;
 };

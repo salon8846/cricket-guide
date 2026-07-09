@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { setAppDebugEnabled } from '@/services/appDebug';
+import { setAppDebugEnabled } from '@/services/appDebug/appDebugStore';
+import { replaceWithBootstrapRestart } from '@/services/bootstrapRestart';
 import {
     DEBUG_TAP_COUNT,
     DEBUG_TAP_WINDOW_MS,
-} from '@/services/debugTapArea';
+} from '@/services/appDebug/debugTapArea';
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('AppDebugActivationTap');
@@ -23,7 +24,7 @@ export default function useAppDebugActivationTap(appDebugEnabled, showToast) {
         }
         restartTimerRef.current = setTimeout(() => {
             restartTimerRef.current = null;
-            router.replace('/');
+            replaceWithBootstrapRestart(router);
         }, 500);
     }, [router]);
 

@@ -11,12 +11,12 @@ import Toast from '@/components/common/Toast';
 import {
     toggleAppDebugPanelVisible,
     useAppDebugSnapshot,
-} from '@/services/appDebug';
-import { buildDebugTapAreaStyle } from '@/services/debugTapArea';
-import useAppDebugActivationTap from '@/components/debug/useAppDebugActivationTap';
+} from '@/services/appDebug/appDebugStore';
+import { buildDebugTapAreaStyle } from '@/services/appDebug/debugTapArea';
+import useAppDebugActivationTap from '@/components/debug/overlay/useAppDebugActivationTap';
 import useAppDebugFloatingButtonPosition, {
     APP_DEBUG_FLOATING_BUTTON_SIZE,
-} from '@/components/debug/useAppDebugFloatingButtonPosition';
+} from '@/components/debug/overlay/useAppDebugFloatingButtonPosition';
 
 const TOAST_VISIBLE_MS = 1400;
 

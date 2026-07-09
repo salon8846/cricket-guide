@@ -4,8 +4,8 @@ import { MD5 } from 'crypto-js';
 import { gcm } from '@noble/ciphers/aes.js';
 import { API_BASE_URL, REQUEST_TIMEOUT, APP_CONFIG, IsDev } from '@/constants/config';
 import { getActiveBaseURL } from './domainSelector';
-import { getAppDebugRequestHeaderValues } from '@/services/appDebug';
-import { readInstallId } from '@/services/installIdentity';
+import { getAppDebugRequestHeaderValues } from '@/services/appDebug/appDebugHeaders';
+import { ensureInstallId } from '@/services/installIdentity';
 import { getToken, getLanguage } from '@/utils/storage';
 import { createLogger } from '@/utils/logger';
 
@@ -96,7 +96,7 @@ request.interceptors.request.use(
             config.headers['X-token'] = token;
         }
 
-        config.headers['X-App-Client'] = await readInstallId();
+        config.headers['X-App-Client'] = await ensureInstallId();
 
         const debugHeaders = getAppDebugRequestHeaderValues();
         Object.entries(debugHeaders).forEach(([key, value]) => {

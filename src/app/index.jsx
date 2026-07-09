@@ -1,13 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, AppState, StyleSheet, View } from 'react-native';
 import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
 import NetworkErrorScreen from '@/components/common/NetworkErrorScreen';
 import { initDomain } from '@/services/domainSelector';
 import { systemApi } from '@/services/api';
-import { configureAppDebugFromInit, loadStoredAppDebugState } from '@/services/appDebug';
+import { configureAppDebugFromInit, loadStoredAppDebugState } from '@/services/appDebug/appDebugStore';
 import { ensureInstallId } from '@/services/installIdentity';
+import { captureClientException } from '@/services/logging/clientErrors/clientErrorCapture';
+import { flushClientErrorReportsWhenDue } from '@/services/logging/clientErrors/clientErrorUploadSchedule';
 import {
     canOverrideCachedAttributionDeepLinkParams,
     canUseAttributionClipboardFallback,
@@ -71,6 +73,7 @@ const deferredJumpLogger = createLogger('DeferredJump', { devOnly: true });
  */
 export default function BootstrapScreen() {
     const router = useRouter();
+    const { bootstrapRestartAt } = useLocalSearchParams();
     const setBootstrapBase = useAppStore((state) => state.setBootstrapBase);
     const initUser = useUserStore((state) => state.initUser);
     const initLang = useLangStore((state) => state.initLang);
@@ -357,6 +360,9 @@ export default function BootstrapScreen() {
             deferredJumpLogger.info('bootstrap: initDomain');
             await initDomain();
             deferredJumpLogger.info('bootstrap: initDomain done');
+            flushClientErrorReportsWhenDue().catch((error) => {
+                deferredJumpLogger.warn('client error flush failed', { error });
+            });
 
             const storedAppDebugState = await loadStoredAppDebugState();
             deferredJumpLogger.info('bootstrap: api.init');
@@ -413,13 +419,24 @@ export default function BootstrapScreen() {
             }
         } catch (e) {
             deferredJumpLogger.warn('bootstrap: failed, show error', { error: e });
+            captureClientException(e, {
+                source: 'bootstrap',
+                route: '/',
+            });
             setStatus('error');
         } finally {
             isRunningRef.current = false;
             setRetrying(false);
             deferredJumpLogger.info('bootstrap: end');
         }
-    }, [finishToInternalEntry, handleOpenUrl, initLang, initUser, requestOpenUrl, setBootstrapBase]);
+    }, [
+        finishToInternalEntry,
+        handleOpenUrl,
+        initLang,
+        initUser,
+        requestOpenUrl,
+        setBootstrapBase,
+    ]);
 
     useEffect(() => {
         deferredJumpLogger.info('BootstrapScreen: mount');
@@ -435,8 +452,6 @@ export default function BootstrapScreen() {
             }
         }).catch(() => { });
 
-        runBootstrap();
-
         const appStateListener = AppState.addEventListener('change', (nextState) => {
             deferredJumpLogger.info('AppState change', { nextState });
             // 首次安装等场景下，系统授权弹窗可能打断启动链路，回前台后允许再触发一次
@@ -451,6 +466,10 @@ export default function BootstrapScreen() {
             appStateListener.remove();
         };
     }, [runBootstrap]);
+
+    useEffect(() => {
+        runBootstrap();
+    }, [bootstrapRestartAt, runBootstrap]);
 
     return (
         <>

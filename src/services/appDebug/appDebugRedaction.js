@@ -1,7 +1,7 @@
-const APP_DEBUG_SENSITIVE_KEY_PATTERN = /token|password|secret|authorization|credential|private|key/i;
+import { isSensitiveFieldKey } from '@/services/logging/redaction/sensitiveFieldRedaction';
 
 export const redactAppDebugValue = (key, value) => {
-    if (APP_DEBUG_SENSITIVE_KEY_PATTERN.test(String(key))) {
+    if (isSensitiveFieldKey(key)) {
         return value ? 'configured' : '-';
     }
 

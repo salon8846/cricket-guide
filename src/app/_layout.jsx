@@ -1,16 +1,23 @@
 import { Stack, usePathname, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useEffect } from 'react';
-import { Platform } from 'react-native';
-import AppDebugOverlay from '@/components/debug/AppDebugOverlay';
-import AppDebugPanel from '@/components/debug/AppDebugPanel';
+import { AppState, Platform } from 'react-native';
+import ClientErrorBoundary from '@/components/common/ClientErrorBoundary';
+import AppDebugOverlay from '@/components/debug/overlay/AppDebugOverlay';
+import AppDebugPanel from '@/components/debug/panel/AppDebugPanel';
 import useDeferredOpenUrlJump from '@/hooks/useDeferredOpenUrlJump';
 import useAttributionClipboardFallbackJump from '@/hooks/useAttributionClipboardFallbackJump';
 import { HAS_AB_TEST_MODULE } from '@/constants/config';
-import { useAppDebugSnapshot } from '@/services/appDebug';
+import { useAppDebugSnapshot } from '@/services/appDebug/appDebugStore';
+import { installClientErrorReporter, setClientErrorRoute } from '@/services/logging/clientErrors/clientErrorCapture';
+import { flushClientErrorReportsWhenDue } from '@/services/logging/clientErrors/clientErrorUploadSchedule';
+import { installDebugLogFileWriter } from '@/services/logging/debugLogSessions';
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('RootLayout');
+
+installDebugLogFileWriter();
+installClientErrorReporter();
 
 /**
  * 根布局 - 路由壳 + 策略挂载点（不做首次决策）
@@ -30,6 +37,26 @@ export default function RootLayout() {
 
     useDeferredOpenUrlJump(router, enableDeferredCheck);
     useAttributionClipboardFallbackJump(router, enableDeferredCheck);
+
+    useEffect(() => {
+        setClientErrorRoute(pathname);
+    }, [pathname]);
+
+    useEffect(() => {
+        const appStateListener = AppState.addEventListener('change', (nextState) => {
+            if (nextState !== 'active' || pathname === '/') {
+                return;
+            }
+
+            flushClientErrorReportsWhenDue().catch((error) => {
+                logger.warn('client error foreground flush failed', { error });
+            });
+        });
+
+        return () => {
+            appStateListener.remove();
+        };
+    }, [pathname]);
 
     useEffect(() => {
         if (Platform.OS === 'web') return;
@@ -56,8 +83,20 @@ export default function RootLayout() {
                 )}
                 <Stack.Screen name="webview" options={{ title: '', headerTitle: () => null, animation: 'none' }} />
             </Stack>
-            <AppDebugPanel />
-            <AppDebugOverlay />
+            <ClientErrorBoundary
+                fallback={null}
+                resetKey={`${appDebug.enabled}:${appDebug.panelVisible}`}
+                source="debug_panel_react_boundary"
+            >
+                <AppDebugPanel />
+            </ClientErrorBoundary>
+            <ClientErrorBoundary
+                fallback={null}
+                resetKey={`${appDebug.allowed}:${appDebug.enabled}:${appDebug.panelVisible}:${appDebug.floatingButtonPositionRevision}`}
+                source="debug_overlay_react_boundary"
+            >
+                <AppDebugOverlay />
+            </ClientErrorBoundary>
         </>
     );
 }

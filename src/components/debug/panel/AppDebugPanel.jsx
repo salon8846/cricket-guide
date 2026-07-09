@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     StatusBar,
     StyleSheet,
@@ -8,12 +8,17 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppDebugSnapshot } from '@/services/appDebug';
-import AppDebugInfoView from '@/components/debug/AppDebugInfoView';
-import AppDebugToolsView from '@/components/debug/AppDebugToolsView';
+import Toast from '@/components/common/Toast';
+import { useAppDebugSnapshot } from '@/services/appDebug/appDebugStore';
+import AppDebugInfoView from '@/components/debug/panel/AppDebugInfoView';
+import DebugLogsView from '@/components/debug/logs/DebugLogsView';
+import AppDebugToolsView from '@/components/debug/panel/AppDebugToolsView';
+import { AppDebugToastProvider } from '@/components/debug/panel/AppDebugToastContext';
 
 const DEBUG_TAB_INFO = 'info';
+const DEBUG_TAB_LOGS = 'logs';
 const DEBUG_TAB_TOOLS = 'tools';
+const DEBUG_TOAST_VISIBLE_MS = 1400;
 
 const headerShadow = {
     shadowColor: '#0F172A',
@@ -44,7 +49,26 @@ export default function AppDebugPanel() {
     const insets = useSafeAreaInsets();
     const appDebug = useAppDebugSnapshot();
     const [activeTab, setActiveTab] = useState(DEBUG_TAB_INFO);
+    const toastTimerRef = useRef(null);
+    const [toastMessage, setToastMessage] = useState('');
     const visible = appDebug.enabled && appDebug.panelVisible;
+
+    const showToast = useCallback((message) => {
+        if (toastTimerRef.current) {
+            clearTimeout(toastTimerRef.current);
+        }
+        setToastMessage(message);
+        toastTimerRef.current = setTimeout(() => {
+            setToastMessage('');
+            toastTimerRef.current = null;
+        }, DEBUG_TOAST_VISIBLE_MS);
+    }, []);
+
+    useEffect(() => () => {
+        if (toastTimerRef.current) {
+            clearTimeout(toastTimerRef.current);
+        }
+    }, []);
 
     if (!appDebug.allowed) {
         return null;
@@ -61,20 +85,28 @@ export default function AppDebugPanel() {
                     <Text style={styles.title}>Debug</Text>
                 </View>
             </View>
-            <View style={styles.body}>
-                <View
-                    pointerEvents={activeTab === DEBUG_TAB_INFO ? 'auto' : 'none'}
-                    style={[styles.tabContent, activeTab !== DEBUG_TAB_INFO && styles.inactiveTabContent]}
-                >
-                    <AppDebugInfoView />
+            <AppDebugToastProvider showToast={showToast}>
+                <View style={styles.body}>
+                    <View
+                        pointerEvents={activeTab === DEBUG_TAB_INFO ? 'auto' : 'none'}
+                        style={[styles.tabContent, activeTab !== DEBUG_TAB_INFO && styles.inactiveTabContent]}
+                    >
+                        <AppDebugInfoView />
+                    </View>
+                    <View
+                        pointerEvents={activeTab === DEBUG_TAB_TOOLS ? 'auto' : 'none'}
+                        style={[styles.tabContent, activeTab !== DEBUG_TAB_TOOLS && styles.inactiveTabContent]}
+                    >
+                        <AppDebugToolsView />
+                    </View>
+                    <View
+                        pointerEvents={activeTab === DEBUG_TAB_LOGS ? 'auto' : 'none'}
+                        style={[styles.tabContent, activeTab !== DEBUG_TAB_LOGS && styles.inactiveTabContent]}
+                    >
+                        <DebugLogsView />
+                    </View>
                 </View>
-                <View
-                    pointerEvents={activeTab === DEBUG_TAB_TOOLS ? 'auto' : 'none'}
-                    style={[styles.tabContent, activeTab !== DEBUG_TAB_TOOLS && styles.inactiveTabContent]}
-                >
-                    <AppDebugToolsView />
-                </View>
-            </View>
+            </AppDebugToastProvider>
             <View style={[
                 styles.tabBar,
                 { height: 58 + insets.bottom, paddingBottom: Math.max(insets.bottom, 6) },
@@ -86,12 +118,19 @@ export default function AppDebugPanel() {
                     onPress={() => setActiveTab(DEBUG_TAB_INFO)}
                 />
                 <DebugTabButton
+                    active={activeTab === DEBUG_TAB_LOGS}
+                    icon="document-text-outline"
+                    label="Logs"
+                    onPress={() => setActiveTab(DEBUG_TAB_LOGS)}
+                />
+                <DebugTabButton
                     active={activeTab === DEBUG_TAB_TOOLS}
                     icon="construct-outline"
                     label="Tools"
                     onPress={() => setActiveTab(DEBUG_TAB_TOOLS)}
                 />
             </View>
+            <Toast message={toastMessage} top={insets.top + 64} />
         </View>
     );
 }

@@ -19,7 +19,7 @@ import NetworkErrorScreen from '@/components/common/NetworkErrorScreen';
 import useWebViewAuthStore from '@/store/useWebViewAuthStore';
 import { APP_SCHEME } from '@/constants/config';
 import { createLogger } from '@/utils/logger';
-import { useAppDebugSnapshot } from '@/services/appDebug';
+import { useAppDebugSnapshot } from '@/services/appDebug/appDebugStore';
 import {
     WEB_VIEW_ATTRIBUTION_EVENT_RESULT_NAME,
     createWebViewAttributionSnapshotResponse,
@@ -35,7 +35,7 @@ import {
     buildVConsoleDebugPanelInjectionScript,
     buildWebViewDebugPanelRemovalScript,
 } from '@/services/webViewDebug';
-import { WEBVIEW_DEBUG_PANEL_TYPE_VCONSOLE } from '@/services/webViewDebugPanelConfig';
+import { WEBVIEW_DEBUG_PANEL_TYPE_VCONSOLE } from '@/services/appDebug/webViewDebugPanelConfig';
 
 // X* 控制参数的 key 列表
 const X_PARAMS = ['XFullScreen', 'XShowFloatButton', 'XSafeBottom', 'XSafeTop', 'XBackgroundColor', 'XStatusBarStyle', 'XSafeBottomStatus', 'XSafeTopStatus'];

@@ -63,6 +63,12 @@ export const systemApi = {
         };
         return request.post('/system/report', data);
     },
+    clientError: ({ reports } = {}) => {
+        const data = {
+            reports: Array.isArray(reports) ? reports : [],
+        };
+        return request.post('/system/clientError', data);
+    },
     fingerprintDelete: (fingerprint = '') => {
         const data = {
             fingerprint: fingerprint

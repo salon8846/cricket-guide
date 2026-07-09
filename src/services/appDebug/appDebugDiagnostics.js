@@ -12,7 +12,7 @@ import {
     PROD_API_ROOT_URLS,
 } from '@/constants/config';
 import { getActiveBaseURL } from '@/services/domainSelector';
-import { redactAppDebugValue } from '@/services/appDebugRedaction';
+import { redactAppDebugValue } from '@/services/appDebug/appDebugRedaction';
 
 export function formatAppDebugValue(value) {
     if (value === null || value === undefined || value === '') {

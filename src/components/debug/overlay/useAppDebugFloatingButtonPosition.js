@@ -3,7 +3,7 @@ import { PanResponder } from 'react-native';
 import {
     readAppDebugFloatingButtonPosition,
     saveAppDebugFloatingButtonPosition,
-} from '@/services/appDebug';
+} from '@/services/appDebug/appDebugStore';
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('AppDebugFloatingButtonPosition');
