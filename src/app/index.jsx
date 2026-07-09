@@ -6,10 +6,10 @@ import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
 import NetworkErrorScreen from '@/components/common/NetworkErrorScreen';
 import { initDomain } from '@/services/domainSelector';
 import { systemApi } from '@/services/api';
-import { configureAppDebugFromInit, loadStoredAppDebugState } from '@/services/appDebug/appDebugStore';
+import { configureAppDebugFromInit, loadStoredAppDebugState } from '@/services/appDebug/store';
 import { ensureInstallId } from '@/services/installIdentity';
-import { captureClientException } from '@/services/logging/clientErrors/clientErrorCapture';
-import { flushClientErrorReportsWhenDue } from '@/services/logging/clientErrors/clientErrorUploadSchedule';
+import { captureClientException } from '@/services/logging/clientErrors/capture';
+import { flushClientErrorReportsWhenDue } from '@/services/logging/clientErrors/uploadSchedule';
 import {
     canOverrideCachedAttributionDeepLinkParams,
     canUseAttributionClipboardFallback,
@@ -17,8 +17,8 @@ import {
     readCurrentAttributionDeepLinkParams,
     registerAttributionUrlOpenListener,
     startAttributionReporter,
-} from '@/services/attributionReporter';
-import { readAttributionClipboardFallback } from '@/services/attributionClipboardFallback';
+} from '@/services/attribution/reporter';
+import { readAttributionClipboardFallback } from '@/services/attribution/clipboardFallback';
 import useAppStore from '@/store/useAppStore';
 import useLangStore from '@/store/useLangStore';
 import useUserStore from '@/store/useUserStore';

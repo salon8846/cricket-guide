@@ -6,7 +6,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { captureClientException } from '@/services/logging/clientErrors/clientErrorCapture';
+import { captureClientException } from '@/services/logging/clientErrors/capture';
 
 class ClientErrorBoundaryInner extends React.Component {
     constructor(props) {

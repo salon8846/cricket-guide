@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -16,49 +15,25 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import NetworkErrorScreen from '@/components/common/NetworkErrorScreen';
-import useWebViewAuthStore from '@/store/useWebViewAuthStore';
-import { APP_SCHEME } from '@/constants/config';
+import useWebViewAuthSessionBridge from '@/hooks/useWebViewAuthSessionBridge';
 import { createLogger } from '@/utils/logger';
-import { useAppDebugSnapshot } from '@/services/appDebug/appDebugStore';
+import { useAppDebugSnapshot } from '@/services/appDebug/store';
 import {
-    WEB_VIEW_ATTRIBUTION_EVENT_RESULT_NAME,
-    createWebViewAttributionSnapshotResponse,
-    readWebViewOpenWindowUrl,
-    reportWebViewAttributionEvent,
-} from '@/services/webViewAttributionBridge';
+    buildEntryUrl,
+    extractEntryConfig,
+    resolveChromeStyle,
+} from '@/services/webView/entryUrl';
+import { buildNativeSafeAreaEvent } from '@/services/webView/injectedScripts/safeArea';
+import { handleBridgeMessage } from '@/services/webView/messageActions';
+import { buildVpNativeBridge } from '@/services/webView/injectedScripts/vpNativeBridge';
 import {
-    buildWebViewVpNativeBridgeInjectionScript,
-    parseWebViewBridgeMessage,
-} from '@/services/webViewVpNativeBridge';
-import {
-    buildErudaDebugPanelInjectionScript,
-    buildVConsoleDebugPanelInjectionScript,
-    buildWebViewDebugPanelRemovalScript,
-} from '@/services/webViewDebug';
-import { WEBVIEW_DEBUG_PANEL_TYPE_VCONSOLE } from '@/services/appDebug/webViewDebugPanelConfig';
+    buildDebugPanelRemoval,
+    buildErudaDebugPanel,
+    buildVConsoleDebugPanel,
+} from '@/services/webView/injectedScripts/debugPanel';
+import { WEB_VIEW_PANEL_TYPE_VCONSOLE } from '@/services/appDebug/webViewPanel';
 
-// X* 控制参数的 key 列表
-const X_PARAMS = ['XFullScreen', 'XShowFloatButton', 'XSafeBottom', 'XSafeTop', 'XBackgroundColor', 'XStatusBarStyle', 'XSafeBottomStatus', 'XSafeTopStatus'];
-
-// 默认值
-const X_DEFAULTS = {
-    XFullScreen: '1',
-    XShowFloatButton: '0',
-    XSafeBottom: '0',
-    XSafeTop: '1',
-    XBackgroundColor: '0xFF000000',
-    // 'auto'  → 根据 XBackgroundColor 亮度自动选择（默认）
-    // 'dark'  → 强制深色图标（适合浅色背景，如白色）
-    // 'light' → 强制白色图标（适合深色背景）
-    XStatusBarStyle: 'auto',
-    XSafeBottomStatus: '0',
-    XSafeTopStatus: '0',
-};
-
-const GOOGLE_AUTH_REDIRECT_URL = `${APP_SCHEME}://auth/google`;
-const TELEGRAM_AUTH_REDIRECT_URL = `${APP_SCHEME}://auth/telegram`;
 const WEBVIEW_ORIGIN_WHITELIST = ['*'];
-const WEBVIEW_AUTH_SESSION_DEBOUNCE_MS = 500;
 const logger = createLogger('WebView');
 const debugLogger = createLogger('WebViewDebug');
 
@@ -84,52 +59,6 @@ function logWebViewDebug(enabled, eventName, payload) {
     debugLogger.warn(eventName, payload);
 }
 
-function buildNativeSafeAreaEventScript(safeTop, safeBottom) {
-    return `
-        (function() {
-            var e = new CustomEvent('nativeSafeArea', {
-                detail: { safeTop: ${safeTop}, safeBottom: ${safeBottom} }
-            });
-            window.dispatchEvent(e);
-        })();
-        true;
-    `;
-}
-
-function buildWebViewEntryUrl(cleanUrl, safeTopStatus, safeBottomStatus, safeTop, safeBottom) {
-    try {
-        const parsed = new URL(cleanUrl);
-        if (safeTopStatus === '1') {
-            parsed.searchParams.set('safeTop', String(safeTop));
-        }
-        if (safeBottomStatus === '1') {
-            parsed.searchParams.set('safeBottom', String(safeBottom));
-        }
-        return parsed.toString();
-    } catch {
-        return cleanUrl;
-    }
-}
-
-/**
- * 从 URL 中提取 X* 控制参数，并返回剥离这些参数后的干净 URL
- */
-function extractXParams(rawUrl) {
-    try {
-        const parsed = new URL(rawUrl);
-        const xParams = { ...X_DEFAULTS };
-        X_PARAMS.forEach((key) => {
-            if (parsed.searchParams.has(key)) {
-                xParams[key] = parsed.searchParams.get(key);
-                parsed.searchParams.delete(key);
-            }
-        });
-        return { cleanUrl: parsed.toString(), xParams };
-    } catch {
-        return { cleanUrl: rawUrl, xParams: { ...X_DEFAULTS } };
-    }
-}
-
 export default function WebViewScreen() {
     // expo-router splits unencoded `&` in the inner URL into top-level route params.
     // e.g. `/webview?url=https://h5.com?XSafeTopStatus=1&XSafeBottomStatus=1`
@@ -140,14 +69,7 @@ export default function WebViewScreen() {
 
     // 从 URL query string 中解析 X* 控制参数，同时得到干净的 URL
     const { cleanUrl, xParams } = useMemo(() => {
-        const result = extractXParams(decodeURIComponent(url));
-        // Merge any X* params that expo-router placed at route level
-        X_PARAMS.forEach((key) => {
-            if (rawParams[key] !== undefined) {
-                result.xParams[key] = String(rawParams[key]);
-            }
-        });
-        return result;
+        return extractEntryConfig(url, rawParams);
     }, [url, rawParams]);
     const {
         XFullScreen,
@@ -171,36 +93,26 @@ export default function WebViewScreen() {
     const [showLoadError, setShowLoadError] = useState(false);
     const [retryingLoad, setRetryingLoad] = useState(false);
     const appDebug = useAppDebugSnapshot();
-    const lastGoogleAuthResultUrlRef = useRef(null);
-    const lastTelegramAuthResultUrlRef = useRef(null);
-    const webViewAuthSessionTimerRef = useRef(null);
-    const pendingWebViewAuthSessionRef = useRef(null);
-    const webViewAuthSessionOpenRef = useRef(false);
-    const latestWebViewAuthSessionIdRef = useRef(0);
-    const googleAuthResultUrl = useWebViewAuthStore((state) => state.googleAuthResultUrl);
-    const clearGoogleAuthResultUrl = useWebViewAuthStore((state) => state.clearGoogleAuthResultUrl);
-    const telegramAuthResultUrl = useWebViewAuthStore((state) => state.telegramAuthResultUrl);
-    const clearTelegramAuthResultUrl = useWebViewAuthStore((state) => state.clearTelegramAuthResultUrl);
 
     const showFloatButton = XShowFloatButton === '1';
     const hasSafeBottom = XSafeBottom === '1';
     const hasSafeTop = XSafeTop === '1';
     const webViewDebug = appDebug.enabled;
-    const vpNativeBridgeInjectionScript = useMemo(() => (
-        buildWebViewVpNativeBridgeInjectionScript(webViewDebug)
+    const vpNativeBridgeSource = useMemo(() => (
+        buildVpNativeBridge(webViewDebug)
     ), [webViewDebug]);
     const debugPanelType = appDebug.webViewDebugPanel.type;
     const debugPanelScriptUrl = appDebug.webViewDebugPanel.scriptUrl;
 
     const injectDebugPanel = useCallback(() => {
-        const injectionScript = debugPanelType === WEBVIEW_DEBUG_PANEL_TYPE_VCONSOLE
-            ? buildVConsoleDebugPanelInjectionScript(debugPanelScriptUrl, cleanUrl)
-            : buildErudaDebugPanelInjectionScript(debugPanelScriptUrl, cleanUrl);
-        webViewRef.current?.injectJavaScript(injectionScript);
+        const debugPanelSource = debugPanelType === WEB_VIEW_PANEL_TYPE_VCONSOLE
+            ? buildVConsoleDebugPanel(debugPanelScriptUrl, cleanUrl)
+            : buildErudaDebugPanel(debugPanelScriptUrl, cleanUrl);
+        webViewRef.current?.injectJavaScript(debugPanelSource);
     }, [cleanUrl, debugPanelScriptUrl, debugPanelType]);
 
     const removeDebugPanel = useCallback(() => {
-        webViewRef.current?.injectJavaScript(buildWebViewDebugPanelRemovalScript());
+        webViewRef.current?.injectJavaScript(buildDebugPanelRemoval());
     }, []);
 
     // 安全区 insets
@@ -209,12 +121,12 @@ export default function WebViewScreen() {
     const currentSafeBottom = Math.round(insets.bottom);
 
     const injectNativeSafeArea = useCallback(() => {
-        webViewRef.current?.injectJavaScript(buildNativeSafeAreaEventScript(currentSafeTop, currentSafeBottom));
+        webViewRef.current?.injectJavaScript(buildNativeSafeAreaEvent(currentSafeTop, currentSafeBottom));
     }, [currentSafeTop, currentSafeBottom]);
 
     const injectVpNativeBridge = useCallback(() => {
-        webViewRef.current?.injectJavaScript(vpNativeBridgeInjectionScript);
-    }, [vpNativeBridgeInjectionScript]);
+        webViewRef.current?.injectJavaScript(vpNativeBridgeSource);
+    }, [vpNativeBridgeSource]);
 
     useEffect(() => {
         if (webViewDebug) {
@@ -224,39 +136,9 @@ export default function WebViewScreen() {
         removeDebugPanel();
     }, [injectDebugPanel, removeDebugPanel, webViewDebug]);
 
-    useEffect(() => () => {
-        if (webViewAuthSessionTimerRef.current) {
-            clearTimeout(webViewAuthSessionTimerRef.current);
-        }
-        pendingWebViewAuthSessionRef.current = null;
-    }, []);
-
     // 将 ARGB 16进制（0xAARRGGBB）转为 rgba(r,g,b,a) 字符串，并计算状态栏样式
     const { backgroundColor, barStyle } = useMemo(() => {
-        try {
-            const num = parseInt(XBackgroundColor.replace('0x', ''), 16);
-            const a = ((num >>> 24) & 0xff) / 255;
-            const r = (num >>> 16) & 0xff;
-            const g = (num >>> 8) & 0xff;
-            const b = num & 0xff;
-            const bg = `rgba(${r},${g},${b},${a.toFixed(2)})`;
-
-            // 根据背景色亮度自动选择状态栏图标颜色
-            // 公式：感知亮度 = 0.299R + 0.587G + 0.114B（ITU-R BT.601）
-            let style;
-            if (XStatusBarStyle === 'dark') {
-                style = 'dark-content';
-            } else if (XStatusBarStyle === 'light') {
-                style = 'light-content';
-            } else {
-                // auto：亮度 > 128 为浅色背景 → 深色图标，否则白色图标
-                const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-                style = luminance > 128 ? 'dark-content' : 'light-content';
-            }
-            return { backgroundColor: bg, barStyle: style };
-        } catch {
-            return { backgroundColor: 'transparent', barStyle: 'dark-content' };
-        }
+        return resolveChromeStyle(XBackgroundColor, XStatusBarStyle);
     }, [XBackgroundColor, XStatusBarStyle]);
 
     // 切换全屏
@@ -271,221 +153,30 @@ export default function WebViewScreen() {
         }));
     }, []);
 
-    const postGoogleAuthSuccess = useCallback((resultUrl) => {
-        if (!resultUrl || lastGoogleAuthResultUrlRef.current === resultUrl) return;
-        lastGoogleAuthResultUrlRef.current = resultUrl;
-        if (Platform.OS === 'ios') {
-            WebBrowser.dismissAuthSession();
-        }
-        postWebViewMessage('googleAuthSuccess', {
-            url: resultUrl,
-        });
-    }, [postWebViewMessage]);
-
-    const postTelegramAuthSuccess = useCallback((resultUrl) => {
-        if (!resultUrl || lastTelegramAuthResultUrlRef.current === resultUrl) return;
-        lastTelegramAuthResultUrlRef.current = resultUrl;
-        if (Platform.OS === 'ios') {
-            WebBrowser.dismissAuthSession();
-        }
-        postWebViewMessage('telegramAuthSuccess', {
-            url: resultUrl,
-        });
-    }, [postWebViewMessage]);
-
-    const closeWebViewAuthSession = useCallback(() => {
-        try {
-            WebBrowser.dismissAuthSession();
-        } catch (e) {
-            logger.warn('auth session dismiss failed', { error: e });
-        }
-    }, []);
-
-    const openGoogleAuthSession = useCallback(async (authUrl, authSessionId) => {
-        try {
-            const result = await WebBrowser.openAuthSessionAsync(authUrl, GOOGLE_AUTH_REDIRECT_URL);
-            if (authSessionId !== latestWebViewAuthSessionIdRef.current) return;
-            if (result.type === 'success') {
-                postGoogleAuthSuccess(result.url);
-            } else {
-                postWebViewMessage('googleAuthCancel', {
-                    type: result.type,
-                });
-            }
-        } catch (e) {
-            if (authSessionId !== latestWebViewAuthSessionIdRef.current) return;
-            logger.warn('google auth failed', { error: e });
-            postWebViewMessage('googleAuthError', {
-                message: e?.message ?? String(e),
-            });
-        }
-    }, [postGoogleAuthSuccess, postWebViewMessage]);
-
-    const openTelegramAuthSession = useCallback(async (authUrl, authSessionId) => {
-        try {
-            const result = await WebBrowser.openAuthSessionAsync(authUrl, TELEGRAM_AUTH_REDIRECT_URL);
-            if (authSessionId !== latestWebViewAuthSessionIdRef.current) return;
-            if (result.type === 'success') {
-                postTelegramAuthSuccess(result.url);
-            } else {
-                postWebViewMessage('telegramAuthCancel', {
-                    type: result.type,
-                });
-            }
-        } catch (e) {
-            if (authSessionId !== latestWebViewAuthSessionIdRef.current) return;
-            logger.warn('telegram auth failed', { error: e });
-            postWebViewMessage('telegramAuthError', {
-                message: e?.message ?? String(e),
-            });
-        }
-    }, [postTelegramAuthSuccess, postWebViewMessage]);
-
-    const openPendingWebViewAuthSession = useCallback(() => {
-        if (webViewAuthSessionOpenRef.current) {
-            closeWebViewAuthSession();
-            return;
-        }
-
-        const nextAuthSession = pendingWebViewAuthSessionRef.current;
-        pendingWebViewAuthSessionRef.current = null;
-        if (!nextAuthSession) return;
-
-        webViewAuthSessionOpenRef.current = true;
-        Promise.resolve(nextAuthSession()).finally(() => {
-            webViewAuthSessionOpenRef.current = false;
-            if (pendingWebViewAuthSessionRef.current && !webViewAuthSessionTimerRef.current) {
-                webViewAuthSessionTimerRef.current = setTimeout(() => {
-                    webViewAuthSessionTimerRef.current = null;
-                    openPendingWebViewAuthSession();
-                }, 0);
-            }
-        });
-    }, [closeWebViewAuthSession]);
-
-    const openWebViewAuthSessionNow = useCallback((openAuthSession) => {
-        const authSessionId = latestWebViewAuthSessionIdRef.current + 1;
-        latestWebViewAuthSessionIdRef.current = authSessionId;
-        webViewAuthSessionOpenRef.current = true;
-        Promise.resolve(openAuthSession(authSessionId)).finally(() => {
-            webViewAuthSessionOpenRef.current = false;
-        });
-    }, []);
-
-    const scheduleIosWebViewAuthSession = useCallback((openAuthSession) => {
-        const authSessionId = latestWebViewAuthSessionIdRef.current + 1;
-        latestWebViewAuthSessionIdRef.current = authSessionId;
-        pendingWebViewAuthSessionRef.current = () => openAuthSession(authSessionId);
-
-        if (webViewAuthSessionTimerRef.current) {
-            clearTimeout(webViewAuthSessionTimerRef.current);
-        }
-
-        if (webViewAuthSessionOpenRef.current) {
-            closeWebViewAuthSession();
-        }
-
-        webViewAuthSessionTimerRef.current = setTimeout(() => {
-            webViewAuthSessionTimerRef.current = null;
-            openPendingWebViewAuthSession();
-        }, WEBVIEW_AUTH_SESSION_DEBOUNCE_MS);
-    }, [closeWebViewAuthSession, openPendingWebViewAuthSession]);
-
-    const scheduleAndroidWebViewAuthSession = useCallback((openAuthSession) => {
-        if (webViewAuthSessionOpenRef.current) return;
-
-        const authSessionId = latestWebViewAuthSessionIdRef.current + 1;
-        latestWebViewAuthSessionIdRef.current = authSessionId;
-        pendingWebViewAuthSessionRef.current = () => openAuthSession(authSessionId);
-
-        if (webViewAuthSessionTimerRef.current) {
-            clearTimeout(webViewAuthSessionTimerRef.current);
-        }
-
-        webViewAuthSessionTimerRef.current = setTimeout(() => {
-            webViewAuthSessionTimerRef.current = null;
-            openPendingWebViewAuthSession();
-        }, WEBVIEW_AUTH_SESSION_DEBOUNCE_MS);
-    }, [openPendingWebViewAuthSession]);
-
-    const runWebViewAuthSession = useCallback((openAuthSession) => {
-        if (Platform.OS === 'web') {
-            openWebViewAuthSessionNow(openAuthSession);
-            return;
-        }
-
-        if (Platform.OS === 'android') {
-            scheduleAndroidWebViewAuthSession(openAuthSession);
-            return;
-        }
-
-        scheduleIosWebViewAuthSession(openAuthSession);
-    }, [openWebViewAuthSessionNow, scheduleAndroidWebViewAuthSession, scheduleIosWebViewAuthSession]);
-
-    useEffect(() => {
-        if (!googleAuthResultUrl) return;
-        postGoogleAuthSuccess(googleAuthResultUrl);
-        clearGoogleAuthResultUrl();
-    }, [clearGoogleAuthResultUrl, googleAuthResultUrl, postGoogleAuthSuccess]);
-
-    useEffect(() => {
-        if (!telegramAuthResultUrl) return;
-        postTelegramAuthSuccess(telegramAuthResultUrl);
-        clearTelegramAuthResultUrl();
-    }, [clearTelegramAuthResultUrl, postTelegramAuthSuccess, telegramAuthResultUrl]);
+    const {
+        runGoogleAuthSession,
+        runTelegramAuthSession,
+    } = useWebViewAuthSessionBridge({
+        postWebViewMessage,
+        logger,
+    });
 
     // 处理 H5 通过 ReactNativeWebView 或 vpNativeBridge 发来的消息
     const handleMessage = useCallback(async (event) => {
         try {
-            const message = parseWebViewBridgeMessage(event.nativeEvent.data);
-            if (!message) return;
-            const { action, params } = message;
-
-            if (message?.eventName) {
-                const openWindowUrl = readWebViewOpenWindowUrl(message);
-                if (openWindowUrl) {
-                    reportWebViewAttributionEvent(message)
-                        .then((attributionEventReport) => {
-                            postWebViewMessage(WEB_VIEW_ATTRIBUTION_EVENT_RESULT_NAME, attributionEventReport ?? null);
-                        })
-                        .catch((attributionEventError) => {
-                            logger.warn('attribution event report failed', {
-                                eventName: message?.eventName,
-                                error: attributionEventError,
-                            });
-                        });
-                    Linking.openURL(openWindowUrl).catch(() => { });
-                    return;
-                }
-
-                const attributionEventReport = await reportWebViewAttributionEvent(message);
-                postWebViewMessage(WEB_VIEW_ATTRIBUTION_EVENT_RESULT_NAME, attributionEventReport ?? null);
-                return;
-            }
-
-            if (action === 'openBrowser' && params?.url) {
-                Linking.openURL(params.url);
-            }
-            if (action === 'openGoogleAuth' && params?.url) {
-                runWebViewAuthSession((authSessionId) => openGoogleAuthSession(params.url, authSessionId));
-            }
-            if (action === 'openTelegramAuth' && params?.url) {
-                runWebViewAuthSession((authSessionId) => openTelegramAuthSession(params.url, authSessionId));
-            }
-            const attributionSnapshotResponse = await createWebViewAttributionSnapshotResponse(action);
-            if (attributionSnapshotResponse) {
-                postWebViewMessage(attributionSnapshotResponse.eventName, attributionSnapshotResponse.payload);
-                return;
-            }
-            // H5 调用：window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'getSafeArea' }))
-            // 响应：window 上触发 CustomEvent('nativeSafeArea')，detail 为 { safeTop, safeBottom }
-            if (action === 'getSafeArea') {
-                injectNativeSafeArea();
-            }
+            await handleBridgeMessage({
+                rawMessage: event.nativeEvent.data,
+                openExternalUrl: Linking.openURL,
+                postWebViewMessage,
+                runGoogleAuthSession,
+                runTelegramAuthSession,
+                injectNativeSafeArea,
+                logger,
+            });
         } catch (e) {
             logger.warn('message parse failed', { error: e });
         }
-    }, [injectNativeSafeArea, openGoogleAuthSession, openTelegramAuthSession, postWebViewMessage, runWebViewAuthSession]);
+    }, [injectNativeSafeArea, postWebViewMessage, runGoogleAuthSession, runTelegramAuthSession]);
 
     useEffect(() => {
         if (!initialLoadDoneRef.current) return;
@@ -497,7 +188,7 @@ export default function WebViewScreen() {
     if (entryUrlRef.current.key !== entryUrlKey) {
         entryUrlRef.current = {
             key: entryUrlKey,
-            url: buildWebViewEntryUrl(cleanUrl, XSafeTopStatus, XSafeBottomStatus, currentSafeTop, currentSafeBottom),
+            url: buildEntryUrl(cleanUrl, XSafeTopStatus, XSafeBottomStatus, currentSafeTop, currentSafeBottom),
         };
     }
     const entryUrl = entryUrlRef.current.url;
@@ -525,7 +216,7 @@ export default function WebViewScreen() {
             mediaPlaybackRequiresUserAction={false}
             allowsInlineMediaPlayback={true}
             onMessage={handleMessage}
-            injectedJavaScriptBeforeContentLoaded={vpNativeBridgeInjectionScript}
+            injectedJavaScriptBeforeContentLoaded={vpNativeBridgeSource}
             webviewDebuggingEnabled={webViewDebug}
             onLoadStart={(event) => {
                 logWebViewDebug(webViewDebug, 'loadStart', {

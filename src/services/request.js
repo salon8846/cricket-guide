@@ -4,7 +4,7 @@ import { MD5 } from 'crypto-js';
 import { gcm } from '@noble/ciphers/aes.js';
 import { API_BASE_URL, REQUEST_TIMEOUT, APP_CONFIG, IsDev } from '@/constants/config';
 import { getActiveBaseURL } from './domainSelector';
-import { getAppDebugRequestHeaderValues } from '@/services/appDebug/appDebugHeaders';
+import { getAppDebugRequestHeaderValues } from '@/services/appDebug/requestHeaders';
 import { ensureInstallId } from '@/services/installIdentity';
 import { getToken, getLanguage } from '@/utils/storage';
 import { createLogger } from '@/utils/logger';

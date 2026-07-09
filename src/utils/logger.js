@@ -1,4 +1,4 @@
-import { createLogEntry } from '@/services/logging/redaction/logRedaction';
+import { createLogEntry } from '@/services/logging/redaction/logEntries';
 
 const LOGGER_STATE_KEY = '__APP_LOGGER_STATE__';
 const loggerState = (() => {

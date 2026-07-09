@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
-import { readAttributionClipboardFallback } from '@/services/attributionClipboardFallback';
+import { readAttributionClipboardFallback } from '@/services/attribution/clipboardFallback';
 import { systemApi } from '@/services/api';
 import {
     cacheAttributionDeepLinkParamsForJump,
