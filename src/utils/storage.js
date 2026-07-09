@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { STORAGE_KEYS } from '@/constants/config';
+import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('Storage');
@@ -69,12 +69,12 @@ const getLangCacheMap = async (key) => {
 };
 
 const getLegacyLangVer = async () => {
-    const value = await getItem(STORAGE_KEYS.LANG_VER);
+    const value = await getItem(APP_STORAGE_KEYS.language.version);
     return typeof value === 'number' ? value : 0;
 };
 
 const getLegacyLangTranslations = async () => {
-    const value = await getItem(STORAGE_KEYS.LANG_TRANSLATIONS);
+    const value = await getItem(APP_STORAGE_KEYS.language.translations);
     return isPlainObject(value) ? value : {};
 };
 
@@ -89,29 +89,29 @@ const getCachedLangTranslations = (lang, cacheMap) => {
 };
 
 // --- Token 快捷方法 ---
-export const setToken = (token) => setItem(STORAGE_KEYS.TOKEN, token);
-export const getToken = () => getItem(STORAGE_KEYS.TOKEN);
-export const removeToken = () => removeItem(STORAGE_KEYS.TOKEN);
+export const setToken = (token) => setItem(APP_STORAGE_KEYS.userSession.token, token);
+export const getToken = () => getItem(APP_STORAGE_KEYS.userSession.token);
+export const removeToken = () => removeItem(APP_STORAGE_KEYS.userSession.token);
 
 // --- 用户信息快捷方法 ---
-export const setUserInfo = (userInfo) => setItem(STORAGE_KEYS.USER_INFO, userInfo);
-export const getUserInfo = () => getItem(STORAGE_KEYS.USER_INFO);
-export const removeUserInfo = () => removeItem(STORAGE_KEYS.USER_INFO);
+export const setUserInfo = (userInfo) => setItem(APP_STORAGE_KEYS.userSession.userInfo, userInfo);
+export const getUserInfo = () => getItem(APP_STORAGE_KEYS.userSession.userInfo);
+export const removeUserInfo = () => removeItem(APP_STORAGE_KEYS.userSession.userInfo);
 
 // --- 语言快捷方法（默认 'en'）---
-export const setLanguage = (lang) => setItem(STORAGE_KEYS.LANGUAGE, lang);
-export const getLanguage = async () => (await getItem(STORAGE_KEYS.LANGUAGE)) || 'en';
+export const setLanguage = (lang) => setItem(APP_STORAGE_KEYS.language.current, lang);
+export const getLanguage = async () => (await getItem(APP_STORAGE_KEYS.language.current)) || 'en';
 /** 获取语言原始存储值，若从未设置则返回 null（用于判断是否首次安装） */
 export const getRawLanguage = async () => {
     try {
-        return await AsyncStorage.getItem(STORAGE_KEYS.LANGUAGE);
+        return await AsyncStorage.getItem(APP_STORAGE_KEYS.language.current);
     } catch {
         return null;
     }
 };
 
 export const getInstallTime = async () => {
-    const savedInstallTime = await getItem(STORAGE_KEYS.INSTALL_TIME);
+    const savedInstallTime = await getItem(APP_STORAGE_KEYS.identity.installTime);
 
     if (typeof savedInstallTime === 'number' && Number.isFinite(savedInstallTime)) {
         const normalizedInstallTime = savedInstallTime > 9999999999
@@ -119,14 +119,14 @@ export const getInstallTime = async () => {
             : Math.floor(savedInstallTime);
 
         if (normalizedInstallTime !== savedInstallTime) {
-            await setItem(STORAGE_KEYS.INSTALL_TIME, normalizedInstallTime);
+            await setItem(APP_STORAGE_KEYS.identity.installTime, normalizedInstallTime);
         }
 
         return normalizedInstallTime;
     }
 
     const installTime = Math.floor(Date.now() / 1000);
-    await setItem(STORAGE_KEYS.INSTALL_TIME, installTime);
+    await setItem(APP_STORAGE_KEYS.identity.installTime, installTime);
     return installTime;
 };
 
@@ -136,8 +136,8 @@ export const getLangCache = async (lang, syncLegacy = false) => {
     }
 
     const [verCacheMap, translationsCacheMap] = await Promise.all([
-        getLangCacheMap(STORAGE_KEYS.LANG_VER_CACHE),
-        getLangCacheMap(STORAGE_KEYS.LANG_TRANSLATIONS_CACHE),
+        getLangCacheMap(APP_STORAGE_KEYS.language.versionCache),
+        getLangCacheMap(APP_STORAGE_KEYS.language.translationsCache),
     ]);
 
     let ver = getCachedLangVer(lang, verCacheMap);
@@ -161,7 +161,7 @@ export const getLangCache = async (lang, syncLegacy = false) => {
 
     if (!hasOwn(verCacheMap, lang) && legacyVer > 0) {
         ver = legacyVer;
-        tasks.push(setItem(STORAGE_KEYS.LANG_VER_CACHE, {
+        tasks.push(setItem(APP_STORAGE_KEYS.language.versionCache, {
             ...verCacheMap,
             [lang]: legacyVer,
         }));
@@ -169,7 +169,7 @@ export const getLangCache = async (lang, syncLegacy = false) => {
 
     if (!hasOwn(translationsCacheMap, lang) && Object.keys(legacyTranslations).length > 0) {
         translations = legacyTranslations;
-        tasks.push(setItem(STORAGE_KEYS.LANG_TRANSLATIONS_CACHE, {
+        tasks.push(setItem(APP_STORAGE_KEYS.language.translationsCache, {
             ...translationsCacheMap,
             [lang]: legacyTranslations,
         }));
@@ -189,21 +189,21 @@ export const setLangCache = async (lang, ver, translations) => {
 
     const safeTranslations = isPlainObject(translations) ? translations : {};
     const [verCacheMap, translationsCacheMap] = await Promise.all([
-        getLangCacheMap(STORAGE_KEYS.LANG_VER_CACHE),
-        getLangCacheMap(STORAGE_KEYS.LANG_TRANSLATIONS_CACHE),
+        getLangCacheMap(APP_STORAGE_KEYS.language.versionCache),
+        getLangCacheMap(APP_STORAGE_KEYS.language.translationsCache),
     ]);
 
     await Promise.all([
-        setItem(STORAGE_KEYS.LANG_VER_CACHE, {
+        setItem(APP_STORAGE_KEYS.language.versionCache, {
             ...verCacheMap,
             [lang]: ver,
         }),
-        setItem(STORAGE_KEYS.LANG_TRANSLATIONS_CACHE, {
+        setItem(APP_STORAGE_KEYS.language.translationsCache, {
             ...translationsCacheMap,
             [lang]: safeTranslations,
         }),
-        setItem(STORAGE_KEYS.LANG_VER, ver),
-        setItem(STORAGE_KEYS.LANG_TRANSLATIONS, safeTranslations),
+        setItem(APP_STORAGE_KEYS.language.version, ver),
+        setItem(APP_STORAGE_KEYS.language.translations, safeTranslations),
     ]);
 };
 

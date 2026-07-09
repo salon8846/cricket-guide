@@ -46,20 +46,6 @@ export const API_HEALTH_PATH = `${API_BASE_PATH}/health`;
 
 export const REQUEST_TIMEOUT = 15000;
 
-export const STORAGE_KEYS = {
-    TOKEN: '@app_token',
-    USER_INFO: '@app_user_info',
-    SETTINGS: '@app_settings',
-    LANGUAGE: '@app_language',
-    INSTALL_ID: '@app_install_id',
-    INSTALL_TIME: '@app_install_time',
-    ATTRIBUTION_REPORT: '@app_attribution_report',
-    LANG_VER: '@lang_ver',
-    LANG_TRANSLATIONS: '@lang_translations',
-    LANG_VER_CACHE: '@lang_ver_cache',
-    LANG_TRANSLATIONS_CACHE: '@lang_translations_cache',
-};
-
 export const APP_CONFIG = {
     name: APP_NAME,
     version: APP_VERSION,
@@ -87,7 +73,6 @@ export default {
     API_BASE_URL,
     API_HEALTH_PATH,
     REQUEST_TIMEOUT,
-    STORAGE_KEYS,
     APP_CONFIG,
     AB_TEST_ENTRY_ROUTE,
     HAS_AB_TEST_MODULE,

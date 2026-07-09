@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { STORAGE_KEYS } from '@/constants/config';
+import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
 import { readInstallId } from '@/services/installIdentity';
 import {
     clearAllOrThrow,
@@ -16,9 +16,6 @@ import {
     normalizeWebViewDebugPanel,
 } from '@/services/webViewDebugPanelConfig';
 
-const APP_DEBUG_ENABLED_STORAGE_KEY = 'app:debug-enabled';
-const APP_DEBUG_SESSION_STORAGE_KEY = 'app:debug-session-id';
-const APP_DEBUG_FLOATING_BUTTON_POSITION_STORAGE_KEY = 'app:debug-floating-button-position';
 const APP_DEBUG_RUNTIME_STORE_KEY = '__APP_DEBUG_RUNTIME_STORE__';
 
 const emptySnapshot = {
@@ -103,8 +100,8 @@ const createAppDebugSessionId = () => {
 
 const readStoredAppDebugState = async () => {
     const [enabled, sessionId, installId] = await Promise.all([
-        getItem(APP_DEBUG_ENABLED_STORAGE_KEY),
-        getItem(APP_DEBUG_SESSION_STORAGE_KEY),
+        getItem(APP_STORAGE_KEYS.appDebug.enabled),
+        getItem(APP_STORAGE_KEYS.appDebug.sessionId),
         readInstallId(),
     ]);
 
@@ -167,8 +164,8 @@ export const configureAppDebugFromInit = async (initData, storedState) => {
 
     if (!hasDebugConfig) {
         await Promise.all([
-            setItemOrThrow(APP_DEBUG_ENABLED_STORAGE_KEY, false),
-            removeItemOrThrow(APP_DEBUG_SESSION_STORAGE_KEY),
+            setItemOrThrow(APP_STORAGE_KEYS.appDebug.enabled, false),
+            removeItemOrThrow(APP_STORAGE_KEYS.appDebug.sessionId),
         ]);
         setSnapshot(emptySnapshot);
         return;
@@ -199,8 +196,8 @@ export const setAppDebugEnabled = async (enabled) => {
 
     if (!enabled) {
         await Promise.all([
-            setItemOrThrow(APP_DEBUG_ENABLED_STORAGE_KEY, false),
-            removeItemOrThrow(APP_DEBUG_SESSION_STORAGE_KEY),
+            setItemOrThrow(APP_STORAGE_KEYS.appDebug.enabled, false),
+            removeItemOrThrow(APP_STORAGE_KEYS.appDebug.sessionId),
         ]);
         const nextSnapshot = {
             ...currentSnapshot,
@@ -218,8 +215,8 @@ export const setAppDebugEnabled = async (enabled) => {
 
     const sessionId = createAppDebugSessionId();
     await Promise.all([
-        setItemOrThrow(APP_DEBUG_ENABLED_STORAGE_KEY, true),
-        setItemOrThrow(APP_DEBUG_SESSION_STORAGE_KEY, sessionId),
+        setItemOrThrow(APP_STORAGE_KEYS.appDebug.enabled, true),
+        setItemOrThrow(APP_STORAGE_KEYS.appDebug.sessionId, sessionId),
     ]);
     const nextSnapshot = {
         ...currentSnapshot,
@@ -246,7 +243,7 @@ export const toggleAppDebugPanelVisible = () => {
 };
 
 export const readAppDebugFloatingButtonPosition = async () => {
-    const position = await getItem(APP_DEBUG_FLOATING_BUTTON_POSITION_STORAGE_KEY);
+    const position = await getItem(APP_STORAGE_KEYS.appDebug.floatingButtonPosition);
     return normalizeFloatingButtonPosition(position);
 };
 
@@ -256,11 +253,11 @@ export const saveAppDebugFloatingButtonPosition = async (position) => {
         return;
     }
 
-    await setItemOrThrow(APP_DEBUG_FLOATING_BUTTON_POSITION_STORAGE_KEY, nextPosition);
+    await setItemOrThrow(APP_STORAGE_KEYS.appDebug.floatingButtonPosition, nextPosition);
 };
 
 export const resetAppDebugFloatingButtonPosition = async () => {
-    await removeItemOrThrow(APP_DEBUG_FLOATING_BUTTON_POSITION_STORAGE_KEY);
+    await removeItemOrThrow(APP_STORAGE_KEYS.appDebug.floatingButtonPosition);
     const nextSnapshot = {
         ...getAppDebugSnapshot(),
         floatingButtonPositionRevision: getFloatingButtonPositionRevision() + 1,
@@ -279,15 +276,15 @@ export const clearAppStorageKeepingDebugState = async () => {
     await clearAllOrThrow();
 
     const restoreTasks = [
-        setItemOrThrow(APP_DEBUG_ENABLED_STORAGE_KEY, debugEnabled),
+        setItemOrThrow(APP_STORAGE_KEYS.appDebug.enabled, debugEnabled),
     ];
 
     if (debugEnabled && debugSessionId) {
-        restoreTasks.push(setItemOrThrow(APP_DEBUG_SESSION_STORAGE_KEY, debugSessionId));
+        restoreTasks.push(setItemOrThrow(APP_STORAGE_KEYS.appDebug.sessionId, debugSessionId));
     }
 
     if (installId) {
-        restoreTasks.push(setItemOrThrow(STORAGE_KEYS.INSTALL_ID, installId));
+        restoreTasks.push(setItemOrThrow(APP_STORAGE_KEYS.identity.installId, installId));
     }
 
     if (buttonPosition) {

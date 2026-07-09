@@ -7,14 +7,14 @@
 | Store | 职责 | 持久化数据 | 清理策略 |
 | --- | --- | --- | --- |
 | `useAppStore` | 启动页到业务页的临时配置交接 | 无 | 临时状态。`bootstrapBase` 由启动页写入，由 `useBootstrapTranslations` 消费后清理。 |
-| `useUserStore` | 用户登录态和用户信息 | `STORAGE_KEYS.USER_INFO`、`STORAGE_KEYS.TOKEN` | 登出时清理；持久化数据被清空后，通过重新执行 `initUser()` 恢复为空态。 |
-| `useLangStore` | 当前语言、翻译表和语言版本 | `LANGUAGE`、语言版本和翻译缓存 | 通过 `resetLang()` 清理；持久化数据被清空后，通过重新执行 `initLang()` 恢复默认语言态。开发期 Fast Refresh 缓存只用于开发体验，不属于持久化数据。 |
+| `useUserStore` | 用户登录态和用户信息 | `APP_STORAGE_KEYS.userSession.token`、`APP_STORAGE_KEYS.userSession.userInfo` | 登出时清理；持久化数据被清空后，通过重新执行 `initUser()` 恢复为空态。 |
+| `useLangStore` | 当前语言、翻译表和语言版本 | `APP_STORAGE_KEYS.language.*` | 通过 `resetLang()` 清理；持久化数据被清空后，通过重新执行 `initLang()` 恢复默认语言态。开发期 Fast Refresh 缓存只用于开发体验，不属于持久化数据。 |
 | `useWebViewAuthStore` | WebView 第三方登录回调临时结果 | 无 | 临时状态。WebView 消费结果后清理。 |
 | App Debug runtime store | Debug 允许状态、开启状态、面板状态、session、悬浮按钮状态，并读取 `installId` 用于诊断 | Debug enabled/session、悬浮按钮位置 | Debug 状态只能通过 Debug 生命周期或后端关闭 Debug 变更；`installId` 不由 Debug 拥有。 |
 
 ## 安装实例 ID
 
-- `STORAGE_KEYS.INSTALL_ID` 表示当前 App 安装实例。
+- `APP_STORAGE_KEYS.identity.installId` 表示当前 App 安装实例。
 - `installId` 由启动链路中的 `ensureInstallId()` 显式创建或确认。
 - `installId` 不是物理设备 ID，也不是用户 ID。
 - API 请求通过 `X-App-Client` 携带 `installId`；Debug 可以复用该请求头，但 Debug 不拥有它的生命周期。

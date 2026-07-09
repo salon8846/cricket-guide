@@ -1,5 +1,5 @@
 import { Linking, Platform } from 'react-native';
-import { STORAGE_KEYS } from '@/constants/config';
+import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
 import appsFlyerProvider from '@/services/attributionProviders/appsFlyer';
 import { normalizeAttributionDeepLinkParams } from '@/services/attributionParams';
 import { createLogger } from '@/utils/logger';
@@ -83,7 +83,7 @@ const normalizeStoredAttribution = (value) => {
 
 const saveAttributionSnapshot = async (patch) => {
     const storedSnapshot = attributionSnapshot
-        ?? normalizeStoredAttribution(await getItem(STORAGE_KEYS.ATTRIBUTION_REPORT));
+        ?? normalizeStoredAttribution(await getItem(APP_STORAGE_KEYS.attribution.report));
 
     const nextSnapshot = {
         ...storedSnapshot,
@@ -93,7 +93,7 @@ const saveAttributionSnapshot = async (patch) => {
 
     attributionSnapshot = nextSnapshot;
     attributionId = nextSnapshot.attributionId ?? attributionId;
-    await setItem(STORAGE_KEYS.ATTRIBUTION_REPORT, nextSnapshot);
+    await setItem(APP_STORAGE_KEYS.attribution.report, nextSnapshot);
     return nextSnapshot;
 };
 
@@ -198,7 +198,7 @@ export const readAttributionSnapshot = async () => {
     }
 
     attributionSnapshot = normalizeStoredAttribution(
-        await getItem(STORAGE_KEYS.ATTRIBUTION_REPORT),
+        await getItem(APP_STORAGE_KEYS.attribution.report),
     );
     return attributionSnapshot;
 };

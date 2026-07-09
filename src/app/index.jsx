@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, AppState, StyleSheet, View } from 'react-native';
+import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
 import NetworkErrorScreen from '@/components/common/NetworkErrorScreen';
 import { initDomain } from '@/services/domainSelector';
 import { systemApi } from '@/services/api';
@@ -23,7 +24,6 @@ import { isEmpty } from '@/utils';
 import { createLogger } from '@/utils/logger';
 import { getInstallTime } from '@/utils/storage';
 import {
-    OPEN_URL_KEYS,
     cacheAttributionDeepLinkParamsForJump,
     cacheOpenUrlClipboardConfigForJump,
     cacheOpenUrlClipboardContentForJump,
@@ -43,7 +43,6 @@ import {
 } from '@/services/openUrlJump';
 import { resolveInternalEntryRoute } from '@/services/internalEntryRoute';
 
-const INSTALL_FLAG_KEY = 'STAT_INSTALLED';
 const deferredJumpLogger = createLogger('DeferredJump', { devOnly: true });
 
 /**
@@ -57,9 +56,9 @@ const deferredJumpLogger = createLogger('DeferredJump', { devOnly: true });
  * 5) 未命中 OpenUrl 跳转时，按 getOpenUrl 返回的 abTest 进入 App 内部落地页（/home 或 B 模块入口）
  *
  * 决策优先级：
- * - OPEN_URL_JUMPED=1：认为已命中过跳转，后续只要返回 targetUrl 就直接跳，不再判断 isOpen
+ * - openUrl.jumped=1：认为已命中过跳转，后续只要返回 targetUrl 就直接跳，不再判断 isOpen
  * - readClipboard=1 且确定跳转：缓存本次提交的 clipboardContent，后续 getOpenUrl 优先复用缓存内容
- * - checkTime > 0：保存 OPEN_URL_DEFERRED_JUMP，进入首页，后续到点由根 layout 刷新 URL 并按最新 isOpen 判断
+ * - checkTime > 0：保存 openUrl.deferredJump，进入首页，后续到点由根 layout 刷新 URL 并按最新 isOpen 判断
  * - isOpen !== '1'：非静默场景不跳转
  * - isOpen === '1' && checkTime <= 0：立即跳转
  *
@@ -68,7 +67,7 @@ const deferredJumpLogger = createLogger('DeferredJump', { devOnly: true });
  * - 静默到点后：重新请求 getOpenUrl，只有最新 isOpen === '1' 且 targetUrl/linkType 有效才跳。
  * - checkTime <= 0：非静默立即跳转前，也要求首次 isOpen === '1'。
  * - isOpen !== '1'：不会跳转。
- * - 唯一例外：本地已有 OPEN_URL_JUMPED=1 时，会优先走“已跳过”分支，只要接口返回 targetUrl 就直接跳，不再判断 isOpen。
+ * - 唯一例外：本地已有 openUrl.jumped=1 时，会优先走“已跳过”分支，只要接口返回 targetUrl 就直接跳，不再判断 isOpen。
  */
 export default function BootstrapScreen() {
     const router = useRouter();
@@ -83,7 +82,7 @@ export default function BootstrapScreen() {
 
     const requestOpenUrl = useCallback(async (base, attributionConfig) => {
         attributionDeepLinkParamsRef.current = null;
-        const h5Verify = await AsyncStorage.getItem(OPEN_URL_KEYS.JUMP_FLAG_KEY).catch(() => '') ?? '';
+        const h5Verify = await getJumpFlag() ?? '';
         deferredJumpLogger.info('getOpenUrl: start', { h5Verify, readClipboard: base?.readClipboard });
         const cachedClipboardConfig = await getCachedOpenUrlClipboardConfig();
         let fallbackClipboardRead = null;
@@ -385,7 +384,7 @@ export default function BootstrapScreen() {
                 await overwriteCachedAttributionDeepLinkParams(attributionDeepLinkParams);
             }
 
-            const h5Verify = await AsyncStorage.getItem(OPEN_URL_KEYS.JUMP_FLAG_KEY).catch(() => '') ?? '';
+            const h5Verify = await getJumpFlag() ?? '';
             if (h5Verify !== '1') {
                 // 已有静默计时任务时，不需要重复请求 getOpenUrl
                 const deferred = await readDeferredJump();
@@ -427,11 +426,11 @@ export default function BootstrapScreen() {
         registerAttributionUrlOpenListener();
 
         // 首次安装时上报一次 install 事件
-        AsyncStorage.getItem(INSTALL_FLAG_KEY).then((installed) => {
+        AsyncStorage.getItem(APP_STORAGE_KEYS.stat.installed).then((installed) => {
             if (!installed) {
                 deferredJumpLogger.info('stat: install');
                 systemApi.sendStat('install')
-                    .then(() => AsyncStorage.setItem(INSTALL_FLAG_KEY, '1'))
+                    .then(() => AsyncStorage.setItem(APP_STORAGE_KEYS.stat.installed, '1'))
                     .catch(() => { });
             }
         }).catch(() => { });

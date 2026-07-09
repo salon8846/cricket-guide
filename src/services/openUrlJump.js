@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Linking } from 'react-native';
+import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
 import { systemApi } from '@/services/api';
 import { normalizeAttributionDeepLinkParams } from '@/services/attributionReporter';
 import { createLogger } from '@/utils/logger';
@@ -12,27 +13,18 @@ import { createLogger } from '@/utils/logger';
  * - 所有调试日志仅在 __DEV__ 生效，tag 统一为 `[DeferredJump]`
  *
  * 约定：
- * - OPEN_URL_JUMPED: 标记已发生过跳转（避免重复触发）
- * - OPEN_URL_DEFERRED_JUMP: 静默计时任务（JSON）
+ * - openUrl.jumped: 标记已发生过跳转（避免重复触发）
+ * - openUrl.deferredJump: 静默计时任务（JSON）
  *   - triggerAtMs: number 触发时间（毫秒）
  *   - linkType?: '1' (webview) | '2' (external)
  *   - targetUrl?: string
  *   - fingerprint?: string
  *   - abTest?: '1' | '0'（用于 App 内部落地分流）
- * - OPEN_URL_CLIPBOARD_CONTENT_CACHE: init.readClipboard=1 且确定跳转时缓存本次提交的剪切板内容
- * - OPEN_URL_CLIPBOARD_CONFIG_CACHE: 确定跳转时缓存本次返回的剪切板配置
- * - OPEN_URL_ATTRIBUTION_DEEP_LINK_PARAMS_CACHE: 确定跳转时缓存本次命中的归因 deep link 参数
- * - OPEN_URL_ATTRIBUTION_CLIPBOARD_FALLBACK_PENDING: 归因 deep link 失败后的剪贴板 JSON 兜底任务
+ * - openUrl.clipboardContentCache: init.readClipboard=1 且确定跳转时缓存本次提交的剪切板内容
+ * - openUrl.clipboardConfigCache: 确定跳转时缓存本次返回的剪切板配置
+ * - openUrl.attributionDeepLinkParamsCache: 确定跳转时缓存本次命中的归因 deep link 参数
+ * - openUrl.attributionClipboardFallbackPending: 归因 deep link 失败后的剪贴板 JSON 兜底任务
  */
-export const OPEN_URL_KEYS = {
-    JUMP_FLAG_KEY: 'OPEN_URL_JUMPED',
-    DEFERRED_JUMP_KEY: 'OPEN_URL_DEFERRED_JUMP',
-    CLIPBOARD_CONTENT_CACHE_KEY: 'OPEN_URL_CLIPBOARD_CONTENT_CACHE',
-    CLIPBOARD_CONFIG_CACHE_KEY: 'OPEN_URL_CLIPBOARD_CONFIG_CACHE',
-    ATTRIBUTION_DEEP_LINK_PARAMS_CACHE_KEY: 'OPEN_URL_ATTRIBUTION_DEEP_LINK_PARAMS_CACHE',
-    ATTRIBUTION_CLIPBOARD_FALLBACK_PENDING_KEY: 'OPEN_URL_ATTRIBUTION_CLIPBOARD_FALLBACK_PENDING',
-};
-
 const deferredJumpLogger = createLogger('DeferredJump', { devOnly: true });
 const ATTRIBUTION_CLIPBOARD_FALLBACK_EXPIRE_MS = 24 * 60 * 60 * 1000;
 
@@ -70,17 +62,17 @@ export const hasOpenUrlClipboardConfig = (clipboardConfig) => {
 
 /** 读取已跳转标记 */
 export const getJumpFlag = async () => {
-    return await AsyncStorage.getItem(OPEN_URL_KEYS.JUMP_FLAG_KEY).catch(() => null);
+    return await AsyncStorage.getItem(APP_STORAGE_KEYS.openUrl.jumped).catch(() => null);
 };
 
 /** 写入已跳转标记 */
 export const setJumpFlag = async () => {
-    await AsyncStorage.setItem(OPEN_URL_KEYS.JUMP_FLAG_KEY, '1').catch(() => { });
+    await AsyncStorage.setItem(APP_STORAGE_KEYS.openUrl.jumped, '1').catch(() => { });
 };
 
 /** 清理静默计时任务 */
 export const clearDeferredJump = async () => {
-    await AsyncStorage.removeItem(OPEN_URL_KEYS.DEFERRED_JUMP_KEY).catch(() => { });
+    await AsyncStorage.removeItem(APP_STORAGE_KEYS.openUrl.deferredJump).catch(() => { });
 };
 
 const normalizeAttributionClipboardFallbackPending = (pending) => {
@@ -104,12 +96,12 @@ const normalizeAttributionClipboardFallbackPending = (pending) => {
 
 /** 清理归因剪贴板 JSON 兜底任务 */
 export const clearAttributionClipboardFallbackPending = async () => {
-    await AsyncStorage.removeItem(OPEN_URL_KEYS.ATTRIBUTION_CLIPBOARD_FALLBACK_PENDING_KEY).catch(() => { });
+    await AsyncStorage.removeItem(APP_STORAGE_KEYS.openUrl.attributionClipboardFallbackPending).catch(() => { });
 };
 
 /** 读取归因剪贴板 JSON 兜底任务；过期或损坏时返回 null */
 export const readAttributionClipboardFallbackPending = async () => {
-    const rawPending = await AsyncStorage.getItem(OPEN_URL_KEYS.ATTRIBUTION_CLIPBOARD_FALLBACK_PENDING_KEY).catch(() => null);
+    const rawPending = await AsyncStorage.getItem(APP_STORAGE_KEYS.openUrl.attributionClipboardFallbackPending).catch(() => null);
     const pending = normalizeAttributionClipboardFallbackPending(rawPending ? safeJsonParse(rawPending) : null);
     if (!pending) {
         return null;
@@ -143,7 +135,7 @@ export const saveAttributionClipboardFallbackPending = async ({ reason, readClip
     };
 
     await AsyncStorage.setItem(
-        OPEN_URL_KEYS.ATTRIBUTION_CLIPBOARD_FALLBACK_PENDING_KEY,
+        APP_STORAGE_KEYS.openUrl.attributionClipboardFallbackPending,
         JSON.stringify(nextPending),
     ).catch(() => { });
     deferredJumpLogger.info('attribution clipboard fallback: pending saved', {
@@ -165,7 +157,7 @@ export const recordAttributionClipboardFallbackAttempt = async (status) => {
     };
 
     await AsyncStorage.setItem(
-        OPEN_URL_KEYS.ATTRIBUTION_CLIPBOARD_FALLBACK_PENDING_KEY,
+        APP_STORAGE_KEYS.openUrl.attributionClipboardFallbackPending,
         JSON.stringify(nextPending),
     ).catch(() => { });
     return nextPending;
@@ -173,20 +165,20 @@ export const recordAttributionClipboardFallbackAttempt = async (status) => {
 
 /** 读取已保存的剪切板内容；null 表示没有可用缓存 */
 export const getCachedOpenUrlClipboardContent = async () => {
-    const clipboardContent = await AsyncStorage.getItem(OPEN_URL_KEYS.CLIPBOARD_CONTENT_CACHE_KEY).catch(() => null);
+    const clipboardContent = await AsyncStorage.getItem(APP_STORAGE_KEYS.openUrl.clipboardContentCache).catch(() => null);
     return clipboardContent ? clipboardContent : null;
 };
 
 /** 读取已保存的剪切板配置；空对象表示没有可用缓存 */
 export const getCachedOpenUrlClipboardConfig = async () => {
-    const rawClipboardConfig = await AsyncStorage.getItem(OPEN_URL_KEYS.CLIPBOARD_CONFIG_CACHE_KEY).catch(() => null);
+    const rawClipboardConfig = await AsyncStorage.getItem(APP_STORAGE_KEYS.openUrl.clipboardConfigCache).catch(() => null);
     const parsedClipboardConfig = rawClipboardConfig ? safeJsonParse(rawClipboardConfig) : {};
     return normalizeOpenUrlClipboardConfig(parsedClipboardConfig);
 };
 
 /** 读取已保存的归因 deep link 参数；null 表示没有可用缓存 */
 export const getCachedAttributionDeepLinkParams = async () => {
-    const rawDeepLinkParams = await AsyncStorage.getItem(OPEN_URL_KEYS.ATTRIBUTION_DEEP_LINK_PARAMS_CACHE_KEY).catch(() => null);
+    const rawDeepLinkParams = await AsyncStorage.getItem(APP_STORAGE_KEYS.openUrl.attributionDeepLinkParamsCache).catch(() => null);
     const parsedDeepLinkParams = rawDeepLinkParams ? safeJsonParse(rawDeepLinkParams) : null;
     return normalizeAttributionDeepLinkParams(parsedDeepLinkParams);
 };
@@ -200,7 +192,7 @@ export const overwriteCachedAttributionDeepLinkParams = async (attributionDeepLi
     }
 
     await AsyncStorage.setItem(
-        OPEN_URL_KEYS.ATTRIBUTION_DEEP_LINK_PARAMS_CACHE_KEY,
+        APP_STORAGE_KEYS.openUrl.attributionDeepLinkParamsCache,
         JSON.stringify(nextAttributionDeepLinkParams),
     ).catch(() => { });
     deferredJumpLogger.info('attribution deep link params cache: overwritten', {
@@ -226,7 +218,7 @@ export const cacheOpenUrlClipboardContentForJump = async ({ readClipboard, clipb
             return;
         }
 
-        await AsyncStorage.setItem(OPEN_URL_KEYS.CLIPBOARD_CONTENT_CACHE_KEY, nextClipboardContent).catch(() => { });
+        await AsyncStorage.setItem(APP_STORAGE_KEYS.openUrl.clipboardContentCache, nextClipboardContent).catch(() => { });
         deferredJumpLogger.info('clipboard content cache: saved', { preview: nextClipboardContent.slice(0, 32) });
     }
 };
@@ -248,7 +240,7 @@ export const cacheOpenUrlClipboardConfigForJump = async ({ clipboardConfig, isOp
         }
 
         await AsyncStorage.setItem(
-            OPEN_URL_KEYS.CLIPBOARD_CONFIG_CACHE_KEY,
+            APP_STORAGE_KEYS.openUrl.clipboardConfigCache,
             JSON.stringify(nextClipboardConfig),
         ).catch(() => { });
         deferredJumpLogger.info('clipboard config cache: saved', {
@@ -268,7 +260,7 @@ export const cacheAttributionDeepLinkParamsForJump = async ({ attributionDeepLin
 
     if (shouldCacheAttributionDeepLinkParams) {
         await AsyncStorage.setItem(
-            OPEN_URL_KEYS.ATTRIBUTION_DEEP_LINK_PARAMS_CACHE_KEY,
+            APP_STORAGE_KEYS.openUrl.attributionDeepLinkParamsCache,
             JSON.stringify(nextAttributionDeepLinkParams),
         ).catch(() => { });
         deferredJumpLogger.info('attribution deep link params cache: saved', {
@@ -300,7 +292,7 @@ export const appendAttributionDeepLinkParamsToWebViewUrl = (targetUrl, attributi
 
 /** 保存静默计时任务（首次 getOpenUrl 决策的结果） */
 export const saveDeferredJump = async ({ triggerAtMs, linkType, targetUrl, fingerprint, abTest, readClipboard }) => {
-    await AsyncStorage.setItem(OPEN_URL_KEYS.DEFERRED_JUMP_KEY, JSON.stringify({
+    await AsyncStorage.setItem(APP_STORAGE_KEYS.openUrl.deferredJump, JSON.stringify({
         triggerAtMs,
         linkType,
         targetUrl,
@@ -314,7 +306,7 @@ export const saveDeferredJump = async ({ triggerAtMs, linkType, targetUrl, finge
  * 读取 deferred jump，若计时数据损坏或无效会清理并返回 null
  */
 export const readDeferredJump = async () => {
-    const raw = await AsyncStorage.getItem(OPEN_URL_KEYS.DEFERRED_JUMP_KEY).catch(() => null);
+    const raw = await AsyncStorage.getItem(APP_STORAGE_KEYS.openUrl.deferredJump).catch(() => null);
     if (!raw) return null;
 
     const parsed = safeJsonParse(raw);

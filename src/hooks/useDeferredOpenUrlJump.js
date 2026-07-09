@@ -26,7 +26,7 @@ const deferredJumpLogger = createLogger('DeferredJump', { devOnly: true });
  *
  * 说明：
  * - 这里不负责“是否需要立即跳转/开始计时”的决策，决策由启动页 `src/app/index.jsx` 的首次 getOpenUrl 完成。
- * - 这里仅负责读取 `OPEN_URL_DEFERRED_JUMP`，并在到点后复查 getOpenUrl，按最新结果决定是否跳转。
+ * - 这里仅负责读取 `APP_STORAGE_KEYS.openUrl.deferredJump`，并在到点后复查 getOpenUrl，按最新结果决定是否跳转。
  *   - 到点时会再请求一次 getOpenUrl 获取最新 isOpen/targetUrl/linkType。
  *   - 到点复查时会优先复用已缓存的 clipboardContent。
  *   - 只有最新 isOpen === '1' 且 targetUrl/linkType 有效时才跳转。
