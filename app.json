@@ -16,12 +16,20 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.yourcompany.baseapp",
       "associatedDomains": [
-        "applinks:mobile.willbet.com",
-        "applinks:mobile.ftestqoed.com",
-        "applinks:mobile.stggop.com",
-        "applinks:mobile.willbet.io",
-        "applinks:mobile.willbet.ai",
-        "applinks:baseapp.onelink.me"
+        "applinks:willbet.com",
+        "applinks:*.willbet.com",
+        "applinks:ftestqoed.com",
+        "applinks:*.ftestqoed.com",
+        "applinks:stggop.com",
+        "applinks:*.stggop.com",
+        "applinks:willbet.io",
+        "applinks:*.willbet.io",
+        "applinks:willbet.ai",
+        "applinks:*.willbet.ai",
+        "applinks:3capps.com",
+        "applinks:*.3capps.com",
+        "applinks:onelink.me",
+        "applinks:*.onelink.me"
       ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -46,7 +54,11 @@
           "data": [
             {
               "scheme": "https",
-              "host": "mobile.willbet.com"
+              "host": "willbet.com"
+            },
+            {
+              "scheme": "https",
+              "host": "*.willbet.com"
             }
           ],
           "category": [
@@ -60,7 +72,11 @@
           "data": [
             {
               "scheme": "https",
-              "host": "mobile.ftestqoed.com"
+              "host": "ftestqoed.com"
+            },
+            {
+              "scheme": "https",
+              "host": "*.ftestqoed.com"
             }
           ],
           "category": [
@@ -74,7 +90,11 @@
           "data": [
             {
               "scheme": "https",
-              "host": "mobile.stggop.com"
+              "host": "stggop.com"
+            },
+            {
+              "scheme": "https",
+              "host": "*.stggop.com"
             }
           ],
           "category": [
@@ -88,7 +108,11 @@
           "data": [
             {
               "scheme": "https",
-              "host": "mobile.willbet.io"
+              "host": "willbet.io"
+            },
+            {
+              "scheme": "https",
+              "host": "*.willbet.io"
             }
           ],
           "category": [
@@ -102,7 +126,11 @@
           "data": [
             {
               "scheme": "https",
-              "host": "mobile.willbet.ai"
+              "host": "willbet.ai"
+            },
+            {
+              "scheme": "https",
+              "host": "*.willbet.ai"
             }
           ],
           "category": [
@@ -116,7 +144,29 @@
           "data": [
             {
               "scheme": "https",
-              "host": "baseapp.onelink.me"
+              "host": "3capps.com"
+            },
+            {
+              "scheme": "https",
+              "host": "*.3capps.com"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        },
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "onelink.me"
+            },
+            {
+              "scheme": "https",
+              "host": "*.onelink.me"
             }
           ],
           "category": [
