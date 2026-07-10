@@ -37,9 +37,9 @@ import {
     getJumpFlag,
     isSupportedLinkType,
     jumpByLinkType,
-    overwriteCachedAttributionDeepLinkParams,
     readDeferredJump,
     recordAttributionClipboardFallbackAttempt,
+    replaceCachedAttributionDeepLinkParams,
     saveDeferredJump,
     saveAttributionClipboardFallbackPending,
     setJumpFlag,
@@ -410,7 +410,7 @@ export default function BootstrapScreen() {
             if (canOverrideCachedAttributionDeepLinkParams(attributionConfig)) {
                 deferredJumpLogger.info('bootstrap: attribution deep link cache override enabled');
                 const attributionDeepLinkParams = await readCurrentAttributionDeepLinkParams();
-                await overwriteCachedAttributionDeepLinkParams(attributionDeepLinkParams);
+                await replaceCachedAttributionDeepLinkParams(attributionDeepLinkParams);
             }
 
             const h5Verify = await getJumpFlag() ?? '';

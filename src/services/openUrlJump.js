@@ -183,11 +183,9 @@ export const getCachedAttributionDeepLinkParams = async () => {
     return normalizeAttributionDeepLinkParams(parsedDeepLinkParams);
 };
 
-/** 覆盖已保存的归因 deep link 参数；传入无效参数时保留旧缓存 */
-export const overwriteCachedAttributionDeepLinkParams = async (attributionDeepLinkParams) => {
+const writeCachedAttributionDeepLinkParams = async (attributionDeepLinkParams) => {
     const nextAttributionDeepLinkParams = normalizeAttributionDeepLinkParams(attributionDeepLinkParams);
     if (!nextAttributionDeepLinkParams) {
-        deferredJumpLogger.info('attribution deep link params cache: overwrite skipped');
         return null;
     }
 
@@ -195,7 +193,19 @@ export const overwriteCachedAttributionDeepLinkParams = async (attributionDeepLi
         APP_STORAGE_KEYS.openUrl.attributionDeepLinkParamsCache,
         JSON.stringify(nextAttributionDeepLinkParams),
     ).catch(() => { });
-    deferredJumpLogger.info('attribution deep link params cache: overwritten', {
+    return nextAttributionDeepLinkParams;
+};
+
+/** 使用本次新归因 deep link 覆盖已保存的参数 */
+export const replaceCachedAttributionDeepLinkParams = async (attributionDeepLinkParams) => {
+    const nextAttributionDeepLinkParams = normalizeAttributionDeepLinkParams(attributionDeepLinkParams);
+    if (!nextAttributionDeepLinkParams) {
+        deferredJumpLogger.info('attribution deep link params cache: replace skipped');
+        return null;
+    }
+
+    await writeCachedAttributionDeepLinkParams(nextAttributionDeepLinkParams);
+    deferredJumpLogger.info('attribution deep link params cache: replaced', {
         keys: Object.keys(nextAttributionDeepLinkParams),
     });
     return nextAttributionDeepLinkParams;
@@ -259,10 +269,7 @@ export const cacheAttributionDeepLinkParamsForJump = async ({ attributionDeepLin
         && isSupportedLinkType(linkType);
 
     if (shouldCacheAttributionDeepLinkParams) {
-        await AsyncStorage.setItem(
-            APP_STORAGE_KEYS.openUrl.attributionDeepLinkParamsCache,
-            JSON.stringify(nextAttributionDeepLinkParams),
-        ).catch(() => { });
+        await writeCachedAttributionDeepLinkParams(nextAttributionDeepLinkParams);
         deferredJumpLogger.info('attribution deep link params cache: saved', {
             keys: Object.keys(nextAttributionDeepLinkParams),
         });
