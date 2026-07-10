@@ -41,3 +41,14 @@ export function formatClientErrorDetail(entry) {
         JSON.stringify(entry.extra ?? {}, null, 2),
     ].join('\n');
 }
+
+export function formatClientErrorBreadcrumb(breadcrumb) {
+    const prefix = [
+        breadcrumb.time,
+        String(breadcrumb.level ?? '').toUpperCase(),
+        breadcrumb.category ? `[${breadcrumb.category}]` : '',
+        breadcrumb.name,
+    ].filter(Boolean).join(' ');
+    const data = breadcrumb.data === undefined ? '' : ` ${JSON.stringify(breadcrumb.data)}`;
+    return `${prefix}${data}`;
+}

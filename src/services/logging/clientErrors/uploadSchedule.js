@@ -3,9 +3,9 @@ import { CLIENT_ERROR_UPLOAD_RETRY_DELAY_MS } from '@/services/logging/clientErr
 import { flushPendingClientErrors } from '@/services/logging/clientErrors/upload';
 import { flushPendingNativeCrashReports } from '@/services/logging/nativeCrashReports';
 import { getItem, removeItemOrThrow, setItemOrThrow } from '@/utils/storage';
-import { createLogger } from '@/utils/logger';
+import { createDebugLogger } from '@/utils/logger';
 
-const logger = createLogger('ClientErrorUploadSchedule', { devOnly: true });
+const logger = createDebugLogger('ClientErrorUploadSchedule');
 
 const CLIENT_ERROR_UPLOAD_SCHEDULE_STATE_KEY = '__APP_CLIENT_ERROR_UPLOAD_SCHEDULE__';
 

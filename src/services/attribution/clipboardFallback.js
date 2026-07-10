@@ -1,8 +1,8 @@
 import * as Clipboard from 'expo-clipboard';
 import { parseAttributionClipboardFallbackParams } from '@/services/attribution/reporter';
-import { createLogger } from '@/utils/logger';
+import { createDebugLogger } from '@/utils/logger';
 
-const fallbackLogger = createLogger('AttributionClipboardFallback', { devOnly: true });
+const fallbackLogger = createDebugLogger('AttributionClipboardFallback');
 
 export const parseAttributionClipboardFallback = (clipboardContent) => {
     const rawClipboardContent = String(clipboardContent ?? '').trim();

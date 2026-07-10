@@ -12,6 +12,7 @@ import { useAppDebugSnapshot } from '@/services/appDebug/store';
 import { installClientErrorReporter, setClientErrorRoute } from '@/services/logging/clientErrors/capture';
 import { flushClientErrorReportsWhenDue } from '@/services/logging/clientErrors/uploadSchedule';
 import { installDebugLogFileWriter } from '@/services/logging/debugLogs/sessions';
+import { recordBreadcrumb } from '@/services/logging/breadcrumbs';
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('RootLayout');
@@ -44,6 +45,15 @@ export default function RootLayout() {
 
     useEffect(() => {
         const appStateListener = AppState.addEventListener('change', (nextState) => {
+            recordBreadcrumb({
+                category: 'app',
+                name: 'appstate.changed',
+                data: {
+                    state: nextState,
+                    route: pathname,
+                },
+            });
+
             if (nextState !== 'active' || pathname === '/') {
                 return;
             }

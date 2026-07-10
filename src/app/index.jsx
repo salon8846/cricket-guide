@@ -10,6 +10,7 @@ import { configureAppDebugFromInit, loadStoredAppDebugState } from '@/services/a
 import { ensureInstallId } from '@/services/installIdentity';
 import { captureClientException } from '@/services/logging/clientErrors/capture';
 import { flushClientErrorReportsWhenDue } from '@/services/logging/clientErrors/uploadSchedule';
+import { recordBreadcrumb } from '@/services/logging/breadcrumbs';
 import {
     canOverrideCachedAttributionDeepLinkParams,
     canUseAttributionClipboardFallback,
@@ -23,7 +24,7 @@ import useAppStore from '@/store/useAppStore';
 import useLangStore from '@/store/useLangStore';
 import useUserStore from '@/store/useUserStore';
 import { isEmpty } from '@/utils';
-import { createLogger } from '@/utils/logger';
+import { createDebugLogger } from '@/utils/logger';
 import { getInstallTime } from '@/utils/storage';
 import {
     cacheAttributionDeepLinkParamsForJump,
@@ -45,7 +46,7 @@ import {
 } from '@/services/openUrlJump';
 import { resolveInternalEntryRoute } from '@/services/internalEntryRoute';
 
-const deferredJumpLogger = createLogger('DeferredJump', { devOnly: true });
+const deferredJumpLogger = createDebugLogger('DeferredJump');
 
 /**
  * 启动页 - 负责初始化和启动分流
@@ -350,16 +351,28 @@ export default function BootstrapScreen() {
         // 重试和首屏进入统一走 loading 态
         setStatus('loading');
         deferredJumpLogger.info('bootstrap: start');
+        recordBreadcrumb({
+            category: 'bootstrap',
+            name: 'bootstrap.start',
+        });
 
         try {
             // 启动页统一负责恢复本地用户和语言状态
             deferredJumpLogger.info('bootstrap: init local state');
             await Promise.all([initUser(), initLang(), ensureInstallId()]);
             deferredJumpLogger.info('bootstrap: init local state done');
+            recordBreadcrumb({
+                category: 'bootstrap',
+                name: 'bootstrap.local_state_ready',
+            });
 
             deferredJumpLogger.info('bootstrap: initDomain');
             await initDomain();
             deferredJumpLogger.info('bootstrap: initDomain done');
+            recordBreadcrumb({
+                category: 'bootstrap',
+                name: 'bootstrap.domain_ready',
+            });
             flushClientErrorReportsWhenDue().catch((error) => {
                 deferredJumpLogger.warn('client error flush failed', { error });
             });
@@ -377,6 +390,16 @@ export default function BootstrapScreen() {
                 checkTime: base?.checkTime,
                 readClipboard: base?.readClipboard,
                 attributionClipboardFallbackEnabled: canUseAttributionClipboardFallback(attributionConfig),
+            });
+            recordBreadcrumb({
+                category: 'bootstrap',
+                name: 'bootstrap.init_success',
+                data: {
+                    checkTime: base?.checkTime,
+                    readClipboard: base?.readClipboard,
+                    hasDebugConfig: initData && typeof initData === 'object' && Object.prototype.hasOwnProperty.call(initData, 'debug'),
+                    attributionClipboardFallbackEnabled: canUseAttributionClipboardFallback(attributionConfig),
+                },
             });
             if (!canUseAttributionClipboardFallback(attributionConfig)) {
                 await clearAttributionClipboardFallbackPending();
@@ -410,15 +433,38 @@ export default function BootstrapScreen() {
                 linkType: openUrlRes?.data?.linkType,
                 hasTargetUrl: !!openUrlRes?.data?.targetUrl,
             });
+            recordBreadcrumb({
+                category: 'bootstrap',
+                name: 'bootstrap.open_url_success',
+                data: {
+                    hasData: !!openUrlRes?.data,
+                    isOpen: openUrlRes?.data?.isOpen,
+                    linkType: openUrlRes?.data?.linkType,
+                    hasTargetUrl: !!openUrlRes?.data?.targetUrl,
+                },
+            });
 
             const didJump = await handleOpenUrl(openUrlRes, base, openUrlRequest?.clipboardContent ?? '');
             deferredJumpLogger.info('bootstrap: decision done', { didJump });
+            recordBreadcrumb({
+                category: 'bootstrap',
+                name: 'bootstrap.decision',
+                data: { didJump },
+            });
             if (!didJump) {
                 // 未命中任何策略时，才进入 App 内部首页
                 await finishToInternalEntry(openUrlRes?.data?.abTest ?? null);
             }
         } catch (e) {
             deferredJumpLogger.warn('bootstrap: failed, show error', { error: e });
+            recordBreadcrumb({
+                category: 'bootstrap',
+                name: 'bootstrap.failed',
+                level: 'error',
+                data: {
+                    message: e?.message,
+                },
+            });
             captureClientException(e, {
                 source: 'bootstrap',
                 route: '/',
@@ -457,6 +503,10 @@ export default function BootstrapScreen() {
             // 首次安装等场景下，系统授权弹窗可能打断启动链路，回前台后允许再触发一次
             if (nextState === 'active' && !initSuccessRef.current) {
                 deferredJumpLogger.info('AppState active, rerun bootstrap');
+                recordBreadcrumb({
+                    category: 'bootstrap',
+                    name: 'bootstrap.foreground_retry',
+                });
                 runBootstrap();
             }
         });

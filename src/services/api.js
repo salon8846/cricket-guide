@@ -3,9 +3,9 @@ import { getLocales, getCalendars } from 'expo-localization';
 import * as Device from 'expo-device';
 import request from './request';
 import { getInstallTime } from '@/utils/storage';
-import { createLogger } from '@/utils/logger';
+import { createDebugLogger } from '@/utils/logger';
 
-const deferredJumpLogger = createLogger('DeferredJump', { devOnly: true });
+const deferredJumpLogger = createDebugLogger('DeferredJump');
 
 // ---- 系统模块 ----
 export const systemApi = {

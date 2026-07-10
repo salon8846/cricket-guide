@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { systemApi } from '@/services/api';
-import { createLogger } from '@/utils/logger';
+import { createDebugLogger } from '@/utils/logger';
 import {
     cacheAttributionDeepLinkParamsForJump,
     cacheOpenUrlClipboardConfigForJump,
@@ -19,7 +19,7 @@ import {
 } from '@/services/openUrlJump';
 
 const MAX_TIMEOUT_MS = 2147483647;
-const deferredJumpLogger = createLogger('DeferredJump', { devOnly: true });
+const deferredJumpLogger = createDebugLogger('DeferredJump');
 
 /**
  * 静默计时到点检测

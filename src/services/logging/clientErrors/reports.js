@@ -6,9 +6,9 @@ import {
     MAX_CLIENT_ERROR_REPORT_BYTES,
 } from '@/services/logging/clientErrors/constants';
 import {
-    readClientErrorBreadcrumbs,
     readClientErrorCurrentRoute,
 } from '@/services/logging/clientErrors/runtime';
+import { readBreadcrumbs } from '@/services/logging/breadcrumbs';
 import {
     normalizeLogError,
     sanitizeLogValue,
@@ -77,7 +77,7 @@ export const buildClientErrorReport = async (error, context = {}) => {
         stack: String(errorObject.stack ?? error?.stack ?? ''),
         source: String(context.source ?? 'manual'),
         route: String(context.route ?? readClientErrorCurrentRoute() ?? ''),
-        breadcrumbs: readClientErrorBreadcrumbs(),
+        breadcrumbs: readBreadcrumbs(),
         extra: sanitizeLogValue(context.extra ?? {}),
     };
 };

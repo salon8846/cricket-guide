@@ -1,10 +1,10 @@
 import { API_BASE_URL, API_HEALTH_PATH, IsDev, PROD_API_ROOT_URLS, REQUEST_TIMEOUT, buildApiBaseURL } from '@/constants/config';
-import { createLogger } from '@/utils/logger';
+import { createDebugLogger } from '@/utils/logger';
 
 let _activeBaseURL = API_BASE_URL;
 let _initialized = false;
 let _initPromise = null;
-const logger = createLogger('DomainSelector', { devOnly: true });
+const logger = createDebugLogger('DomainSelector');
 
 async function checkRootUrl(rootUrl) {
     const url = `${rootUrl}${API_HEALTH_PATH}`;

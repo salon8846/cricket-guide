@@ -73,22 +73,21 @@ export const registerLogReceiver = (receiver) => {
     };
 };
 
-export const createLogger = (tag, options = {}) => {
+const createTaggedLogger = (tag, source) => {
     const normalizedTag = String(tag ?? '').trim() || 'App';
     const label = `[${normalizedTag}]`;
-    const devOnly = options.devOnly === true;
     const write = (level, message, payload) => {
-        if (devOnly && !__DEV__) {
-            return;
-        }
-
         emitLogEntry(createLogEntry({
             level,
             tag: normalizedTag,
             message,
             payload,
-            source: devOnly ? 'devOnlyLogger' : 'logger',
+            source,
         }));
+
+        if (!__DEV__) {
+            return;
+        }
 
         const consolePayload = normalizeConsolePayload(payload);
         const args = consolePayload === undefined
@@ -104,3 +103,7 @@ export const createLogger = (tag, options = {}) => {
         error: (message, payload) => write('error', message, payload),
     };
 };
+
+export const createLogger = (tag) => createTaggedLogger(tag, 'appLogger');
+
+export const createDebugLogger = (tag) => createTaggedLogger(tag, 'debugLogger');

@@ -3,14 +3,14 @@ import { Linking } from 'react-native';
 import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
 import { systemApi } from '@/services/api';
 import { normalizeAttributionDeepLinkParams } from '@/services/attribution/reporter';
-import { createLogger } from '@/utils/logger';
+import { createDebugLogger } from '@/utils/logger';
 
 /**
  * OpenUrl 启动策略公共能力（不包含“是否跳转”的业务决策）
  *
  * 设计目标：
  * - 让启动页（首次决策）与静默检测（到点复查）共享同一套 key/解析/跳转逻辑，避免重复与不一致
- * - 所有调试日志仅在 __DEV__ 生效，tag 统一为 `[DeferredJump]`
+ * - 调试日志在 dev 控制台可见，正式包开启本机 Debug 后写入 Debug Logs，tag 统一为 `[DeferredJump]`
  *
  * 约定：
  * - openUrl.jumped: 标记已发生过跳转（避免重复触发）
@@ -25,7 +25,7 @@ import { createLogger } from '@/utils/logger';
  * - openUrl.attributionDeepLinkParamsCache: 确定跳转时缓存本次命中的归因 deep link 参数
  * - openUrl.attributionClipboardFallbackPending: 归因 deep link 失败后的剪贴板 JSON 兜底任务
  */
-const deferredJumpLogger = createLogger('DeferredJump', { devOnly: true });
+const deferredJumpLogger = createDebugLogger('DeferredJump');
 const ATTRIBUTION_CLIPBOARD_FALLBACK_EXPIRE_MS = 24 * 60 * 60 * 1000;
 
 /** 将 linkType 规范化为字符串 */

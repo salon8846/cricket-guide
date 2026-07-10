@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
 import { readInstallId } from '@/services/installIdentity';
+import { recordBreadcrumb } from '@/services/logging/breadcrumbs';
 import {
     getItem,
     removeItemOrThrow,
@@ -184,6 +185,14 @@ export const configureAppDebugFromInit = async (initData, storedState) => {
         tapArea: debugConfig.tapArea,
         webViewDebugPanel: debugConfig.webViewDebugPanel,
     });
+    recordBreadcrumb({
+        category: 'debug',
+        name: 'debug.allowed',
+        data: {
+            enabled: storedState.enabled,
+            hasServerConfig: debugConfig.serverDebugConfig !== null,
+        },
+    });
 };
 
 export const setAppDebugEnabled = async (enabled) => {
@@ -205,6 +214,10 @@ export const setAppDebugEnabled = async (enabled) => {
             sessionId: '',
         };
         setSnapshot(nextSnapshot);
+        recordBreadcrumb({
+            category: 'debug',
+            name: 'debug.disabled',
+        });
         return nextSnapshot;
     }
 
@@ -223,6 +236,11 @@ export const setAppDebugEnabled = async (enabled) => {
         sessionId,
     };
     setSnapshot(nextSnapshot);
+    recordBreadcrumb({
+        category: 'debug',
+        name: 'debug.enabled',
+        data: { sessionId },
+    });
     return nextSnapshot;
 };
 

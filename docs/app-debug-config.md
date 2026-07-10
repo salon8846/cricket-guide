@@ -90,7 +90,7 @@
 - 点击悬浮按钮只切换全局 Debug 面板显示状态，不走路由，不重载当前业务页面。
 - Debug 面板常驻挂载在根布局里，内部 tabbar 当前包含 `Info`、`Logs` 和 `Tools`；这里不使用 Expo Router 的 `(tabs)` 或动态路由。
 - `Info` 会展示 App、设备、Build / Runtime、Debug 状态、服务器 `debug` 配置和请求头；后端新增字段会自动显示在 `Server Debug Config` 区域，`token` / `password` / `secret` / `key` 等敏感字段会脱敏。
-- `Logs` 会展示本机 Debug 日志和客户端异常记录，支持刷新、复制、清理；Debug 日志只在本机 Debug 开启时写入，并按每次 App 启动单独保存文件，页面使用启动列表/详情结构，可删除单个启动日志文件；客户端异常记录不依赖 Debug 开关，页面使用异常列表/详情结构，详情展示 stack、breadcrumbs 和 extra。
+- `Logs` 会展示本机 Debug 日志和客户端异常记录，支持刷新、复制、清理；Debug 日志只在本机 Debug 开启时写入，并按每次 App 启动单独保存文件，页面使用启动列表/详情结构，可删除单个启动日志文件；客户端异常记录不依赖 Debug 开关，页面使用异常列表/详情结构，详情展示 summary、stack、breadcrumbs 和 extra。
 - `Tools` 提供复制脱敏 Debug 快照、重置悬浮按钮位置、重新初始化、清除本地数据、清除全部本地数据、关闭 Debug 和异常链路测试；清除本地数据会二次确认，其中 `Clear Data` 会保留 Debug 状态、`installId`、悬浮按钮位置和日志文件，`Clear All Data` 会清空全部 AsyncStorage 和 App 私有日志文件。
 - Debug 面板文案固定使用英文，不接入 App 语言包。
 
@@ -106,6 +106,15 @@
 - `Native Crash`：通过原生模块触发 Android RuntimeException / iOS fatal signal，验证 ACRA / KSCrash 到自建 API 的链路。
 
 Expo Go / 纯 JS 侧不能可靠模拟 native 进程崩溃。需要验证真实 native crash 时，应使用包含 `withNativeCrashReports` config plugin 的 dev client 或正式包。
+
+## Logs 与 Breadcrumbs
+
+- Debug Logs 是开发调试输出，来源是 `createLogger()` / `createDebugLogger()`，只在本机 Debug 开启时写入本地文件。
+- dev 模式下 `createLogger()` / `createDebugLogger()` 仍直接输出到 Metro / Expo 控制台，不要求开启本机 Debug；本机 Debug 只控制是否额外写入 Debug Logs 文件。
+- `createDebugLogger(tag)` 在 dev 下写控制台，在 release 下不写控制台；本机 Debug 开启后仍会写入 Debug Logs 文件，用于排查正式包启动链路、归因、域名探测等问题。
+- Error Breadcrumbs 是异常分析轨迹，来源是显式的 `recordBreadcrumb()`，不依赖 Debug 开关。
+- `Errors` 详情里的 breadcrumbs 不显示控制台调试输出，只记录启动链路、路由、AppState、API 状态、Debug 开关和原生崩溃导出等低敏关键事件。
+- API breadcrumbs 只记录 method、path、status、duration 和错误摘要，不记录请求体、响应体、token、完整 query 或解密后的业务数据。
 
 ## Debug 面板扩展约定
 

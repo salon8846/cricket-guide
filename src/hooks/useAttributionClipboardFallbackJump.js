@@ -16,9 +16,9 @@ import {
     recordAttributionClipboardFallbackAttempt,
     setJumpFlag,
 } from '@/services/openUrlJump';
-import { createLogger } from '@/utils/logger';
+import { createDebugLogger } from '@/utils/logger';
 
-const fallbackLogger = createLogger('AttributionClipboardFallback', { devOnly: true });
+const fallbackLogger = createDebugLogger('AttributionClipboardFallback');
 
 export default function useAttributionClipboardFallbackJump(router, enabled = true) {
     const runningRef = useRef(false);

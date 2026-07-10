@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AB_TEST_ENTRY_ROUTE, HAS_AB_TEST_MODULE } from '@/constants/config';
 import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
-import { createLogger } from '@/utils/logger';
+import { createDebugLogger } from '@/utils/logger';
 
-const internalEntryLogger = createLogger('InternalEntry', { devOnly: true });
+const internalEntryLogger = createDebugLogger('InternalEntry');
 
 export const getStickyB = async () => {
     return await AsyncStorage.getItem(APP_STORAGE_KEYS.internalEntry.stickyB);

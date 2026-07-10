@@ -2,10 +2,10 @@ import { Linking, Platform } from 'react-native';
 import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
 import appsFlyerProvider from '@/services/attribution/providers/appsFlyer';
 import { normalizeAttributionDeepLinkParams } from '@/services/attribution/deepLinkParams';
-import { createLogger } from '@/utils/logger';
+import { createDebugLogger } from '@/utils/logger';
 import { getItem, setItem } from '@/utils/storage';
 
-const attributionLogger = createLogger('Attribution', { devOnly: true });
+const attributionLogger = createDebugLogger('Attribution');
 const PROVIDERS = {
     appsFlyer: appsFlyerProvider,
 };

@@ -6,6 +6,7 @@ import { API_BASE_URL, REQUEST_TIMEOUT, APP_CONFIG, IsDev } from '@/constants/co
 import { getActiveBaseURL } from './domainSelector';
 import { getAppDebugRequestHeaderValues } from '@/services/appDebug/requestHeaders';
 import { ensureInstallId } from '@/services/installIdentity';
+import { recordBreadcrumb } from '@/services/logging/breadcrumbs';
 import { getToken, getLanguage } from '@/utils/storage';
 import { createLogger } from '@/utils/logger';
 
@@ -28,6 +29,19 @@ const request = axios.create({
 const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 const createRequestSignature = (timestamp) => MD5(APP_CONFIG.appKey + String(timestamp)).toString();
+
+const normalizeRequestPath = (url) => String(url ?? '').split(/[?#]/)[0];
+
+const shouldRecordApiBreadcrumb = (url) => normalizeRequestPath(url) !== '/system/clientError';
+
+const readRequestPath = (config) => normalizeRequestPath(config?.url);
+
+const readRequestMethod = (config) => String(config?.method ?? 'get').toUpperCase();
+
+const readRequestDuration = (config) => {
+    const startedAt = Number(config?.metadata?.startedAt ?? 0);
+    return Number.isFinite(startedAt) && startedAt > 0 ? Date.now() - startedAt : undefined;
+};
 
 // 避免依赖运行时是否注入 atob / TextDecoder，保证独立发布包解密链路稳定。
 const decodeBase64ToBytes = (value) => {
@@ -79,6 +93,22 @@ const decodeUtf8Bytes = (value) => {
 // 请求拦截器 - 动态注入 baseURL + 签名 + Token
 request.interceptors.request.use(
     async (config) => {
+        config.metadata = {
+            ...(config.metadata ?? {}),
+            startedAt: Date.now(),
+        };
+
+        if (shouldRecordApiBreadcrumb(config.url)) {
+            recordBreadcrumb({
+                category: 'api',
+                name: 'api.request',
+                data: {
+                    method: readRequestMethod(config),
+                    path: readRequestPath(config),
+                },
+            });
+        }
+
         // 动态读取当前可用域名（initDomain 完成后就是最优域名）
         config.baseURL = getActiveBaseURL();
 
@@ -111,7 +141,33 @@ request.interceptors.request.use(
 request.interceptors.response.use(
     async (response) => {
         const { data } = response;
+        if (shouldRecordApiBreadcrumb(response.config?.url)) {
+            recordBreadcrumb({
+                category: 'api',
+                name: 'api.response',
+                data: {
+                    method: readRequestMethod(response.config),
+                    path: readRequestPath(response.config),
+                    status: response.status,
+                    durationMs: readRequestDuration(response.config),
+                },
+            });
+        }
+
         if (data.code !== undefined && data.code !== 0) {
+            if (shouldRecordApiBreadcrumb(response.config?.url)) {
+                recordBreadcrumb({
+                    category: 'api',
+                    name: 'api.business_error',
+                    level: 'warn',
+                    data: {
+                        method: readRequestMethod(response.config),
+                        path: readRequestPath(response.config),
+                        code: data.code,
+                        durationMs: readRequestDuration(response.config),
+                    },
+                });
+            }
             return Promise.reject(new Error(data.message || '请求失败'));
         }
         if (!IsDev && data.code === 0 && typeof data.data === 'string') {
@@ -126,11 +182,40 @@ request.interceptors.response.use(
                 data.data = JSON.parse(decryptedText);
             } catch (e) {
                 logger.error('decrypt failed', { error: e });
+                if (shouldRecordApiBreadcrumb(response.config?.url)) {
+                    recordBreadcrumb({
+                        category: 'api',
+                        name: 'api.decrypt_failed',
+                        level: 'error',
+                        data: {
+                            method: readRequestMethod(response.config),
+                            path: readRequestPath(response.config),
+                            durationMs: readRequestDuration(response.config),
+                            message: e?.message,
+                        },
+                    });
+                }
             }
         }
         return data;
     },
     (error) => {
+        const config = error.config ?? error.response?.config;
+        if (shouldRecordApiBreadcrumb(config?.url)) {
+            recordBreadcrumb({
+                category: 'api',
+                name: 'api.failed',
+                level: 'error',
+                data: {
+                    method: readRequestMethod(config),
+                    path: readRequestPath(config),
+                    status: error.response?.status,
+                    durationMs: readRequestDuration(config),
+                    message: error.message,
+                },
+            });
+        }
+
         if (error.response) {
             const { status } = error.response;
             switch (status) {

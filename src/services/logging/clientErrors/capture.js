@@ -2,18 +2,23 @@ import { Platform } from 'react-native';
 import { saveClientErrorReport } from '@/services/logging/clientErrors/files';
 import { buildClientErrorReport } from '@/services/logging/clientErrors/reports';
 import {
-    appendClientErrorBreadcrumbEntry,
     claimClientErrorReporterInstall,
     setClientErrorCurrentRoute,
 } from '@/services/logging/clientErrors/runtime';
 import { FATAL_CLIENT_ERROR_CAPTURE_WAIT_MS } from '@/services/logging/clientErrors/constants';
+import { recordBreadcrumb } from '@/services/logging/breadcrumbs';
 import { sanitizeLogValue } from '@/services/logging/redaction/logEntries';
-import { createLogger, registerLogReceiver } from '@/utils/logger';
+import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('ClientErrorCapture');
 
 export const setClientErrorRoute = (route) => {
     setClientErrorCurrentRoute(route);
+    recordBreadcrumb({
+        category: 'navigation',
+        name: 'route.changed',
+        data: { route },
+    });
 };
 
 export const captureClientException = async (error, context = {}) => {
@@ -124,7 +129,6 @@ export const installClientErrorReporter = () => {
         return;
     }
 
-    registerLogReceiver(appendClientErrorBreadcrumbEntry);
     installGlobalErrorHandler();
     installUnhandledRejectionHandler();
 };

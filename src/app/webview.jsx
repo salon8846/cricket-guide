@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import NetworkErrorScreen from '@/components/common/NetworkErrorScreen';
 import useWebViewAuthSessionBridge from '@/hooks/useWebViewAuthSessionBridge';
-import { createLogger } from '@/utils/logger';
+import { createDebugLogger, createLogger } from '@/utils/logger';
 import { useAppDebugSnapshot } from '@/services/appDebug/store';
 import {
     buildEntryUrl,
@@ -35,7 +35,7 @@ import { WEB_VIEW_PANEL_TYPE_VCONSOLE } from '@/services/appDebug/webViewPanel';
 
 const WEBVIEW_ORIGIN_WHITELIST = ['*'];
 const logger = createLogger('WebView');
-const debugLogger = createLogger('WebViewDebug');
+const debugLogger = createDebugLogger('WebViewDebug');
 
 const RETRYABLE_LOAD_ERROR_CODES = new Set([
     -1009, // iOS: not connected to internet

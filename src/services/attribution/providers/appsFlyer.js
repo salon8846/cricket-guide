@@ -1,9 +1,9 @@
 import Constants from 'expo-constants';
 import { NativeEventEmitter, NativeModules, Platform } from 'react-native';
 import { normalizeAttributionDeepLinkParams } from '@/services/attribution/deepLinkParams';
-import { createLogger } from '@/utils/logger';
+import { createDebugLogger } from '@/utils/logger';
 
-const appsFlyerLogger = createLogger('AttributionAppsFlyer', { devOnly: true });
+const appsFlyerLogger = createDebugLogger('AttributionAppsFlyer');
 const OPEN_URL_WAIT_MS = 5000;
 const OPEN_URL_POLL_MS = 250;
 const EVENT_LOG_TIMEOUT_MS = 8000;

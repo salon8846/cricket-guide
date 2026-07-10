@@ -1,4 +1,5 @@
 import { NativeModules } from 'react-native';
+import { recordBreadcrumb } from '@/services/logging/breadcrumbs';
 
 const MODULE_NAME = 'AppNativeCrashReports';
 
@@ -13,7 +14,16 @@ export const flushPendingNativeCrashReports = async () => {
         return { available: false };
     }
 
-    return await nativeModule.flushPendingNativeCrashReports();
+    const result = await nativeModule.flushPendingNativeCrashReports();
+    const exportedCount = Number(result?.exported ?? 0);
+    if (Number.isFinite(exportedCount) && exportedCount > 0) {
+        recordBreadcrumb({
+            category: 'native',
+            name: 'native_crash.flushed',
+            data: { exported: exportedCount },
+        });
+    }
+    return result;
 };
 
 export const triggerNativeCrash = async () => {
@@ -22,5 +32,10 @@ export const triggerNativeCrash = async () => {
         throw new Error('Native crash test module is unavailable. Use an Expo Dev Client or release build.');
     }
 
+    recordBreadcrumb({
+        category: 'native',
+        name: 'native_crash.test_triggered',
+        level: 'warn',
+    });
     return await nativeModule.triggerNativeCrash();
 };

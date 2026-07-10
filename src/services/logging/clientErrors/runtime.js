@@ -1,7 +1,3 @@
-import {
-    MAX_CLIENT_ERROR_BREADCRUMBS,
-} from '@/services/logging/clientErrors/constants';
-
 const CLIENT_ERROR_RUNTIME_STATE_KEY = '__APP_CLIENT_ERROR_REPORTER__';
 
 const runtimeState = (() => {
@@ -9,7 +5,6 @@ const runtimeState = (() => {
         globalThis[CLIENT_ERROR_RUNTIME_STATE_KEY] = {
             installed: false,
             currentRoute: '',
-            breadcrumbs: [],
         };
     }
 
@@ -23,27 +18,6 @@ export const claimClientErrorReporterInstall = () => {
 
     runtimeState.installed = true;
     return true;
-};
-
-export const appendClientErrorBreadcrumbEntry = (entry) => {
-    runtimeState.breadcrumbs.push({
-        time: entry.time,
-        level: entry.level,
-        tag: entry.tag,
-        message: entry.message,
-        payload: entry.payload,
-    });
-
-    if (runtimeState.breadcrumbs.length > MAX_CLIENT_ERROR_BREADCRUMBS) {
-        runtimeState.breadcrumbs.splice(
-            0,
-            runtimeState.breadcrumbs.length - MAX_CLIENT_ERROR_BREADCRUMBS,
-        );
-    }
-};
-
-export const readClientErrorBreadcrumbs = () => {
-    return runtimeState.breadcrumbs.slice(-MAX_CLIENT_ERROR_BREADCRUMBS);
 };
 
 export const setClientErrorCurrentRoute = (route) => {
