@@ -195,6 +195,9 @@ request.interceptors.response.use(
                         },
                     });
                 }
+                const decryptError = new Error('Response decrypt failed');
+                decryptError.cause = e;
+                throw decryptError;
             }
         }
         return data;
