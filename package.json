@@ -16,7 +16,8 @@
     "build:android-release-apk": "CONFIGURATION=Release scripts/build-android.sh apk",
     "build:android-release-aab": "CONFIGURATION=Release scripts/build-android.sh aab",
     "build:eruda": "node scripts/build-eruda-source.js",
-    "build:vconsole": "node scripts/build-vconsole-source.js"
+    "build:vconsole": "node scripts/build-vconsole-source.js",
+    "verify:native-crash-plugin": "node scripts/verify-native-crash-reports-plugin.js"
   },
   "dependencies": {
     "@noble/ciphers": "^2.2.0",

@@ -567,7 +567,7 @@ const addSwiftImport = (source, importLine) => {
 
 const addIosKSCrashInstaller = (source) => {
     const withoutInstaller = source.replace(
-        /\n\nprivate enum NativeCrashReports \{\n\s*static func installKSCrash\(\) \{\n[\s\S]*?\n\s*\}\n\}/,
+        /\n\nprivate enum NativeCrashReports \{\n\s*static func installKSCrash\(\) \{\n[\s\S]*?\n\s*\}\n\}\n?/,
         '',
     );
 
