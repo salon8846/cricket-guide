@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+    Alert,
     StyleSheet,
     TouchableOpacity,
     View,
@@ -13,12 +15,18 @@ import {
     useAppDebugSnapshot,
 } from '@/services/appDebug/store';
 import { buildDebugTapAreaStyle } from '@/services/appDebug/activationTapArea';
+import {
+    disableAppDebugAndRestartBootstrap,
+    enableAppDebugAndRestartBootstrap,
+} from '@/services/appDebug/activation';
 import useAppDebugActivationTap from '@/components/debug/overlay/useActivationTap';
 import useAppDebugFloatingButtonPosition, {
     APP_DEBUG_FLOATING_BUTTON_SIZE,
 } from '@/components/debug/overlay/useFloatingButtonPosition';
+import { createLogger } from '@/utils/logger';
 
 const TOAST_VISIBLE_MS = 1400;
+const logger = createLogger('AppDebugOverlay');
 
 export default function AppDebugOverlay() {
     const appDebug = useAppDebugSnapshot();
@@ -31,9 +39,12 @@ export default function AppDebugOverlay() {
 }
 
 function AppDebugOverlayLayer({ appDebug }) {
+    const router = useRouter();
     const insets = useSafeAreaInsets();
     const windowSize = useWindowDimensions();
     const toastTimerRef = useRef(null);
+    const togglingDebugRef = useRef(false);
+    const disableConfirmVisibleRef = useRef(false);
     const [toastMessage, setToastMessage] = useState('');
 
     const tapAreaStyle = useMemo(() => (
@@ -55,7 +66,76 @@ function AppDebugOverlayLayer({ appDebug }) {
         toggleAppDebugPanelVisible();
     }, []);
 
-    const pressActivationArea = useAppDebugActivationTap(appDebug.enabled, showToast);
+    const enableDebug = useCallback(async () => {
+        if (togglingDebugRef.current) {
+            return;
+        }
+        togglingDebugRef.current = true;
+        try {
+            await enableAppDebugAndRestartBootstrap(router);
+            showToast('debug on');
+        } catch (error) {
+            logger.warn('enable app debug failed', { error });
+            showToast('debug failed');
+        } finally {
+            togglingDebugRef.current = false;
+        }
+    }, [router, showToast]);
+
+    const disableDebug = useCallback(async () => {
+        if (togglingDebugRef.current) {
+            return;
+        }
+        togglingDebugRef.current = true;
+        try {
+            await disableAppDebugAndRestartBootstrap(router);
+            showToast('debug off');
+        } catch (error) {
+            logger.warn('disable app debug failed', { error });
+            showToast('debug failed');
+        } finally {
+            togglingDebugRef.current = false;
+        }
+    }, [router, showToast]);
+
+    const requestDisableDebug = useCallback(() => {
+        if (togglingDebugRef.current || disableConfirmVisibleRef.current) {
+            return;
+        }
+        disableConfirmVisibleRef.current = true;
+        Alert.alert(
+            'Close Debug?',
+            'The app will restart bootstrap and stop sending debug headers.',
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel',
+                    onPress: () => {
+                        disableConfirmVisibleRef.current = false;
+                    },
+                },
+                {
+                    text: 'Close',
+                    style: 'destructive',
+                    onPress: () => {
+                        disableConfirmVisibleRef.current = false;
+                        disableDebug();
+                    },
+                },
+            ],
+            { cancelable: false },
+        );
+    }, [disableDebug]);
+
+    const activateDebugTap = useCallback(() => {
+        if (appDebug.enabled) {
+            requestDisableDebug();
+            return;
+        }
+        enableDebug();
+    }, [appDebug.enabled, enableDebug, requestDisableDebug]);
+
+    const pressActivationArea = useAppDebugActivationTap(activateDebugTap);
     const {
         buttonPosition,
         panHandlers,
