@@ -27,6 +27,7 @@ let listenersRegistered = false;
 let latestDeepLink = null;
 let latestInstallConversion = null;
 let writeSnapshot = () => Promise.resolve(null);
+let openUrlDecisionId = 0;
 
 const wait = (timeoutMs) => new Promise((resolve) => {
     setTimeout(resolve, timeoutMs);
@@ -78,6 +79,19 @@ const readCallbackFields = (payload) => {
     }
 
     return payload.data;
+};
+
+const createCallbackRecord = (payload) => ({
+    decisionId: openUrlDecisionId,
+    payload,
+});
+
+const readCurrentDecisionPayload = (record) => {
+    if (!record || record.decisionId !== openUrlDecisionId) {
+        return null;
+    }
+
+    return record.payload;
 };
 
 const readCallbackSummary = (payload) => {
@@ -214,16 +228,31 @@ const isConfigReady = (config) => {
     return true;
 };
 
+const beginOpenUrlDecision = ({ reason } = {}) => {
+    openUrlDecisionId += 1;
+    latestDeepLink = null;
+    latestInstallConversion = null;
+    appsFlyerLogger.info('openUrl attribution decision started', {
+        decisionId: openUrlDecisionId,
+        reason: String(reason ?? ''),
+    });
+    return openUrlDecisionId;
+};
+
 const onConfigUpdated = () => {
-    if (!startTask) {
-        appsFlyerLogger.info('config updated');
+    if (startTask) {
+        appsFlyerLogger.warn('config updated after sdk start; native sdk is not restarted');
+        return;
     }
+
+    appsFlyerLogger.info('config updated');
 };
 
 const onUrlOpen = ({ source } = {}) => {
-    if (source === 'event') {
-        latestDeepLink = null;
-    }
+    appsFlyerLogger.info('url open observed', {
+        source: String(source ?? ''),
+        decisionId: openUrlDecisionId,
+    });
 };
 
 const registerListeners = (nativeModule) => {
@@ -235,11 +264,12 @@ const registerListeners = (nativeModule) => {
 
     eventEmitter.addListener('onInstallConversionDataLoaded', (data) => {
         try {
-            latestInstallConversion = parseNativeEventPayload(data);
-            appsFlyerLogger.info('install conversion', latestInstallConversion);
-            appsFlyerLogger.info('install conversion summary', readCallbackSummary(latestInstallConversion));
+            const payload = parseNativeEventPayload(data);
+            latestInstallConversion = createCallbackRecord(payload);
+            appsFlyerLogger.info('install conversion', payload);
+            appsFlyerLogger.info('install conversion summary', readCallbackSummary(payload));
             writeSnapshot({
-                installConversion: latestInstallConversion,
+                installConversion: payload,
                 installConversionFailure: null,
             }).catch((error) => {
                 appsFlyerLogger.warn('install conversion save failed', { error });
@@ -265,11 +295,12 @@ const registerListeners = (nativeModule) => {
 
     eventEmitter.addListener('onDeepLinking', (data) => {
         try {
-            latestDeepLink = parseNativeEventPayload(data);
-            appsFlyerLogger.info('deep link', latestDeepLink);
-            appsFlyerLogger.info('deep link summary', readCallbackSummary(latestDeepLink));
+            const payload = parseNativeEventPayload(data);
+            latestDeepLink = createCallbackRecord(payload);
+            appsFlyerLogger.info('deep link', payload);
+            appsFlyerLogger.info('deep link summary', readCallbackSummary(payload));
             writeSnapshot({
-                deepLink: latestDeepLink,
+                deepLink: payload,
             }).catch((error) => {
                 appsFlyerLogger.warn('deep link save failed', { error });
             });
@@ -303,6 +334,8 @@ const readAttributionId = (nativeModule) => {
 };
 
 const start = (config, context) => {
+    writeSnapshot = context.writeSnapshot;
+
     if (startTask) {
         return startTask;
     }
@@ -310,8 +343,6 @@ const start = (config, context) => {
     if (!isConfigReady(config)) {
         return Promise.resolve(null);
     }
-
-    writeSnapshot = context.writeSnapshot;
 
     startTask = (async () => {
         const nativeModule = readNativeModule();
@@ -361,36 +392,42 @@ const readCurrentDeepLinkParams = async (config, context) => {
 
     const deadlineAt = Date.now() + OPEN_URL_WAIT_MS;
     appsFlyerLogger.info('openUrl attribution wait start', {
+        decisionId: openUrlDecisionId,
         waitMs: OPEN_URL_WAIT_MS,
-        hasDeepLinkCallback: latestDeepLink !== null,
-        hasInstallConversionCallback: latestInstallConversion !== null,
+        hasDeepLinkCallback: readCurrentDecisionPayload(latestDeepLink) !== null,
+        hasInstallConversionCallback: readCurrentDecisionPayload(latestInstallConversion) !== null,
     });
     while (Date.now() <= deadlineAt) {
-        const deepLinkParams = readDeepLinkParams(latestDeepLink);
+        const deepLink = readCurrentDecisionPayload(latestDeepLink);
+        const installConversion = readCurrentDecisionPayload(latestInstallConversion);
+        const deepLinkParams = readDeepLinkParams(deepLink);
         if (deepLinkParams) {
             appsFlyerLogger.info('deep link params ready', {
+                decisionId: openUrlDecisionId,
                 source: 'deep_link',
                 keys: Object.keys(deepLinkParams.urlParams),
             });
             return deepLinkParams;
         }
 
-        const installConversionDeepLinkParams = readInstallConversionDeepLinkParams(latestInstallConversion);
+        const installConversionDeepLinkParams = readInstallConversionDeepLinkParams(installConversion);
         if (installConversionDeepLinkParams) {
             appsFlyerLogger.info('deep link params ready', {
+                decisionId: openUrlDecisionId,
                 source: 'install_conversion',
                 keys: Object.keys(installConversionDeepLinkParams.urlParams),
             });
             return installConversionDeepLinkParams;
         }
 
-        if (latestDeepLink && latestInstallConversion) {
+        if (deepLink && installConversion) {
             appsFlyerLogger.warn('openUrl deep link params unavailable', {
-                deepLinkStatus: latestDeepLink?.deepLinkStatus,
-                deepLinkSummary: readCallbackSummary(latestDeepLink),
-                installConversionAfStatus: readCallbackFields(latestInstallConversion)?.af_status,
-                installConversionFirstLaunch: readCallbackFields(latestInstallConversion)?.is_first_launch,
-                installConversionSummary: readCallbackSummary(latestInstallConversion),
+                decisionId: openUrlDecisionId,
+                deepLinkStatus: deepLink?.deepLinkStatus,
+                deepLinkSummary: readCallbackSummary(deepLink),
+                installConversionAfStatus: readCallbackFields(installConversion)?.af_status,
+                installConversionFirstLaunch: readCallbackFields(installConversion)?.is_first_launch,
+                installConversionSummary: readCallbackSummary(installConversion),
             });
             return null;
         }
@@ -398,14 +435,17 @@ const readCurrentDeepLinkParams = async (config, context) => {
         await wait(OPEN_URL_POLL_MS);
     }
 
+    const deepLink = readCurrentDecisionPayload(latestDeepLink);
+    const installConversion = readCurrentDecisionPayload(latestInstallConversion);
     appsFlyerLogger.warn('openUrl deep link callback unavailable', {
-        hasDeepLinkCallback: latestDeepLink !== null,
-        hasInstallConversionCallback: latestInstallConversion !== null,
-        deepLinkStatus: latestDeepLink?.deepLinkStatus,
-        installConversionAfStatus: readCallbackFields(latestInstallConversion)?.af_status,
-        installConversionFirstLaunch: readCallbackFields(latestInstallConversion)?.is_first_launch,
-        deepLinkSummary: latestDeepLink ? readCallbackSummary(latestDeepLink) : null,
-        installConversionSummary: latestInstallConversion ? readCallbackSummary(latestInstallConversion) : null,
+        decisionId: openUrlDecisionId,
+        hasDeepLinkCallback: deepLink !== null,
+        hasInstallConversionCallback: installConversion !== null,
+        deepLinkStatus: deepLink?.deepLinkStatus,
+        installConversionAfStatus: readCallbackFields(installConversion)?.af_status,
+        installConversionFirstLaunch: readCallbackFields(installConversion)?.is_first_launch,
+        deepLinkSummary: deepLink ? readCallbackSummary(deepLink) : null,
+        installConversionSummary: installConversion ? readCallbackSummary(installConversion) : null,
     });
     return null;
 };
@@ -490,6 +530,7 @@ export default {
     isConfigReady,
     onConfigUpdated,
     onUrlOpen,
+    beginOpenUrlDecision,
     start,
     readCurrentDeepLinkParams,
     logEvent,

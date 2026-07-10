@@ -12,6 +12,7 @@ import { captureClientException } from '@/services/logging/clientErrors/capture'
 import { flushClientErrorReportsWhenDue } from '@/services/logging/clientErrors/uploadSchedule';
 import { recordBreadcrumb } from '@/services/logging/breadcrumbs';
 import {
+    beginAttributionOpenUrlDecision,
     canOverrideCachedAttributionDeepLinkParams,
     canUseAttributionClipboardFallback,
     configureAttributionReporter,
@@ -385,6 +386,7 @@ export default function BootstrapScreen() {
             const base = initData?.base ?? null;
             const attributionConfig = initData?.attribution ?? null;
             configureAttributionReporter(attributionConfig);
+            beginAttributionOpenUrlDecision('bootstrap');
             startAttributionReporter();
             deferredJumpLogger.info('bootstrap: api.init done', {
                 checkTime: base?.checkTime,
