@@ -3,9 +3,9 @@ import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
 import { readInstallId } from '@/services/installIdentity';
 import { recordBreadcrumb } from '@/services/logging/breadcrumbs';
 import {
-    getItem,
     removeItemOrThrow,
     setItemOrThrow,
+    tryGetItem,
 } from '@/utils/storage';
 import {
     DEFAULT_DEBUG_TAP_AREA,
@@ -100,8 +100,8 @@ const createAppDebugSessionId = () => {
 
 const readStoredAppDebugState = async () => {
     const [enabled, sessionId, installId] = await Promise.all([
-        getItem(APP_STORAGE_KEYS.appDebug.enabled),
-        getItem(APP_STORAGE_KEYS.appDebug.sessionId),
+        tryGetItem(APP_STORAGE_KEYS.appDebug.enabled),
+        tryGetItem(APP_STORAGE_KEYS.appDebug.sessionId),
         readInstallId(),
     ]);
 
@@ -260,7 +260,7 @@ export const toggleAppDebugPanelVisible = () => {
 };
 
 export const readAppDebugFloatingButtonPosition = async () => {
-    const position = await getItem(APP_STORAGE_KEYS.appDebug.floatingButtonPosition);
+    const position = await tryGetItem(APP_STORAGE_KEYS.appDebug.floatingButtonPosition);
     return normalizeFloatingButtonPosition(position);
 };
 

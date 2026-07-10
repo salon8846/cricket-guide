@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
 import useAppStore from '@/store/useAppStore';
 import useLangStore from '@/store/useLangStore';
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('BootstrapTranslations');
 
 /**
  * 启动页只缓存 init 的基础信息，真正进入业务页后再按版本补拉语言
@@ -18,6 +21,9 @@ export default function useBootstrapTranslations(enabled = true) {
 
         const { languageVer, language, defaultLanguage } = bootstrapBase;
         fetchTranslationsIfNeeded(languageVer ?? 0, language ?? {}, defaultLanguage)
+            .catch((error) => {
+                logger.warn('fetch bootstrap translations failed', { error });
+            })
             .finally(() => {
                 clearBootstrapBase();
             });

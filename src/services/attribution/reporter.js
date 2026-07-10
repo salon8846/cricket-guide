@@ -3,7 +3,7 @@ import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
 import appsFlyerProvider from '@/services/attribution/providers/appsFlyer';
 import { normalizeAttributionDeepLinkParams } from '@/services/attribution/deepLinkParams';
 import { createDebugLogger } from '@/utils/logger';
-import { getItem, setItem } from '@/utils/storage';
+import { tryGetItem, trySetItem } from '@/utils/storage';
 
 const attributionLogger = createDebugLogger('Attribution');
 const PROVIDERS = {
@@ -83,7 +83,7 @@ const normalizeStoredAttribution = (value) => {
 
 const saveAttributionSnapshot = async (patch) => {
     const storedSnapshot = attributionSnapshot
-        ?? normalizeStoredAttribution(await getItem(APP_STORAGE_KEYS.attribution.report));
+        ?? normalizeStoredAttribution(await tryGetItem(APP_STORAGE_KEYS.attribution.report));
 
     const nextSnapshot = {
         ...storedSnapshot,
@@ -93,7 +93,7 @@ const saveAttributionSnapshot = async (patch) => {
 
     attributionSnapshot = nextSnapshot;
     attributionId = nextSnapshot.attributionId ?? attributionId;
-    await setItem(APP_STORAGE_KEYS.attribution.report, nextSnapshot);
+    await trySetItem(APP_STORAGE_KEYS.attribution.report, nextSnapshot);
     return nextSnapshot;
 };
 
@@ -202,7 +202,7 @@ export const readAttributionSnapshot = async () => {
     }
 
     attributionSnapshot = normalizeStoredAttribution(
-        await getItem(APP_STORAGE_KEYS.attribution.report),
+        await tryGetItem(APP_STORAGE_KEYS.attribution.report),
     );
     return attributionSnapshot;
 };

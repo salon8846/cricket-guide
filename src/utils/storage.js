@@ -5,56 +5,57 @@ import { createLogger } from '@/utils/logger';
 const logger = createLogger('Storage');
 
 /**
- * 通用存储工具，对 AsyncStorage 进行封装
+ * 通用存储工具，对 AsyncStorage 进行 JSON 序列化封装。
+ *
+ * `try*` 只用于可选缓存或允许缺失的运行辅助数据，失败时记录日志并继续。
+ * `*OrThrow` 用于关键状态，调用方必须显式处理失败。
  */
-
-/** 存储任意数据（自动 JSON 序列化） */
-export const setItem = async (key, value) => {
+/** 存储可选数据，失败只记录日志。 */
+export const trySetItem = async (key, value) => {
     try {
         await setItemOrThrow(key, value);
     } catch (e) {
-        logger.error('setItem failed', { key, error: e });
+        logger.error('trySetItem failed', { key, error: e });
     }
 };
 
+/** 存储任意 JSON 可序列化数据，失败会抛出。 */
 export const setItemOrThrow = async (key, value) => {
     const jsonValue = JSON.stringify(value);
     await AsyncStorage.setItem(key, jsonValue);
 };
 
-/** 读取任意数据（自动 JSON 反序列化） */
-export const getItem = async (key) => {
+/** 读取任意 JSON 存储数据，读取或解析失败会抛出。 */
+export const getItemOrThrow = async (key) => {
+    const jsonValue = await AsyncStorage.getItem(key);
+    return jsonValue != null ? JSON.parse(jsonValue) : null;
+};
+
+/** 读取可选数据，失败只记录日志并返回 null。 */
+export const tryGetItem = async (key) => {
     try {
-        const jsonValue = await AsyncStorage.getItem(key);
-        return jsonValue != null ? JSON.parse(jsonValue) : null;
+        return await getItemOrThrow(key);
     } catch (e) {
-        logger.error('getItem failed', { key, error: e });
+        logger.error('tryGetItem failed', { key, error: e });
         return null;
     }
 };
 
-/** 删除指定 key */
-export const removeItem = async (key) => {
+/** 删除可选数据，失败只记录日志。 */
+export const tryRemoveItem = async (key) => {
     try {
         await removeItemOrThrow(key);
     } catch (e) {
-        logger.error('removeItem failed', { key, error: e });
+        logger.error('tryRemoveItem failed', { key, error: e });
     }
 };
 
+/** 删除指定 key，失败会抛出。 */
 export const removeItemOrThrow = async (key) => {
     await AsyncStorage.removeItem(key);
 };
 
-/** 清空所有存储 */
-export const clearAll = async () => {
-    try {
-        await clearAllOrThrow();
-    } catch (e) {
-        logger.error('clearAll failed', { error: e });
-    }
-};
-
+/** 清空所有 AsyncStorage 数据，失败会抛出。 */
 export const clearAllOrThrow = async () => {
     await AsyncStorage.clear();
 };
@@ -64,17 +65,17 @@ const isPlainObject = (value) => value !== null && typeof value === 'object' && 
 const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
 
 const getLangCacheMap = async (key) => {
-    const value = await getItem(key);
+    const value = await tryGetItem(key);
     return isPlainObject(value) ? value : {};
 };
 
 const getLegacyLangVer = async () => {
-    const value = await getItem(APP_STORAGE_KEYS.language.version);
+    const value = await tryGetItem(APP_STORAGE_KEYS.language.version);
     return typeof value === 'number' ? value : 0;
 };
 
 const getLegacyLangTranslations = async () => {
-    const value = await getItem(APP_STORAGE_KEYS.language.translations);
+    const value = await tryGetItem(APP_STORAGE_KEYS.language.translations);
     return isPlainObject(value) ? value : {};
 };
 
@@ -89,18 +90,24 @@ const getCachedLangTranslations = (lang, cacheMap) => {
 };
 
 // --- Token 快捷方法 ---
-export const setToken = (token) => setItem(APP_STORAGE_KEYS.userSession.token, token);
-export const getToken = () => getItem(APP_STORAGE_KEYS.userSession.token);
-export const removeToken = () => removeItem(APP_STORAGE_KEYS.userSession.token);
+/** Token 是认证关键状态，写入或删除失败必须交给调用方处理。 */
+export const setToken = (token) => setItemOrThrow(APP_STORAGE_KEYS.userSession.token, token);
+/** Token 读取失败按未登录处理，避免启动链路被本地存储故障阻断。 */
+export const getToken = () => tryGetItem(APP_STORAGE_KEYS.userSession.token);
+export const removeToken = () => removeItemOrThrow(APP_STORAGE_KEYS.userSession.token);
 
 // --- 用户信息快捷方法 ---
-export const setUserInfo = (userInfo) => setItem(APP_STORAGE_KEYS.userSession.userInfo, userInfo);
-export const getUserInfo = () => getItem(APP_STORAGE_KEYS.userSession.userInfo);
-export const removeUserInfo = () => removeItem(APP_STORAGE_KEYS.userSession.userInfo);
+/** 用户信息写入或删除需要和内存登录态保持一致，失败必须交给调用方处理。 */
+export const setUserInfo = (userInfo) => setItemOrThrow(APP_STORAGE_KEYS.userSession.userInfo, userInfo);
+/** 用户信息读取失败按未登录处理，避免启动链路被本地存储故障阻断。 */
+export const getUserInfo = () => tryGetItem(APP_STORAGE_KEYS.userSession.userInfo);
+export const removeUserInfo = () => removeItemOrThrow(APP_STORAGE_KEYS.userSession.userInfo);
 
 // --- 语言快捷方法（默认 'en'）---
-export const setLanguage = (lang) => setItem(APP_STORAGE_KEYS.language.current, lang);
-export const getLanguage = async () => (await getItem(APP_STORAGE_KEYS.language.current)) || 'en';
+/** 语言偏好是可恢复体验状态，写入失败只记录日志并继续使用当前运行态。 */
+export const setLanguage = (lang) => trySetItem(APP_STORAGE_KEYS.language.current, lang);
+/** 语言读取失败使用默认语言，保证启动和页面渲染可继续。 */
+export const getLanguage = async () => (await tryGetItem(APP_STORAGE_KEYS.language.current)) || 'en';
 /** 获取语言原始存储值，若从未设置则返回 null（用于判断是否首次安装） */
 export const getRawLanguage = async () => {
     try {
@@ -110,8 +117,9 @@ export const getRawLanguage = async () => {
     }
 };
 
+/** 安装时间用于请求上下文，存储失败允许继续并在下次启动重新计算。 */
 export const getInstallTime = async () => {
-    const savedInstallTime = await getItem(APP_STORAGE_KEYS.identity.installTime);
+    const savedInstallTime = await tryGetItem(APP_STORAGE_KEYS.identity.installTime);
 
     if (typeof savedInstallTime === 'number' && Number.isFinite(savedInstallTime)) {
         const normalizedInstallTime = savedInstallTime > 9999999999
@@ -119,17 +127,18 @@ export const getInstallTime = async () => {
             : Math.floor(savedInstallTime);
 
         if (normalizedInstallTime !== savedInstallTime) {
-            await setItem(APP_STORAGE_KEYS.identity.installTime, normalizedInstallTime);
+            await trySetItem(APP_STORAGE_KEYS.identity.installTime, normalizedInstallTime);
         }
 
         return normalizedInstallTime;
     }
 
     const installTime = Math.floor(Date.now() / 1000);
-    await setItem(APP_STORAGE_KEYS.identity.installTime, installTime);
+    await trySetItem(APP_STORAGE_KEYS.identity.installTime, installTime);
     return installTime;
 };
 
+/** 读取指定语言的本地缓存；缓存损坏或缺失时返回空版本和空翻译。 */
 export const getLangCache = async (lang, syncLegacy = false) => {
     if (!lang) {
         return { ver: 0, translations: {} };
@@ -161,7 +170,7 @@ export const getLangCache = async (lang, syncLegacy = false) => {
 
     if (!hasOwn(verCacheMap, lang) && legacyVer > 0) {
         ver = legacyVer;
-        tasks.push(setItem(APP_STORAGE_KEYS.language.versionCache, {
+        tasks.push(trySetItem(APP_STORAGE_KEYS.language.versionCache, {
             ...verCacheMap,
             [lang]: legacyVer,
         }));
@@ -169,7 +178,7 @@ export const getLangCache = async (lang, syncLegacy = false) => {
 
     if (!hasOwn(translationsCacheMap, lang) && Object.keys(legacyTranslations).length > 0) {
         translations = legacyTranslations;
-        tasks.push(setItem(APP_STORAGE_KEYS.language.translationsCache, {
+        tasks.push(trySetItem(APP_STORAGE_KEYS.language.translationsCache, {
             ...translationsCacheMap,
             [lang]: legacyTranslations,
         }));
@@ -182,6 +191,7 @@ export const getLangCache = async (lang, syncLegacy = false) => {
     return { ver, translations };
 };
 
+/** 写入指定语言的本地缓存；失败只记录日志，不阻断当前可用翻译。 */
 export const setLangCache = async (lang, ver, translations) => {
     if (!lang) {
         return;
@@ -194,16 +204,16 @@ export const setLangCache = async (lang, ver, translations) => {
     ]);
 
     await Promise.all([
-        setItem(APP_STORAGE_KEYS.language.versionCache, {
+        trySetItem(APP_STORAGE_KEYS.language.versionCache, {
             ...verCacheMap,
             [lang]: ver,
         }),
-        setItem(APP_STORAGE_KEYS.language.translationsCache, {
+        trySetItem(APP_STORAGE_KEYS.language.translationsCache, {
             ...translationsCacheMap,
             [lang]: safeTranslations,
         }),
-        setItem(APP_STORAGE_KEYS.language.version, ver),
-        setItem(APP_STORAGE_KEYS.language.translations, safeTranslations),
+        trySetItem(APP_STORAGE_KEYS.language.version, ver),
+        trySetItem(APP_STORAGE_KEYS.language.translations, safeTranslations),
     ]);
 };
 

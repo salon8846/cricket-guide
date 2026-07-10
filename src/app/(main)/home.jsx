@@ -12,7 +12,10 @@ import useUserStore from '@/store/useUserStore';
 import useLangStore from '@/store/useLangStore';
 import useTranslation from '@/hooks/useTranslation';
 import { playClickSound, triggerClickVibration } from '@/utils/feedback';
+import { createLogger } from '@/utils/logger';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const logger = createLogger('HomeScreen');
 
 /**
  * 首页 - 展示项目结构和组件示例
@@ -52,6 +55,8 @@ export default function HomeScreen() {
         setSwitching(true);
         try {
             await switchLang(code);
+        } catch (error) {
+            logger.warn('switch language failed', { lang: code, error });
         } finally {
             setSwitching(false);
             setLangModalVisible(false);

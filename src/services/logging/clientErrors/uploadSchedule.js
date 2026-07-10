@@ -2,7 +2,7 @@ import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
 import { CLIENT_ERROR_UPLOAD_RETRY_DELAY_MS } from '@/services/logging/clientErrors/constants';
 import { flushPendingClientErrors } from '@/services/logging/clientErrors/upload';
 import { flushPendingNativeCrashReports } from '@/services/logging/nativeCrashReports';
-import { getItem, removeItemOrThrow, setItemOrThrow } from '@/utils/storage';
+import { removeItemOrThrow, setItemOrThrow, tryGetItem } from '@/utils/storage';
 import { createDebugLogger } from '@/utils/logger';
 
 const logger = createDebugLogger('ClientErrorUploadSchedule');
@@ -20,7 +20,7 @@ const uploadScheduleState = (() => {
 })();
 
 const readUploadState = async () => {
-    const state = await getItem(APP_STORAGE_KEYS.clientError.uploadState);
+    const state = await tryGetItem(APP_STORAGE_KEYS.clientError.uploadState);
     return state && typeof state === 'object' && !Array.isArray(state) ? state : {};
 };
 

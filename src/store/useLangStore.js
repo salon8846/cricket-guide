@@ -1,5 +1,12 @@
 import { create } from 'zustand';
-import { setLanguage, getLanguage, getRawLanguage, getLangCache, removeItem, setLangCache } from '@/utils/storage';
+import {
+    setLanguage,
+    getLanguage,
+    getRawLanguage,
+    getLangCache,
+    setLangCache,
+    tryRemoveItem,
+} from '@/utils/storage';
 import { systemApi } from '@/services/api';
 import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
 import { BUILTIN_LANGUAGE_VER, getBuiltInTranslations } from '@/constants/language';
@@ -178,11 +185,11 @@ const useLangStore = create((set, get) => ({
     /** 清除本地语言偏好和翻译缓存，并恢复到内置默认语言 */
     resetLang: async () => {
         await Promise.all([
-            removeItem(APP_STORAGE_KEYS.language.current),
-            removeItem(APP_STORAGE_KEYS.language.version),
-            removeItem(APP_STORAGE_KEYS.language.translations),
-            removeItem(APP_STORAGE_KEYS.language.versionCache),
-            removeItem(APP_STORAGE_KEYS.language.translationsCache),
+            tryRemoveItem(APP_STORAGE_KEYS.language.current),
+            tryRemoveItem(APP_STORAGE_KEYS.language.version),
+            tryRemoveItem(APP_STORAGE_KEYS.language.translations),
+            tryRemoveItem(APP_STORAGE_KEYS.language.versionCache),
+            tryRemoveItem(APP_STORAGE_KEYS.language.translationsCache),
         ]);
         set({
             lang: 'en',

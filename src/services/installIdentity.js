@@ -1,5 +1,5 @@
 import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
-import { getItem, setItemOrThrow } from '@/utils/storage';
+import { getItemOrThrow, setItemOrThrow } from '@/utils/storage';
 import { createUuidV4, normalizeUuidV4 } from '@/utils/uuid';
 import { createLogger } from '@/utils/logger';
 
@@ -18,16 +18,25 @@ const installIdState = (() => {
     return globalThis[INSTALL_ID_STATE_KEY];
 })();
 
+const readStoredInstallIdOrThrow = async () => {
+    return normalizeUuidV4(await getItemOrThrow(APP_STORAGE_KEYS.identity.installId));
+};
+
 export const readInstallId = async () => {
     if (installIdState.cachedInstallId) {
         return installIdState.cachedInstallId;
     }
 
-    const installId = normalizeUuidV4(await getItem(APP_STORAGE_KEYS.identity.installId));
-    if (installId) {
-        installIdState.cachedInstallId = installId;
+    try {
+        const installId = await readStoredInstallIdOrThrow();
+        if (installId) {
+            installIdState.cachedInstallId = installId;
+        }
+        return installId;
+    } catch (error) {
+        logger.warn('installId read failed', { error });
+        return '';
     }
-    return installId;
 };
 
 export const ensureInstallId = async () => {
@@ -40,8 +49,16 @@ export const ensureInstallId = async () => {
     }
 
     installIdState.pendingInstallId = (async () => {
-        const savedInstallId = await readInstallId();
+        let savedInstallId = '';
+        try {
+            savedInstallId = await readStoredInstallIdOrThrow();
+        } catch (error) {
+            logger.warn('installId read failed', { error });
+            return '';
+        }
+
         if (savedInstallId) {
+            installIdState.cachedInstallId = savedInstallId;
             return savedInstallId;
         }
 
