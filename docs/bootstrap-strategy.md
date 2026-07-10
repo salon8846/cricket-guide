@@ -1,0 +1,154 @@
+# 启动策略维护说明
+
+本文说明 App 启动链路的职责划分、当前前后端综合启动策略，以及后续新增归因来源或跳转执行方式时应该改哪里。
+
+## 总体边界
+
+启动页 `src/app/index.jsx` 只负责：
+
+- 首屏 loading/error/retry UI。
+- AppState 回前台后的启动重试。
+- 调用启动服务获取 action。
+- 执行 action 后记录启动结果。
+
+启动页不直接处理 `/system/init`、`/system/getOpenUrl`、剪贴板、归因、静默计时、跳转缓存或具体路由规则。
+
+启动服务统一放在 `src/services/bootstrap/`。
+
+## 职责边界
+
+这里的“启动策略”不是纯前端策略。后端负责业务策略判断，例如 IP、地区、后台配置、是否打开、跳转地址、跳转类型和 A/B 模块；前端不复刻这些规则。
+
+前端只负责：
+
+- 准备启动上下文。
+- 收集客户端信号来源，例如剪贴板、归因 SDK、归因剪贴板兜底和静默计时复查。
+- 请求 `/system/getOpenUrl`。
+- 根据后端返回执行跳转或进入内部入口。
+
+## 文件职责
+
+| 文件 | 职责 |
+| --- | --- |
+| `actions.js` | 定义启动 action 类型和 action 创建函数。 |
+| `context.js` | 准备启动上下文：恢复本地用户/语言/installId、域名选择、请求 `/system/init`、配置 Debug 和归因。 |
+| `decision.js` | 启动策略排序入口。后续新增客户端信号来源优先接入这里。 |
+| `openUrlRequest.js` | 为 `/system/getOpenUrl` 准备请求上下文，按优先级选择剪贴板或归因来源。 |
+| `openUrlDecision.js` | 根据 `/system/getOpenUrl` 后端结果解析 openUrl 跳转或内部入口 action。 |
+| `navigation.js` | 执行启动 action，负责内部入口、WebView 跳转和外部跳转后的内部入口回落。 |
+| `installStat.js` | 首次安装统计上报，不阻断启动链路。 |
+| `runBootstrap.js` | 串联 context 和 decision，返回最终 action。 |
+
+## 当前启动策略
+
+1. `prepareBootstrapContext()`
+   恢复本地用户、语言和 `installId`，完成域名选择，请求 `/system/init`，配置 Debug、归因和 `bootstrapBase`。
+
+2. `resolveDeferredJumpAction()`
+   如果本地没有 `openUrl.jumped=1`，且存在 `openUrl.deferredJump`，说明已有静默计时任务，直接进入内部入口，不重复请求 `/system/getOpenUrl`。
+
+3. `resolveOpenUrlAction()`
+   没有待处理静默任务时，请求 `/system/getOpenUrl`。
+
+4. `resolveOpenUrlDecision()`
+   根据后端 getOpenUrl 结果生成 action：
+
+   - 已有 `openUrl.jumped=1`：只要 `targetUrl` 和 `linkType` 有效，直接跳转，不再判断 `isOpen`。
+   - `checkTime > 0` 且未到触发时间：保存静默计时任务，进入内部入口。
+   - `checkTime > 0` 且已到触发时间：只有 `isOpen=1`、`targetUrl` 有效、`linkType` 支持时才跳转。
+   - `checkTime <= 0`：只有 `isOpen=1`、`targetUrl` 有效、`linkType` 支持时才立即跳转。
+   - 其他情况：进入内部入口。
+
+5. `executeBootstrapAction()`
+   执行 action：
+
+   - `internal_entry`：进入 `/home` 或 B 模块入口。
+   - `open_url_jump`：按 `linkType` 跳 WebView 或外部浏览器；外部浏览器打开后仍回到内部入口。
+
+## Action 契约
+
+启动策略节点不能直接调用 `router`，只能返回 action。
+
+内部入口：
+
+```js
+createInternalEntryAction({
+    abTest,
+    reason: 'strategy_reason',
+});
+```
+
+OpenUrl 跳转：
+
+```js
+createOpenUrlJumpAction({
+    linkType,
+    targetUrl,
+    abTest,
+    attributionDeepLinkParams,
+});
+```
+
+`navigation.js` 只接受已知 action。未知 action 或不可执行跳转会抛错，由启动页进入错误态，避免静默回首页隐藏流程错误。
+
+## 新增客户端信号来源
+
+新增归因来源、剪贴板来源或启动复查流程时按这个顺序判断 owner：
+
+1. 只需要已有启动上下文，新增 `resolveXxxAction()`，放在 `decision.js` 或独立策略文件。
+2. 需要请求新接口，新增 `xxxRequest.js`，策略函数只消费整理后的结果。
+3. 需要新增 `/system/init` 派生状态，放在 `context.js`，并返回给 `resolveBootstrapAction()`。
+4. 需要新增跳转执行方式，先扩展 action 类型，再在 `navigation.js` 里实现执行。
+
+策略函数格式：
+
+```js
+const resolveXxxAction = async (context) => {
+    if (!matched) {
+        return null;
+    }
+
+    return createInternalEntryAction({
+        abTest,
+        reason: 'xxx_matched',
+    });
+};
+```
+
+在 `resolveBootstrapAction()` 中按优先级插入：
+
+```js
+export const resolveBootstrapAction = async (context) => {
+    const xxxAction = await resolveXxxAction(context);
+    if (xxxAction) {
+        return xxxAction;
+    }
+
+    const deferredJumpAction = await resolveDeferredJumpAction();
+    if (deferredJumpAction) {
+        return deferredJumpAction;
+    }
+
+    return resolveOpenUrlAction(context);
+};
+```
+
+## 维护规则
+
+- 不要把新启动信号来源写回 `src/app/index.jsx`。
+- 不要让策略函数直接操作 `router`。
+- 不要用布尔值表示“是否跳转”；返回明确 action。
+- 不要在内部重复校验已由 context 边界保证的必需数据。
+- 不要用 fallback 静默修复缺失的必需状态；缺失时应抛错、返回明确空结果，或让当前策略节点不命中。
+- 日志和 breadcrumbs 只记录低敏摘要，不记录 token、完整 URL query、请求体、响应体或解密后的业务数据。
+
+## 相关状态
+
+- `openUrl.jumped`：已发生过 openUrl 跳转的本地标记。
+- `openUrl.deferredJump`：静默计时任务。
+- `openUrl.clipboardContentCache`：确定跳转后缓存的剪贴板内容。
+- `openUrl.ruleConfigCache`：确定跳转后缓存的后端跳转规则配置快照；后续请求 `/system/getOpenUrl` 时会按后端协议字段 `clipboardConfig` 原样带回。
+- `openUrl.attributionDeepLinkParamsCache`：确定跳转后缓存的归因 deep link 参数。
+- `openUrl.attributionClipboardFallbackPending`：归因 deep link 不可用时的剪贴板 JSON 兜底任务。
+
+这些状态由 `src/services/openUrlJump.js` 统一维护，启动策略只通过该模块提供的操作读取或写入。

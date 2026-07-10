@@ -4,12 +4,12 @@ import { systemApi } from '@/services/api';
 import { createDebugLogger } from '@/utils/logger';
 import {
     cacheAttributionDeepLinkParamsForJump,
-    cacheOpenUrlClipboardConfigForJump,
+    cacheOpenUrlRuleConfigForJump,
     cacheOpenUrlClipboardContentForJump,
     clearDeferredJump,
     clearAttributionClipboardFallbackPending,
     getCachedAttributionDeepLinkParams,
-    getCachedOpenUrlClipboardConfig,
+    getCachedOpenUrlRuleConfig,
     getCachedOpenUrlClipboardContent,
     getJumpFlag,
     isSupportedLinkType,
@@ -81,7 +81,7 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                 deferredJumpLogger.info('deferred: time reached, refresh openUrl');
 
                 const h5Verify = (await getJumpFlag()) ?? '';
-                const cachedClipboardConfig = await getCachedOpenUrlClipboardConfig();
+                const cachedOpenUrlRuleConfig = await getCachedOpenUrlRuleConfig();
                 const cachedClipboardContent = await getCachedOpenUrlClipboardContent();
                 const cachedAttributionDeepLinkParams = await getCachedAttributionDeepLinkParams();
                 const cachedAttributionDeepLinkValue = String(cachedAttributionDeepLinkParams?.linkValue ?? '');
@@ -97,7 +97,7 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
 
                 let openUrlRes = null;
                 try {
-                    openUrlRes = await systemApi.getOpenUrl(clipboardContent, h5Verify, cachedClipboardConfig);
+                    openUrlRes = await systemApi.getOpenUrl(clipboardContent, h5Verify, cachedOpenUrlRuleConfig);
                 } catch (e) {
                     // 保留 deferred，等待下次 AppState active 再尝试
                     deferredJumpLogger.warn('deferred: getOpenUrl refresh failed', { error: e });
@@ -109,7 +109,7 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                 const nextLinkType = String(data?.linkType ?? '');
                 const nextFingerprint = String(data?.fingerprint ?? '');
                 const nextIsOpen = String(data?.isOpen ?? '');
-                const nextClipboardConfig = data?.clipboardConfig ?? {};
+                const nextOpenUrlRuleConfig = data?.clipboardConfig ?? {};
 
                 if (nextIsOpen !== '1' || !nextTargetUrl || !isSupportedLinkType(nextLinkType)) {
                     deferredJumpLogger.warn('deferred: refresh returned no jump, cleared deferred', {
@@ -137,8 +137,8 @@ export default function useDeferredOpenUrlJump(router, enabled = true) {
                     linkType: nextLinkType,
                     targetUrl: nextTargetUrl,
                 });
-                await cacheOpenUrlClipboardConfigForJump({
-                    clipboardConfig: nextClipboardConfig,
+                await cacheOpenUrlRuleConfigForJump({
+                    openUrlRuleConfig: nextOpenUrlRuleConfig,
                     isOpen: nextIsOpen,
                     linkType: nextLinkType,
                     targetUrl: nextTargetUrl,

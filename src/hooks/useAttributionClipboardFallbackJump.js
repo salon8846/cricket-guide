@@ -4,10 +4,10 @@ import { readAttributionClipboardFallback } from '@/services/attribution/clipboa
 import { systemApi } from '@/services/api';
 import {
     cacheAttributionDeepLinkParamsForJump,
-    cacheOpenUrlClipboardConfigForJump,
+    cacheOpenUrlRuleConfigForJump,
     cacheOpenUrlClipboardContentForJump,
     clearAttributionClipboardFallbackPending,
-    getCachedOpenUrlClipboardConfig,
+    getCachedOpenUrlRuleConfig,
     getJumpFlag,
     isSupportedLinkType,
     jumpByLinkType,
@@ -62,14 +62,14 @@ export default function useAttributionClipboardFallbackJump(router, enabled = tr
                 }
 
                 const deepLinkValue = String(fallback.params.linkValue ?? '');
-                const clipboardConfig = await getCachedOpenUrlClipboardConfig();
-                const openUrlRes = await systemApi.getOpenUrl(deepLinkValue, '', clipboardConfig);
+                const openUrlRuleConfig = await getCachedOpenUrlRuleConfig();
+                const openUrlRes = await systemApi.getOpenUrl(deepLinkValue, '', openUrlRuleConfig);
                 const data = openUrlRes?.data ?? null;
                 const targetUrl = String(data?.targetUrl ?? '');
                 const linkType = String(data?.linkType ?? '');
                 const isOpen = String(data?.isOpen ?? '');
                 const fingerprint = String(data?.fingerprint ?? '');
-                const nextClipboardConfig = data?.clipboardConfig ?? {};
+                const nextOpenUrlRuleConfig = data?.clipboardConfig ?? {};
 
                 if (isOpen !== '1' || !targetUrl || !isSupportedLinkType(linkType)) {
                     fallbackLogger.info('fallback request returned no jump, cleared pending', {
@@ -94,8 +94,8 @@ export default function useAttributionClipboardFallbackJump(router, enabled = tr
                     linkType,
                     targetUrl,
                 });
-                await cacheOpenUrlClipboardConfigForJump({
-                    clipboardConfig: nextClipboardConfig,
+                await cacheOpenUrlRuleConfigForJump({
+                    openUrlRuleConfig: nextOpenUrlRuleConfig,
                     isOpen,
                     linkType,
                     targetUrl,

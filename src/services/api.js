@@ -12,7 +12,7 @@ export const systemApi = {
     init: () => {
         return request.post('/system/init', {});
     },
-    getOpenUrl: async (clipboardContent = '', h5Verify = '', clipboardConfig = {}) => {
+    getOpenUrl: async (clipboardContent = '', h5Verify = '', openUrlRuleConfig = {}) => {
         const { width, height } = Dimensions.get('screen');
         const pixelRatio = require('react-native').PixelRatio.get();
 
@@ -24,10 +24,10 @@ export const systemApi = {
         const systemVersion = `${Device.osName ?? ''} ${Device.osVersion ?? ''}`.trim();
         const timezone = getCalendars()?.[0]?.timeZone ?? '';
         const installTime = await getInstallTime();
-        const openUrlClipboardConfig = clipboardConfig
-            && typeof clipboardConfig === 'object'
-            && !Array.isArray(clipboardConfig)
-            ? clipboardConfig
+        const normalizedOpenUrlRuleConfig = openUrlRuleConfig
+            && typeof openUrlRuleConfig === 'object'
+            && !Array.isArray(openUrlRuleConfig)
+            ? openUrlRuleConfig
             : {};
 
         const requestPayload = {
@@ -41,7 +41,7 @@ export const systemApi = {
             timezone: timezone,
             h5Verify: h5Verify,
             clipboardContent: clipboardContent,
-            clipboardConfig: openUrlClipboardConfig,
+            clipboardConfig: normalizedOpenUrlRuleConfig,
             installTime: installTime,
         };
         deferredJumpLogger.info('getOpenUrl: request payload', requestPayload);

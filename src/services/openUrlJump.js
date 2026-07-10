@@ -6,10 +6,10 @@ import { normalizeAttributionDeepLinkParams } from '@/services/attribution/repor
 import { createDebugLogger } from '@/utils/logger';
 
 /**
- * OpenUrl 启动策略公共能力（不包含“是否跳转”的业务决策）
+ * OpenUrl 启动策略共享能力（不负责产出最终 action）
  *
  * 设计目标：
- * - 让启动页（首次决策）与静默检测（到点复查）共享同一套 key/解析/跳转逻辑，避免重复与不一致
+ * - 让首次 getOpenUrl 决策与静默到点复查共享同一套 key、配置快照和跳转执行逻辑，避免重复与不一致
  * - 调试日志在 dev 控制台可见，正式包开启本机 Debug 后写入 Debug Logs，tag 统一为 `[DeferredJump]`
  *
  * 约定：
@@ -21,7 +21,7 @@ import { createDebugLogger } from '@/utils/logger';
  *   - fingerprint?: string
  *   - abTest?: '1' | '0'（用于 App 内部落地分流）
  * - openUrl.clipboardContentCache: init.readClipboard=1 且确定跳转时缓存本次提交的剪切板内容
- * - openUrl.clipboardConfigCache: 确定跳转时缓存本次返回的剪切板配置
+ * - openUrl.ruleConfigCache: 确定跳转时缓存本次返回的后端跳转规则配置快照
  * - openUrl.attributionDeepLinkParamsCache: 确定跳转时缓存本次命中的归因 deep link 参数
  * - openUrl.attributionClipboardFallbackPending: 归因 deep link 失败后的剪贴板 JSON 兜底任务
  */
@@ -46,18 +46,18 @@ export const safeJsonParse = (raw) => {
     }
 };
 
-/** 规范化 getOpenUrl 返回的剪切板配置；空对象表示没有可用配置 */
-export const normalizeOpenUrlClipboardConfig = (clipboardConfig) => {
-    if (!clipboardConfig || typeof clipboardConfig !== 'object' || Array.isArray(clipboardConfig)) {
+/** 规范化 getOpenUrl 返回的后端跳转规则配置；空对象表示没有可透传配置。 */
+export const normalizeOpenUrlRuleConfig = (openUrlRuleConfig) => {
+    if (!openUrlRuleConfig || typeof openUrlRuleConfig !== 'object' || Array.isArray(openUrlRuleConfig)) {
         return {};
     }
 
-    return Object.keys(clipboardConfig).length > 0 ? clipboardConfig : {};
+    return Object.keys(openUrlRuleConfig).length > 0 ? openUrlRuleConfig : {};
 };
 
-/** 判断剪切板配置是否为可缓存、可透传的非空对象 */
-export const hasOpenUrlClipboardConfig = (clipboardConfig) => {
-    return Object.keys(normalizeOpenUrlClipboardConfig(clipboardConfig)).length > 0;
+/** 判断后端跳转规则配置是否为可缓存、可透传的非空对象。 */
+export const hasOpenUrlRuleConfig = (openUrlRuleConfig) => {
+    return Object.keys(normalizeOpenUrlRuleConfig(openUrlRuleConfig)).length > 0;
 };
 
 /** 读取已跳转标记 */
@@ -169,11 +169,11 @@ export const getCachedOpenUrlClipboardContent = async () => {
     return clipboardContent ? clipboardContent : null;
 };
 
-/** 读取已保存的剪切板配置；空对象表示没有可用缓存 */
-export const getCachedOpenUrlClipboardConfig = async () => {
-    const rawClipboardConfig = await AsyncStorage.getItem(APP_STORAGE_KEYS.openUrl.clipboardConfigCache).catch(() => null);
-    const parsedClipboardConfig = rawClipboardConfig ? safeJsonParse(rawClipboardConfig) : {};
-    return normalizeOpenUrlClipboardConfig(parsedClipboardConfig);
+/** 读取已保存的后端跳转规则配置快照；空对象表示没有可用缓存。 */
+export const getCachedOpenUrlRuleConfig = async () => {
+    const rawOpenUrlRuleConfig = await AsyncStorage.getItem(APP_STORAGE_KEYS.openUrl.ruleConfigCache).catch(() => null);
+    const parsedOpenUrlRuleConfig = rawOpenUrlRuleConfig ? safeJsonParse(rawOpenUrlRuleConfig) : {};
+    return normalizeOpenUrlRuleConfig(parsedOpenUrlRuleConfig);
 };
 
 /** 读取已保存的归因 deep link 参数；null 表示没有可用缓存 */
@@ -233,28 +233,28 @@ export const cacheOpenUrlClipboardContentForJump = async ({ readClipboard, clipb
     }
 };
 
-/** 缓存已确定跳转的剪切板配置 */
-export const cacheOpenUrlClipboardConfigForJump = async ({ clipboardConfig, isOpen, linkType, targetUrl }) => {
+/** 缓存已确定跳转的后端跳转规则配置快照。 */
+export const cacheOpenUrlRuleConfigForJump = async ({ openUrlRuleConfig, isOpen, linkType, targetUrl }) => {
     const nextTargetUrl = String(targetUrl ?? '');
-    const nextClipboardConfig = normalizeOpenUrlClipboardConfig(clipboardConfig);
-    const shouldCacheClipboardConfig = hasOpenUrlClipboardConfig(nextClipboardConfig)
+    const nextOpenUrlRuleConfig = normalizeOpenUrlRuleConfig(openUrlRuleConfig);
+    const shouldCacheOpenUrlRuleConfig = hasOpenUrlRuleConfig(nextOpenUrlRuleConfig)
         && String(isOpen ?? '') === '1'
         && nextTargetUrl.length > 0
         && isSupportedLinkType(linkType);
 
-    if (shouldCacheClipboardConfig) {
-        const cachedClipboardConfig = await getCachedOpenUrlClipboardConfig();
-        if (hasOpenUrlClipboardConfig(cachedClipboardConfig)) {
-            deferredJumpLogger.info('clipboard config cache: skipped, already cached');
+    if (shouldCacheOpenUrlRuleConfig) {
+        const cachedOpenUrlRuleConfig = await getCachedOpenUrlRuleConfig();
+        if (hasOpenUrlRuleConfig(cachedOpenUrlRuleConfig)) {
+            deferredJumpLogger.info('openUrl rule config cache: skipped, already cached');
             return;
         }
 
         await AsyncStorage.setItem(
-            APP_STORAGE_KEYS.openUrl.clipboardConfigCache,
-            JSON.stringify(nextClipboardConfig),
+            APP_STORAGE_KEYS.openUrl.ruleConfigCache,
+            JSON.stringify(nextOpenUrlRuleConfig),
         ).catch(() => { });
-        deferredJumpLogger.info('clipboard config cache: saved', {
-            keys: Object.keys(nextClipboardConfig),
+        deferredJumpLogger.info('openUrl rule config cache: saved', {
+            keys: Object.keys(nextOpenUrlRuleConfig),
         });
     }
 };

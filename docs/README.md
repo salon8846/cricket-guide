@@ -12,6 +12,10 @@
 - `state-storage-policy.md`：内存 store、持久化 storage、`installId`、Debug 清理数据策略和兜底规则。
 - `storage-key-normalization.md`：`APP_STORAGE_KEYS` 集中化规范，以及旧项目同步时保留旧 key 字符串的兼容方案。
 
+## 启动链路
+
+- `bootstrap-strategy.md`：启动页职责、bootstrap service 分层、当前前后端综合启动策略和后续新增客户端信号来源的接入规则。
+
 ## 审核与 SDK
 
 - `first-review-sdk-removal.md`：首版审核包移除 AppsFlyer SDK 的检查清单，包括依赖、Expo plugin、OneLink 配置和原生生成产物。

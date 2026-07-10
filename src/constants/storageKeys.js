@@ -29,7 +29,7 @@ export const APP_STORAGE_KEYS = {
         jumped: 'app.openUrl.jumped',
         deferredJump: 'app.openUrl.deferredJump',
         clipboardContentCache: 'app.openUrl.clipboardContentCache',
-        clipboardConfigCache: 'app.openUrl.clipboardConfigCache',
+        ruleConfigCache: 'app.openUrl.clipboardConfigCache',
         attributionDeepLinkParamsCache: 'app.openUrl.attributionDeepLinkParamsCache',
         attributionClipboardFallbackPending: 'app.openUrl.attributionClipboardFallbackPending',
     },

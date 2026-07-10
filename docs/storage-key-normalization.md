@@ -35,7 +35,7 @@ export const APP_STORAGE_KEYS = {
         jumped: 'app.openUrl.jumped',
         deferredJump: 'app.openUrl.deferredJump',
         clipboardContentCache: 'app.openUrl.clipboardContentCache',
-        clipboardConfigCache: 'app.openUrl.clipboardConfigCache',
+        ruleConfigCache: 'app.openUrl.clipboardConfigCache',
         attributionDeepLinkParamsCache: 'app.openUrl.attributionDeepLinkParamsCache',
         attributionClipboardFallbackPending: 'app.openUrl.attributionClipboardFallbackPending',
     },
@@ -61,6 +61,7 @@ export const APP_STORAGE_KEYS = {
 - 页面层不要直接导入业务模块内部 key；优先调用 owner 暴露的完整操作，例如 `getJumpFlag()`。
 - 不要为了兼容缺失状态静默创建新值。创建、修复和迁移只能发生在对应 owner 的显式生命周期中。
 - 不要把旧 key 自动迁移混进普通读写路径。需要迁移时，单独实现可审计的迁移步骤。
+- `openUrl.ruleConfigCache` 的字符串值保留 `clipboardConfigCache`，这是历史接口字段名带来的持久化 key；代码语义按后端跳转规则配置快照理解。
 
 ## 旧项目兼容方案
 
@@ -95,7 +96,7 @@ export const APP_STORAGE_KEYS = {
         jumped: 'OPEN_URL_JUMPED',
         deferredJump: 'OPEN_URL_DEFERRED_JUMP',
         clipboardContentCache: 'OPEN_URL_CLIPBOARD_CONTENT_CACHE',
-        clipboardConfigCache: 'OPEN_URL_CLIPBOARD_CONFIG_CACHE',
+        ruleConfigCache: 'OPEN_URL_CLIPBOARD_CONFIG_CACHE',
         attributionDeepLinkParamsCache: 'OPEN_URL_ATTRIBUTION_DEEP_LINK_PARAMS_CACHE',
         attributionClipboardFallbackPending: 'OPEN_URL_ATTRIBUTION_CLIPBOARD_FALLBACK_PENDING',
     },
