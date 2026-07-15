@@ -56,11 +56,6 @@ export const APP_CONFIG = {
     aesKey: REQUEST_SECRETS.aesKey,
 };
 
-// abTest 内部分流入口（示例模块：B 模块入口）
-export const AB_TEST_ENTRY_ROUTE = '/dexa';
-// 是否包含 abTest 模块（下游项目不包含 B 模块时设为 false）
-export const HAS_AB_TEST_MODULE = true;
-
 export default {
     IsDev,
     APP_SCHEME,
@@ -74,6 +69,4 @@ export default {
     API_HEALTH_PATH,
     REQUEST_TIMEOUT,
     APP_CONFIG,
-    AB_TEST_ENTRY_ROUTE,
-    HAS_AB_TEST_MODULE,
 };

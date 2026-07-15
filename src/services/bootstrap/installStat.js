@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
-import { systemApi } from '@/services/api';
+import { systemApi } from '@/services/api/system';
 import { createDebugLogger } from '@/utils/logger';
 
 const logger = createDebugLogger('DeferredJump');

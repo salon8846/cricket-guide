@@ -1,6 +1,5 @@
 import { ActivityIndicator, Image, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import useTranslation from '@/hooks/useTranslation';
 
 const imgNetworkError = require('@/assets/images/networkError.png');
 
@@ -13,7 +12,6 @@ export default function NetworkErrorScreen({
     onPress,
 }) {
     const insets = useSafeAreaInsets();
-    const { t } = useTranslation();
 
     return (
         <View style={styles.overlay}>
@@ -31,8 +29,8 @@ export default function NetworkErrorScreen({
                     <View style={styles.topGroup}>
                         <Image source={imgNetworkError} style={styles.illustration} resizeMode="contain" />
                         <View style={styles.textGroup}>
-                            <Text style={styles.title}>{t(title)}</Text>
-                            <Text style={styles.subtitle}>{t(subtitle)}</Text>
+                            <Text style={styles.title}>{title}</Text>
+                            <Text style={styles.subtitle}>{subtitle}</Text>
                         </View>
                     </View>
 

@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Button from '@/components/common/Button';
 import { Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
+import { DEFAULT_ENTRY_ROUTE } from '@/constants/entryRouting';
 
 /**
  * B 模块示例页（abTest=1 时落地）
@@ -15,7 +16,7 @@ export default function BModuleScreen() {
             <Text style={styles.title}>B模块</Text>
             <Text style={styles.desc}>abTest=1 且命中内部分流时进入此页面</Text>
             <View style={styles.actions}>
-                <Button title="进入首页" onPress={() => router.replace('/home')} fullWidth />
+                <Button title="进入默认入口" onPress={() => router.replace(DEFAULT_ENTRY_ROUTE)} fullWidth />
             </View>
         </View>
     );

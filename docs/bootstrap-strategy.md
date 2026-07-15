@@ -62,7 +62,7 @@
 5. `executeBootstrapAction()`
    执行 action：
 
-   - `internal_entry`：进入 `/home` 或 B 模块入口。
+   - `internal_entry`：进入 `DEFAULT_ENTRY_ROUTE` 指定的默认入口，或 AB Test 模块入口。
    - `open_url_jump`：按 `linkType` 跳 WebView 或外部浏览器；外部浏览器打开后仍回到内部入口。
 
 ## Action 契约

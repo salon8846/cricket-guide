@@ -1,4 +1,4 @@
-import { systemApi } from '@/services/api';
+import { systemApi } from '@/services/api/system';
 import {
     cacheAttributionDeepLinkParamsForJump,
     cacheOpenUrlRuleConfigForJump,

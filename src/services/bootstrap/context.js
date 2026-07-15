@@ -1,5 +1,5 @@
 import { initDomain } from '@/services/domainSelector';
-import { systemApi } from '@/services/api';
+import { systemApi } from '@/services/api/system';
 import { configureAppDebugFromInit, loadStoredAppDebugState } from '@/services/appDebug/store';
 import { ensureInstallId } from '@/services/installIdentity';
 import { flushClientErrorReportsWhenDue } from '@/services/logging/clientErrors/uploadSchedule';
@@ -97,7 +97,7 @@ export const prepareBootstrapContext = async ({
         await clearAttributionClipboardFallbackPending();
     }
 
-    // home 进入后会基于这份 init.base 补拉语言包。
+    // 进入内部页面后会基于这份 init.base 补拉语言包。
     setBootstrapBase(base);
 
     if (canOverrideCachedAttributionDeepLinkParams(attributionConfig)) {

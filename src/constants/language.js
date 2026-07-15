@@ -1,4 +1,6 @@
-import rawBuiltInTranslations from '@/locales/builtin-language.json';
+import rawSystemTranslations from '@/locales/system-language.json';
+import rawBusinessTranslations from '@/locales/business-language.json';
+import rawExampleTranslations from '@/locales/example-language.json';
 
 export const BUILTIN_LANGUAGE_VER = 1;
 
@@ -29,7 +31,11 @@ const transformBuiltInTranslations = (rawTranslations = {}) => {
     }, {});
 };
 
-const BUILTIN_TRANSLATIONS = transformBuiltInTranslations(rawBuiltInTranslations);
+const BUILTIN_TRANSLATIONS = transformBuiltInTranslations({
+    ...rawSystemTranslations,
+    ...rawExampleTranslations,
+    ...rawBusinessTranslations,
+});
 
 export const getBuiltInTranslations = (lang = 'en') => {
     const translations = BUILTIN_TRANSLATIONS[lang];

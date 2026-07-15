@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
  * @param {any} options.defaultData - 默认数据
  *
  * @example
- * const { data, loading, error, run } = useRequest(() => userApi.getProfile());
+ * const { data, loading, error, run } = useRequest(loadResource);
  */
 const useRequest = (apiFn, options = {}) => {
     const { immediate = true, defaultData = null } = options;

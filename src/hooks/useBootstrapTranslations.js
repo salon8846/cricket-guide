@@ -1,23 +1,27 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { usePathname } from 'expo-router';
 import useAppStore from '@/store/useAppStore';
 import useLangStore from '@/store/useLangStore';
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('BootstrapTranslations');
 
-/**
- * 启动页只缓存 init 的基础信息，真正进入业务页后再按版本补拉语言
- * - 只在 bootstrapBase 存在时触发一次，随后会 clearBootstrapBase
- */
-export default function useBootstrapTranslations(enabled = true) {
+export default function useBootstrapTranslations() {
+    const pathname = usePathname();
     const bootstrapBase = useAppStore((state) => state.bootstrapBase);
     const clearBootstrapBase = useAppStore((state) => state.clearBootstrapBase);
     const fetchTranslationsIfNeeded = useLangStore((state) => state.fetchTranslationsIfNeeded);
+    const activeBootstrapTranslationBaseRef = useRef(null);
 
     useEffect(() => {
-        if (!enabled || !bootstrapBase) {
+        const isInternalRoute = pathname !== '/' && !pathname.startsWith('/webview');
+        if (!isInternalRoute || !bootstrapBase) {
             return;
         }
+        if (activeBootstrapTranslationBaseRef.current === bootstrapBase) {
+            return;
+        }
+        activeBootstrapTranslationBaseRef.current = bootstrapBase;
 
         const { languageVer, language, defaultLanguage } = bootstrapBase;
         fetchTranslationsIfNeeded(languageVer ?? 0, language ?? {}, defaultLanguage)
@@ -25,7 +29,13 @@ export default function useBootstrapTranslations(enabled = true) {
                 logger.warn('fetch bootstrap translations failed', { error });
             })
             .finally(() => {
-                clearBootstrapBase();
+                if (activeBootstrapTranslationBaseRef.current !== bootstrapBase) {
+                    return;
+                }
+                activeBootstrapTranslationBaseRef.current = null;
+                if (useAppStore.getState().bootstrapBase === bootstrapBase) {
+                    clearBootstrapBase();
+                }
             });
-    }, [bootstrapBase, clearBootstrapBase, enabled, fetchTranslationsIfNeeded]);
+    }, [bootstrapBase, clearBootstrapBase, fetchTranslationsIfNeeded, pathname]);
 }

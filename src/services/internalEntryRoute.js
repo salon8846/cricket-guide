@@ -1,5 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AB_TEST_ENTRY_ROUTE, HAS_AB_TEST_MODULE } from '@/constants/config';
+import {
+    AB_TEST_ENTRY_ROUTE,
+    DEFAULT_ENTRY_ROUTE,
+    HAS_AB_TEST_MODULE,
+} from '@/constants/entryRouting';
 import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
 import { createDebugLogger } from '@/utils/logger';
 
@@ -15,13 +19,13 @@ export const setStickyB = async () => {
 
 /**
  * 解析内部落地路由（只处理 abTest/B 模块，不处理 isOpen 跳转）
- * - HAS_AB_TEST_MODULE=false 时始终回落到 /home
+ * - HAS_AB_TEST_MODULE=false 时始终回落到默认入口
  * - 命中 B 时写入粘滞缓存，后续始终进入 B
  */
 export const resolveInternalEntryRoute = async (abTest) => {
     if (!HAS_AB_TEST_MODULE) {
-        internalEntryLogger.info('resolve: module disabled, route=/home');
-        return '/home';
+        internalEntryLogger.info('resolve: module disabled, route=default', { route: DEFAULT_ENTRY_ROUTE });
+        return DEFAULT_ENTRY_ROUTE;
     }
 
     const sticky = await getStickyB();
@@ -37,6 +41,9 @@ export const resolveInternalEntryRoute = async (abTest) => {
         return AB_TEST_ENTRY_ROUTE;
     }
 
-    internalEntryLogger.info('resolve: abTest!=1, route=/home', { abTest: normalized });
-    return '/home';
+    internalEntryLogger.info('resolve: abTest!=1, route=default', {
+        abTest: normalized,
+        route: DEFAULT_ENTRY_ROUTE,
+    });
+    return DEFAULT_ENTRY_ROUTE;
 };

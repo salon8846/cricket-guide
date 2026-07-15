@@ -5,9 +5,9 @@ import { AppState, Platform } from 'react-native';
 import ClientErrorBoundary from '@/components/common/ClientErrorBoundary';
 import AppDebugOverlay from '@/components/debug/overlay/Overlay';
 import AppDebugPanel from '@/components/debug/panel/Panel';
+import useBootstrapTranslations from '@/hooks/useBootstrapTranslations';
 import useDeferredOpenUrlJump from '@/hooks/useDeferredOpenUrlJump';
 import useAttributionClipboardFallbackJump from '@/hooks/useAttributionClipboardFallbackJump';
-import { HAS_AB_TEST_MODULE } from '@/constants/config';
 import { useAppDebugSnapshot } from '@/services/appDebug/store';
 import { installClientErrorReporter, setClientErrorRoute } from '@/services/logging/clientErrors/capture';
 import { flushClientErrorReportsWhenDue } from '@/services/logging/clientErrors/uploadSchedule';
@@ -36,6 +36,7 @@ export default function RootLayout() {
     const enableDeferredCheck = pathname !== '/'
         && !pathname.startsWith('/webview');
 
+    useBootstrapTranslations();
     useDeferredOpenUrlJump(router, enableDeferredCheck);
     useAttributionClipboardFallbackJump(router, enableDeferredCheck);
 
@@ -87,10 +88,6 @@ export default function RootLayout() {
                 }}
             >
                 <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
-                <Stack.Screen name="(main)" options={{ headerShown: false, animation: 'none' }} />
-                {HAS_AB_TEST_MODULE && (
-                    <Stack.Screen name="dexa" options={{ headerShown: false, animation: 'none' }} />
-                )}
                 <Stack.Screen name="webview" options={{ title: '', headerTitle: () => null, animation: 'none' }} />
             </Stack>
             <ClientErrorBoundary

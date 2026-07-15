@@ -7,7 +7,7 @@ import {
     setLangCache,
     tryRemoveItem,
 } from '@/utils/storage';
-import { systemApi } from '@/services/api';
+import { systemApi } from '@/services/api/system';
 import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
 import { BUILTIN_LANGUAGE_VER, getBuiltInTranslations } from '@/constants/language';
 import { createLogger } from '@/utils/logger';

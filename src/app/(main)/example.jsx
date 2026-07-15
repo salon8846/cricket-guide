@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import {
     View, Text, StyleSheet, ScrollView,
     TouchableOpacity, Modal, Pressable, FlatList
@@ -11,27 +11,55 @@ import { Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
 import useUserStore from '@/store/useUserStore';
 import useLangStore from '@/store/useLangStore';
 import useTranslation from '@/hooks/useTranslation';
-import { playClickSound, triggerClickVibration } from '@/utils/feedback';
+import { createSoundEffectPlayback } from '@/services/audioPlayback';
+import { triggerMediumImpactHaptic } from '@/services/hapticFeedback';
 import { createLogger } from '@/utils/logger';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const logger = createLogger('HomeScreen');
+const sampleClickSoundAsset = require('@/assets/example/sample-click.mp3');
+const logger = createLogger('ExampleScreen');
 
-/**
- * 首页 - 展示项目结构和组件示例
- */
-export default function HomeScreen() {
+export default function ExampleScreen() {
     const isLoggedIn = useUserStore((state) => state.isLoggedIn);
     const { switchLang, supportedLangs } = useLangStore();
     const { lang, translations, t } = useTranslation();
     const navigation = useNavigation();
     const [langModalVisible, setLangModalVisible] = useState(false);
     const [switching, setSwitching] = useState(false);
+    const sampleSoundPlaybackRef = useRef(null);
+
+    useLayoutEffect(() => {
+        const sampleSoundPlayback = createSoundEffectPlayback(sampleClickSoundAsset);
+        sampleSoundPlaybackRef.current = sampleSoundPlayback;
+        return () => {
+            sampleSoundPlayback.dispose();
+            if (sampleSoundPlaybackRef.current === sampleSoundPlayback) {
+                sampleSoundPlaybackRef.current = null;
+            }
+        };
+    }, []);
+
+    const playSampleSound = useCallback(async () => {
+        try {
+            await sampleSoundPlaybackRef.current.play();
+        } catch (error) {
+            logger.warn('sample sound failed', { error });
+        }
+    }, []);
+
+    const triggerSampleHaptic = useCallback(async () => {
+        try {
+            await triggerMediumImpactHaptic();
+        } catch (error) {
+            logger.warn('sample haptic failed', { error });
+        }
+    }, []);
 
     // 设置导航栏右侧语言切换按钮
-    React.useLayoutEffect(() => {
+    useLayoutEffect(() => {
         navigation.setOptions({
             headerShown: true,
+            animation: 'none',
             title: t('首页'),
             headerRight: () => (
                 <TouchableOpacity
@@ -107,8 +135,8 @@ export default function HomeScreen() {
                         >
                             <Text style={styles.gradientSampleText}>{t('渐变示例')}</Text>
                         </LinearGradient>
-                        <Button title={t('播放声音')} variant="outline" onPress={playClickSound} fullWidth />
-                        <Button title={t('点击震动')} variant="outline" onPress={triggerClickVibration} fullWidth />
+                        <Button title={t('播放声音')} variant="outline" onPress={playSampleSound} fullWidth />
+                        <Button title={t('点击震动')} variant="outline" onPress={triggerSampleHaptic} fullWidth />
                         <Button title={`Primary ${t('按钮')}`} onPress={() => { }} fullWidth />
                         <Button title={`Outline ${t('按钮')}`} variant="outline" onPress={() => { }} fullWidth />
                         <Button title={`Ghost ${t('按钮')}`} variant="ghost" onPress={() => { }} fullWidth />

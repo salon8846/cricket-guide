@@ -1,11 +1,13 @@
-import { Stack } from 'expo-router';
-import useBootstrapTranslations from '@/hooks/useBootstrapTranslations';
+import { Redirect, Stack } from 'expo-router';
+import { DEFAULT_ENTRY_ROUTE, HAS_AB_TEST_MODULE } from '@/constants/entryRouting';
 
 /**
  * B 模块路由壳（与 main 模块解耦）
  */
 export default function BModuleLayout() {
-    useBootstrapTranslations();
+    if (!HAS_AB_TEST_MODULE) {
+        return <Redirect href={DEFAULT_ENTRY_ROUTE} />;
+    }
 
     return (
         <Stack

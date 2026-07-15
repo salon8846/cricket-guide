@@ -1,7 +1,7 @@
 import { Dimensions } from 'react-native';
 import { getLocales, getCalendars } from 'expo-localization';
 import * as Device from 'expo-device';
-import request from './request';
+import request from '@/services/request';
 import { getInstallTime } from '@/utils/storage';
 import { createDebugLogger } from '@/utils/logger';
 
@@ -75,42 +75,4 @@ export const systemApi = {
         }
         return request.post('/system/fingerprintDelete', data);
     },
-};
-
-/**
- * API 接口集中管理
- * 按业务模块分组，每个模块导出一个对象
- */
-
-// ---- 用户模块 ----
-export const userApi = {
-    /** 登录 */
-    login: (data) => request.post('/user/login', data),
-
-    /** 获取当前用户信息 */
-    getProfile: () => request.get('/user/profile'),
-
-    /** 更新用户信息 */
-    updateProfile: (data) => request.put('/user/profile', data),
-
-    /** 登出 */
-    logout: () => request.post('/user/logout'),
-};
-
-// ---- 示例模块（按业务自行扩展）----
-export const exampleApi = {
-    /** 获取列表 */
-    getList: (params) => request.get('/example/list', { params }),
-
-    /** 获取详情 */
-    getDetail: (id) => request.get(`/example/${id}`),
-
-    /** 创建 */
-    create: (data) => request.post('/example', data),
-
-    /** 更新 */
-    update: (id, data) => request.put(`/example/${id}`, data),
-
-    /** 删除 */
-    remove: (id) => request.delete(`/example/${id}`),
 };

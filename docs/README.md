@@ -16,6 +16,10 @@
 
 - `bootstrap-strategy.md`：启动页职责、bootstrap service 分层、当前前后端综合启动策略和后续新增客户端信号来源的接入规则。
 
+## 新项目初始化
+
+- `project-initialization.md`：从基础示例创建业务项目时，入口路由、语言文件、示例页面、可选 AB Test 模块、示例 API 和示例音频的替换与删除清单。
+
 ## 审核与 SDK
 
 - `first-review-sdk-removal.md`：首版审核包移除 AppsFlyer SDK 的检查清单，包括依赖、Expo plugin、OneLink 配置和原生生成产物。

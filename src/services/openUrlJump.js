@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Linking } from 'react-native';
 import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
-import { systemApi } from '@/services/api';
+import { systemApi } from '@/services/api/system';
 import { normalizeAttributionDeepLinkParams } from '@/services/attribution/reporter';
 import { createDebugLogger } from '@/utils/logger';
 
