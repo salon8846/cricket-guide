@@ -1,5 +1,5 @@
 import { Redirect, Stack } from 'expo-router';
-import { DEFAULT_ENTRY_ROUTE, HAS_AB_TEST_MODULE } from '@/constants/entryRouting';
+import { DEFAULT_ENTRY_ROUTE, HAS_AB_TEST_MODULE } from '@/constants/appCustomization';
 
 /**
  * B 模块路由壳（与 main 模块解耦）

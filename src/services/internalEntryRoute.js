@@ -3,7 +3,7 @@ import {
     AB_TEST_ENTRY_ROUTE,
     DEFAULT_ENTRY_ROUTE,
     HAS_AB_TEST_MODULE,
-} from '@/constants/entryRouting';
+} from '@/constants/appCustomization';
 import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
 import { createDebugLogger } from '@/utils/logger';
 

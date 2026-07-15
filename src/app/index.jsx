@@ -12,6 +12,7 @@ import { sendInstallStatOnce } from '@/services/bootstrap/installStat';
 import { captureClientException } from '@/services/logging/clientErrors/capture';
 import { recordBreadcrumb } from '@/services/logging/breadcrumbs';
 import { createDebugLogger } from '@/utils/logger';
+import { BOOTSTRAP_LOADING_COLORS } from '@/constants/appCustomization';
 
 const deferredJumpLogger = createDebugLogger('DeferredJump');
 
@@ -113,7 +114,7 @@ export default function BootstrapScreen() {
         <>
             <Stack.Screen options={{ headerShown: false }} />
             <View style={styles.container}>
-                <ActivityIndicator size="large" color="#3961FB" />
+                <ActivityIndicator size="large" color={BOOTSTRAP_LOADING_COLORS.indicator} />
             </View>
             {status === 'error' && (
                 <NetworkErrorScreen
@@ -132,7 +133,7 @@ export default function BootstrapScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: BOOTSTRAP_LOADING_COLORS.background,
         justifyContent: 'center',
         alignItems: 'center',
     },

@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Button from '@/components/common/Button';
 import { Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
-import { DEFAULT_ENTRY_ROUTE } from '@/constants/entryRouting';
+import { DEFAULT_ENTRY_ROUTE } from '@/constants/appCustomization';
 
 /**
  * B 模块示例页（abTest=1 时落地）
