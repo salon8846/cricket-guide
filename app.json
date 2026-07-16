@@ -28,8 +28,7 @@
         "applinks:*.willbet.ai",
         "applinks:3capps.com",
         "applinks:*.3capps.com",
-        "applinks:onelink.me",
-        "applinks:*.onelink.me"
+        "applinks:example.onelink.me"
       ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -162,11 +161,7 @@
           "data": [
             {
               "scheme": "https",
-              "host": "onelink.me"
-            },
-            {
-              "scheme": "https",
-              "host": "*.onelink.me"
+              "host": "example.onelink.me"
             }
           ],
           "category": [
