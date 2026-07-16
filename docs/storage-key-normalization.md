@@ -31,6 +31,9 @@ export const APP_STORAGE_KEYS = {
         sessionId: 'app.debug.sessionId',
         floatingButtonPosition: 'app.debug.floatingButtonPosition',
     },
+    clientError: {
+        uploadState: 'app.clientError.uploadState',
+    },
     openUrl: {
         jumped: 'app.openUrl.jumped',
         deferredJump: 'app.openUrl.deferredJump',
@@ -92,6 +95,9 @@ export const APP_STORAGE_KEYS = {
         sessionId: 'app:debug-session-id',
         floatingButtonPosition: 'app:debug-floating-button-position',
     },
+    clientError: {
+        uploadState: 'app.clientError.uploadState',
+    },
     openUrl: {
         jumped: 'OPEN_URL_JUMPED',
         deferredJump: 'OPEN_URL_DEFERRED_JUMP',
@@ -112,6 +118,7 @@ export const APP_STORAGE_KEYS = {
 旧项目同步策略：
 
 - 代码结构按当前分支同步，key 字符串值按上面的兼容映射保留。
+- `clientError.uploadState` 是当前异常上传调度状态，没有旧 key 映射，旧项目同步时使用当前字符串。
 - 不保留旧的 flat `STORAGE_KEYS.TOKEN` 访问方式，新代码统一使用 `APP_STORAGE_KEYS.userSession.token`。
 - 历史 `STORAGE_KEYS.SETTINGS` 在 `baseApp` 当前代码没有使用点；如果下游项目有自己的 settings 存储，应按实际 owner 增加分组 key。
 - 如果某个旧项目决定切换到新字符串，必须先做明确的数据迁移方案，不能直接替换 key 值。

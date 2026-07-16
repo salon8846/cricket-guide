@@ -18,7 +18,7 @@
 
 ## 新项目初始化
 
-- `project-initialization.md`：从基础示例创建业务项目时，入口路由、语言文件、示例页面、可选 AB Test 模块、示例 API 和示例音频的替换与删除清单。
+- `project-initialization.md`：从基础示例创建业务项目时，入口路由、启动 Loading 配色、语言文件、示例页面、可选 AB Test 模块、示例 API 和示例音频的替换与删除清单。
 
 ## 审核与 SDK
 

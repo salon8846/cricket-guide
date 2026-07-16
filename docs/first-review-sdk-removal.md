@@ -26,9 +26,11 @@
 如果首版审核要求包内不出现 AppsFlyer 相关能力，需要同时移除明确属于 OneLink 的域名配置：
 
 - `app.json` iOS `associatedDomains`
-  - `applinks:baseapp.onelink.me`
+  - `applinks:onelink.me`
+  - `applinks:*.onelink.me`
 - `app.json` Android `intentFilters`
-  - `host: baseapp.onelink.me`
+  - `host: onelink.me`
+  - `host: *.onelink.me`
 
 普通业务 universal link 域名可保留，只移除明确属于 AppsFlyer / OneLink 的域名。
 
