@@ -76,7 +76,7 @@ export default function useWebViewAuthSessionBridge({ postWebViewMessage, logger
             if (authSessionId !== latestWebViewAuthSessionIdRef.current) return;
             if (result.type === 'success') {
                 postTelegramAuthSuccess(result.url);
-            } else {
+            } else if (!lastTelegramAuthResultUrlRef.current) {
                 postWebViewMessage('telegramAuthCancel', {
                     type: result.type,
                 });
@@ -176,6 +176,7 @@ export default function useWebViewAuthSessionBridge({ postWebViewMessage, logger
     }, [openGoogleAuthSession, runWebViewAuthSession]);
 
     const runTelegramAuthSession = useCallback((authUrl) => {
+        lastTelegramAuthResultUrlRef.current = null;
         runWebViewAuthSession((authSessionId) => openTelegramAuthSession(authUrl, authSessionId));
     }, [openTelegramAuthSession, runWebViewAuthSession]);
 
