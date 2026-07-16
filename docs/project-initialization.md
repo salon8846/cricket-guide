@@ -11,16 +11,16 @@
 基础框架在 `src/constants/appCustomization.js` 中将 `DEFAULT_ENTRY_ROUTE` 配置为 `/example`，对应页面是：
 
 ```text
-src/app/(main)/example.jsx
+src/app/example/index.jsx
 ```
 
 业务项目应当：
 
-1. 删除 `src/app/(main)/example.jsx`。
-2. 新增自己的 `src/app/(main)/home.jsx` 或其他业务入口页面。
+1. 删除 `src/app/example/`。
+2. 新增自己的 `src/app/(main)/` 业务路由目录和入口页面。
 3. 修改 `src/constants/appCustomization.js` 的 `DEFAULT_ENTRY_ROUTE`，例如改为 `/home`。
 
-基础框架不提供 `(main)/_layout.jsx`，示例页自行声明导航栏。业务项目存在多个共享 Stack、Tabs 或统一 Header 的页面时，应由业务路由新增自己的 `(main)/_layout.jsx`，不要把业务导航配置写入根布局。
+基础框架不包含 `(main)/`，该目录及其 layout 由下游项目按业务导航结构创建和维护。根布局不显式注册可删除的示例或可选业务模块，新增路由由 Expo Router 自动发现。
 
 ### 启动 Loading 配色
 
