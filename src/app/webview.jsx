@@ -25,6 +25,7 @@ import {
 } from '@/services/webView/entryUrl';
 import { buildNativeSafeAreaEvent } from '@/services/webView/injectedScripts/safeArea';
 import { handleBridgeMessage } from '@/services/webView/messageActions';
+import { openTelegramDestinationOutsideWebView } from '@/services/webView/telegramShareNavigation';
 import { buildVpNativeBridge } from '@/services/webView/injectedScripts/vpNativeBridge';
 import {
     buildDebugPanelRemoval,
@@ -178,6 +179,10 @@ export default function WebViewScreen() {
         }
     }, [injectNativeSafeArea, postWebViewMessage, runGoogleAuthSession, runTelegramAuthSession]);
 
+    const allowWebViewNavigation = useCallback(({ url: requestedUrl }) => {
+        return !openTelegramDestinationOutsideWebView(requestedUrl);
+    }, []);
+
     useEffect(() => {
         if (!initialLoadDoneRef.current) return;
         injectNativeSafeArea();
@@ -216,6 +221,7 @@ export default function WebViewScreen() {
             mediaPlaybackRequiresUserAction={false}
             allowsInlineMediaPlayback={true}
             onMessage={handleMessage}
+            onShouldStartLoadWithRequest={allowWebViewNavigation}
             injectedJavaScriptBeforeContentLoaded={vpNativeBridgeSource}
             webviewDebuggingEnabled={webViewDebug}
             onLoadStart={(event) => {
