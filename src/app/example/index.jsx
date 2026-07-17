@@ -1,7 +1,7 @@
 import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import {
     View, Text, StyleSheet, ScrollView,
-    TouchableOpacity, Modal, Pressable, FlatList
+    TouchableOpacity, Modal, Pressable, FlatList, StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -96,6 +96,7 @@ export default function ExampleScreen() {
 
     return (
         <SafeAreaView style={styles.safe} edges={['bottom']}>
+            <StatusBar barStyle="dark-content" />
             <ScrollView contentContainerStyle={styles.container}>
                 <View style={styles.header}>
                     <Text style={styles.title}>🚀 baseApp</Text>
