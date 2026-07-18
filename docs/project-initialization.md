@@ -12,7 +12,7 @@
 
 ## 应用资源与启动页
 
-替换 `icon.png`、`splash-icon.png`、Android adaptive icon 和 `favicon.png` 的图像资源。同步确认 `splash.backgroundColor`、`expo-splash-screen` 插件的 `backgroundColor` 和 `android.adaptiveIcon.backgroundColor` 符合当前应用设计。
+替换 `icon.png`、`splash-icon.png`、Android adaptive icon 和 `favicon.png` 的图像资源。
 
 业务图片、音频、SVG 和语言资源归档到当前业务目录。
 

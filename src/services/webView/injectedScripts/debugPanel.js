@@ -171,6 +171,7 @@ export function buildVConsoleDebugPanel(debugPanelScriptUrl, webViewUrl) {
                 };
                 document.documentElement.appendChild(script);
             } catch (e) {
+                window.__nativeVConsoleLoading = false;
                 return;
             }
         })();
