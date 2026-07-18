@@ -1,7 +1,6 @@
-import { ActivityIndicator, Image, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const imgNetworkError = require('@/assets/images/networkError.png');
+import Globe from 'lucide-react-native/icons/globe';
 
 export default function NetworkErrorScreen({
     title = '请求失败，请重试!',
@@ -27,7 +26,9 @@ export default function NetworkErrorScreen({
             >
                 <View style={styles.content}>
                     <View style={styles.topGroup}>
-                        <Image source={imgNetworkError} style={styles.illustration} resizeMode="contain" />
+                        <View style={styles.illustration}>
+                            <Globe size={124} color="#D6DAE3" strokeWidth={1.35} />
+                        </View>
                         <View style={styles.textGroup}>
                             <Text style={styles.title}>{title}</Text>
                             <Text style={styles.subtitle}>{subtitle}</Text>
@@ -80,9 +81,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     illustration: {
-        width: 200,
-        height: 200,
-        marginBottom: 20,
+        width: 152,
+        height: 152,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 14,
     },
     textGroup: {
         alignItems: 'center',

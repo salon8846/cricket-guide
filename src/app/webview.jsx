@@ -106,11 +106,18 @@ export default function WebViewScreen() {
     const debugPanelScriptUrl = appDebug.webViewDebugPanel.scriptUrl;
 
     const injectDebugPanel = useCallback(() => {
+        if (!debugPanelScriptUrl) {
+            logWebViewDebug(webViewDebug, 'debugPanelSkipped', {
+                reason: 'invalid_script_url',
+            });
+            return;
+        }
+
         const debugPanelSource = debugPanelType === WEB_VIEW_PANEL_TYPE_VCONSOLE
             ? buildVConsoleDebugPanel(debugPanelScriptUrl, cleanUrl)
             : buildErudaDebugPanel(debugPanelScriptUrl, cleanUrl);
         webViewRef.current?.injectJavaScript(debugPanelSource);
-    }, [cleanUrl, debugPanelScriptUrl, debugPanelType]);
+    }, [cleanUrl, debugPanelScriptUrl, debugPanelType, webViewDebug]);
 
     const removeDebugPanel = useCallback(() => {
         webViewRef.current?.injectJavaScript(buildDebugPanelRemoval());

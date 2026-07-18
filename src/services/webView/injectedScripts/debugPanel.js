@@ -1,6 +1,3 @@
-import erudaSource from '@/constants/erudaSource';
-import vConsoleSource from '@/constants/vconsoleSource';
-
 export function buildErudaDebugPanel(debugPanelScriptUrl, webViewUrl) {
     const scriptUrl = JSON.stringify(debugPanelScriptUrl);
     const loggedUrl = JSON.stringify(webViewUrl);
@@ -86,31 +83,22 @@ export function buildErudaDebugPanel(debugPanelScriptUrl, webViewUrl) {
                     return;
                 }
 
-                var debugPanelScriptUrl = ${scriptUrl};
-                if (debugPanelScriptUrl) {
-                    if (window.__nativeErudaLoading) {
-                        return;
-                    }
-                    window.__nativeErudaLoading = true;
-                    var script = document.createElement('script');
-                    script.src = debugPanelScriptUrl;
-                    script.onload = function() {
-                        window.__nativeErudaLoading = false;
-                        if (window.__nativeErudaEnabled) {
-                            createEruda();
-                        }
-                    };
-                    script.onerror = function() {
-                        window.__nativeErudaLoading = false;
-                    };
-                    document.documentElement.appendChild(script);
+                if (window.__nativeErudaLoading) {
                     return;
                 }
-
                 window.__nativeErudaLoading = true;
-                ${erudaSource}
-                window.__nativeErudaLoading = false;
-                createEruda();
+                var script = document.createElement('script');
+                script.src = ${scriptUrl};
+                script.onload = function() {
+                    window.__nativeErudaLoading = false;
+                    if (window.__nativeErudaEnabled) {
+                        createEruda();
+                    }
+                };
+                script.onerror = function() {
+                    window.__nativeErudaLoading = false;
+                };
+                document.documentElement.appendChild(script);
             } catch (e) {
                 window.__nativeErudaLoading = false;
                 return;
@@ -166,21 +154,22 @@ export function buildVConsoleDebugPanel(debugPanelScriptUrl, webViewUrl) {
                     return;
                 }
 
-                var debugPanelScriptUrl = ${scriptUrl};
-                if (debugPanelScriptUrl) {
-                    var script = document.createElement('script');
-                    script.src = debugPanelScriptUrl;
-                    script.onload = function() {
-                        if (window.__nativeVConsoleEnabled) {
-                            createVConsole();
-                        }
-                    };
-                    document.documentElement.appendChild(script);
+                if (window.__nativeVConsoleLoading) {
                     return;
                 }
-
-                ${vConsoleSource}
-                createVConsole();
+                window.__nativeVConsoleLoading = true;
+                var script = document.createElement('script');
+                script.src = ${scriptUrl};
+                script.onload = function() {
+                    window.__nativeVConsoleLoading = false;
+                    if (window.__nativeVConsoleEnabled) {
+                        createVConsole();
+                    }
+                };
+                script.onerror = function() {
+                    window.__nativeVConsoleLoading = false;
+                };
+                document.documentElement.appendChild(script);
             } catch (e) {
                 return;
             }
@@ -205,6 +194,7 @@ export function buildDebugPanelRemoval() {
                 window.__nativeEruda = undefined;
                 window.__nativeErudaOwned = false;
                 window.__nativeVConsoleEnabled = false;
+                window.__nativeVConsoleLoading = false;
                 if (window.__nativeVConsole && window.__nativeVConsole.destroy) {
                     window.__nativeVConsole.destroy();
                 }

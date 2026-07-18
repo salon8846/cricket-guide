@@ -16,18 +16,6 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.yourcompany.baseapp",
       "associatedDomains": [
-        "applinks:willbet.com",
-        "applinks:*.willbet.com",
-        "applinks:ftestqoed.com",
-        "applinks:*.ftestqoed.com",
-        "applinks:stggop.com",
-        "applinks:*.stggop.com",
-        "applinks:willbet.io",
-        "applinks:*.willbet.io",
-        "applinks:willbet.ai",
-        "applinks:*.willbet.ai",
-        "applinks:3capps.com",
-        "applinks:*.3capps.com",
         "applinks:example.onelink.me"
       ],
       "infoPlist": {
@@ -47,114 +35,6 @@
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "willbet.com"
-            },
-            {
-              "scheme": "https",
-              "host": "*.willbet.com"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        },
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "ftestqoed.com"
-            },
-            {
-              "scheme": "https",
-              "host": "*.ftestqoed.com"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        },
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "stggop.com"
-            },
-            {
-              "scheme": "https",
-              "host": "*.stggop.com"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        },
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "willbet.io"
-            },
-            {
-              "scheme": "https",
-              "host": "*.willbet.io"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        },
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "willbet.ai"
-            },
-            {
-              "scheme": "https",
-              "host": "*.willbet.ai"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        },
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "3capps.com"
-            },
-            {
-              "scheme": "https",
-              "host": "*.3capps.com"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        },
         {
           "action": "VIEW",
           "autoVerify": true,
@@ -222,6 +102,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": ""
+      }
     }
   }
 }

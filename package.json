@@ -15,8 +15,6 @@
     "build:android-debug-apk": "CONFIGURATION=Debug scripts/build-android.sh apk",
     "build:android-release-apk": "CONFIGURATION=Release scripts/build-android.sh apk",
     "build:android-release-aab": "CONFIGURATION=Release scripts/build-android.sh aab",
-    "build:eruda": "node scripts/build-eruda-source.js",
-    "build:vconsole": "node scripts/build-vconsole-source.js",
     "verify:native-crash-plugin": "node scripts/verify-native-crash-reports-plugin.js"
   },
   "dependencies": {
@@ -42,6 +40,7 @@
     "expo-splash-screen": "~55.0.23",
     "expo-status-bar": "~55.0.6",
     "expo-web-browser": "~55.0.18",
+    "lucide-react-native": "^1.25.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-native": "0.83.6",
@@ -56,8 +55,6 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "eruda": "^3.4.3",
-    "react-native-svg-transformer": "1.5.3",
-    "vconsole": "^3.15.1"
+    "react-native-svg-transformer": "1.5.3"
   }
 }

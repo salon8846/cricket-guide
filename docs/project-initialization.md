@@ -2,6 +2,26 @@
 
 `baseApp` 自带可运行示例。创建业务项目后，先完成示例清理，再开始业务开发，避免示例路由、文案和资源与业务内容混用。
 
+## 应用身份与构建配置
+
+在 `app.json` 中修改当前应用的 `expo.name`、`expo.slug`、`expo.version`、`expo.scheme`、iOS `bundleIdentifier` 和 Android `package`。
+
+将 iOS `associatedDomains` 和 Android `intentFilters` 中的 `example.onelink.me` 替换为当前应用的实际域名；不使用 Universal Links 或 OneLink 时删除对应配置。
+
+为当前应用创建并填写独立的 `extra.eas.projectId`。修改 `package.json` 的项目名称，应用展示版本在 `app.json` 中维护。
+
+## 应用资源与启动页
+
+替换 `icon.png`、`splash-icon.png`、Android adaptive icon 和 `favicon.png` 的图像资源。同步确认 `splash.backgroundColor`、`expo-splash-screen` 插件的 `backgroundColor` 和 `android.adaptiveIcon.backgroundColor` 符合当前应用设计。
+
+业务图片、音频、SVG 和语言资源归档到当前业务目录。
+
+## 项目运行配置
+
+按 `config.private.example.js` 的公开结构修改 API 域名。
+
+如果当前应用使用 AppsFlyer，需配置当前应用的 AppsFlyer 记录和 OneLink；如果不使用，按 [首版审核移除 AppsFlyer SDK 清单](./first-review-sdk-removal.md) 移除依赖、插件和 OneLink 配置。
+
 ## 应用定制配置
 
 `src/constants/appCustomization.js` 是下游项目的集中定制点。需要随下游应用变化的配置在这里调整；基础服务和页面只消费这些配置，不为单个项目重写内部逻辑。
@@ -46,7 +66,7 @@ src/locales/business-language.json # 当前项目业务文案
 src/locales/example-language.json  # 基础示例文案
 ```
 
-业务项目保留 `system-language.json`，将业务页面文案写入 `business-language.json`。如果要彻底清理示例内容，再删除 `example-language.json`，同时移除 `src/constants/language.js` 对它的导入；仅切换业务入口时不需要动语言加载逻辑。
+业务项目保留 `system-language.json`，将业务页面文案写入 `business-language.json`。创建业务项目时删除 `example-language.json`，同时移除 `src/constants/language.js` 对它的导入。
 
 ## 示例接口
 
@@ -71,16 +91,3 @@ npm uninstall expo-linear-gradient
 ```
 
 如果业务页面仍使用渐变，则保留该依赖。
-
-## 不要删除的基础能力
-
-以下内容属于基础框架，不因删除示例页面而删除：
-
-- `src/app/index.jsx`
-- `src/app/webview.jsx`
-- `src/services/bootstrap/`
-- `src/services/request.js`
-- `src/services/openUrlJump.js`
-- `src/services/audioPlayback.js`
-- `src/services/hapticFeedback.js`
-- `assets/images/networkError.png`

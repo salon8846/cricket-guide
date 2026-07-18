@@ -41,7 +41,7 @@
       },
       "webViewDebugPanel": {
         "type": "eruda",
-        "scriptUrl": ""
+        "scriptUrl": "https://cdn.jsdelivr.net/npm/eruda@3.4.3/eruda.min.js"
       }
     }
   }
@@ -56,7 +56,7 @@
 | `debug.tapArea` | `object` | 见下方默认值 | 全局连续点击 10 次的透明区域。 |
 | `debug.webViewDebugPanel` | `object` | 见下方默认值 | WebView/H5 调试面板配置。 |
 | `debug.webViewDebugPanel.type` | `string` | `"eruda"` | 支持 `"eruda"`、`"vconsole"`；其他值按 `"eruda"` 处理。 |
-| `debug.webViewDebugPanel.scriptUrl` | `string` | `""` | 可选外部脚本地址，生产只接受 `https`，开发模式接受 `http`/`https`；为空时使用 App 内置源码。 |
+| `debug.webViewDebugPanel.scriptUrl` | `string` | 对应类型的固定版本 CDN 地址 | 可选外部脚本地址，生产只接受 `https`，开发模式接受 `http`/`https`；为空时使用对应类型的默认 CDN 地址。 |
 
 `tapArea` 默认值：
 
@@ -77,9 +77,16 @@
 ```json
 {
   "type": "eruda",
-  "scriptUrl": ""
+  "scriptUrl": "https://cdn.jsdelivr.net/npm/eruda@3.4.3/eruda.min.js"
 }
 ```
+
+默认 CDN 地址固定到以下版本：
+
+- eruda：`https://cdn.jsdelivr.net/npm/eruda@3.4.3/eruda.min.js`
+- vConsole：`https://cdn.jsdelivr.net/npm/vconsole@3.15.1/dist/vconsole.min.js`
+
+远程脚本地址无效、请求失败或被页面安全策略拦截时，不显示 WebView 调试面板。
 
 ## App 行为
 
@@ -155,7 +162,7 @@ X-App-Debug-Session: dbg_xxx
 
 ## 后台配置示例
 
-使用默认 eruda：
+使用默认 CDN 地址加载 eruda：
 
 ```json
 {
@@ -171,7 +178,7 @@ X-App-Debug-Session: dbg_xxx
 }
 ```
 
-使用 vConsole：
+使用默认 CDN 地址加载 vConsole：
 
 ```json
 {
@@ -181,7 +188,7 @@ X-App-Debug-Session: dbg_xxx
 }
 ```
 
-使用外部调试面板脚本：
+使用自定义调试面板脚本地址：
 
 ```json
 {
