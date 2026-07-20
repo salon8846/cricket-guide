@@ -174,7 +174,7 @@ export default function WebViewScreen() {
         try {
             await handleBridgeMessage({
                 rawMessage: event.nativeEvent.data,
-                openExternalUrl: Linking.openURL,
+                openExternalUrl: (targetUrl) => Linking.openURL(targetUrl),
                 postWebViewMessage,
                 runGoogleAuthSession,
                 runTelegramAuthSession,
