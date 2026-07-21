@@ -40,7 +40,7 @@ src/app/example/index.jsx
 2. 新增自己的 `src/app/(main)/` 业务路由目录和入口页面。
 3. 修改 `src/constants/appCustomization.js` 的 `DEFAULT_ENTRY_ROUTE`，例如改为 `/home`。
 
-基础框架不包含 `(main)/`，该目录及其 layout 由下游项目按业务导航结构创建和维护。根布局不显式注册可删除的示例或可选业务模块，新增路由由 Expo Router 自动发现。
+基础框架不包含 `(main)/`，该目录及其 layout 由下游项目按业务导航结构创建和维护。根布局 `src/app/_layout.jsx` 只显式注册 `index` 与 `webview`；业务路由由 Expo Router 自动发现，呈现参数在业务 layout 或页面中导出 `options`，不要改共享根布局。
 
 ### 启动 Loading 配色
 
@@ -55,6 +55,8 @@ src/app/dexa/
 ```
 
 `HAS_AB_TEST_MODULE` 在 `src/constants/appCustomization.js` 中默认配置为 `false`。需要该模块的项目才将它显式开启。
+
+下游接入真实 AB 业务时，不要继续使用 `dexa` 示例名。将路由目录、组件、资源、store 和 `AB_TEST_ENTRY_ROUTE` 重命名为当前业务标识后再开启模块。
 
 ## 语言文件
 
