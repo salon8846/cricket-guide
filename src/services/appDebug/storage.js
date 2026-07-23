@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { APP_STORAGE_KEYS } from '@/constants/storageKeys';
 import {
     getAppDebugSnapshot,
@@ -5,6 +6,13 @@ import {
     saveAppDebugFloatingButtonPosition,
 } from '@/services/appDebug/store';
 import { clearAllOrThrow, setItemOrThrow } from '@/utils/storage';
+
+export const readAsyncStorageKeys = async () => {
+    const keys = await AsyncStorage.getAllKeys();
+    return keys.sort();
+};
+
+export const readAsyncStorageValue = (key) => AsyncStorage.getItem(key);
 
 export const clearAppStorageKeepingDebugState = async () => {
     const currentSnapshot = getAppDebugSnapshot();

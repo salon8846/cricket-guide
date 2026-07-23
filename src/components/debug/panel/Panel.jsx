@@ -11,11 +11,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from '@/components/common/Toast';
 import { useAppDebugSnapshot } from '@/services/appDebug/store';
 import AppDebugInfoView from '@/components/debug/panel/InfoView';
+import AppDebugStorageView from '@/components/debug/panel/StorageView';
 import DebugLogsView from '@/components/debug/logs/LogsView';
 import AppDebugToolsView from '@/components/debug/panel/ToolsView';
 import { AppDebugToastProvider } from '@/components/debug/panel/ToastContext';
 
 const DEBUG_TAB_INFO = 'info';
+const DEBUG_TAB_STORAGE = 'storage';
 const DEBUG_TAB_LOGS = 'logs';
 const DEBUG_TAB_TOOLS = 'tools';
 const DEBUG_TOAST_VISIBLE_MS = 1400;
@@ -94,6 +96,12 @@ export default function AppDebugPanel() {
                         <AppDebugInfoView />
                     </View>
                     <View
+                        pointerEvents={activeTab === DEBUG_TAB_STORAGE ? 'auto' : 'none'}
+                        style={[styles.tabContent, activeTab !== DEBUG_TAB_STORAGE && styles.inactiveTabContent]}
+                    >
+                        <AppDebugStorageView />
+                    </View>
+                    <View
                         pointerEvents={activeTab === DEBUG_TAB_TOOLS ? 'auto' : 'none'}
                         style={[styles.tabContent, activeTab !== DEBUG_TAB_TOOLS && styles.inactiveTabContent]}
                     >
@@ -116,6 +124,12 @@ export default function AppDebugPanel() {
                     icon="information-circle-outline"
                     label="Info"
                     onPress={() => setActiveTab(DEBUG_TAB_INFO)}
+                />
+                <DebugTabButton
+                    active={activeTab === DEBUG_TAB_STORAGE}
+                    icon="server-outline"
+                    label="Storage"
+                    onPress={() => setActiveTab(DEBUG_TAB_STORAGE)}
                 />
                 <DebugTabButton
                     active={activeTab === DEBUG_TAB_LOGS}
