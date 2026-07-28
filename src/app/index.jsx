@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, AppState, StyleSheet, View } from 'react-native';
 import NetworkErrorScreen from '@/components/common/NetworkErrorScreen';
 import useAppStore from '@/store/useAppStore';
@@ -12,7 +13,9 @@ import { sendInstallStatOnce } from '@/services/bootstrap/installStat';
 import { captureClientException } from '@/services/logging/clientErrors/capture';
 import { recordBreadcrumb } from '@/services/logging/breadcrumbs';
 import { createDebugLogger } from '@/utils/logger';
-import { BOOTSTRAP_LOADING_COLORS } from '@/constants/appCustomization';
+import {
+    BOOTSTRAP_APPEARANCE,
+} from '@/constants/appCustomization';
 
 const deferredJumpLogger = createDebugLogger('DeferredJump');
 
@@ -113,8 +116,9 @@ export default function BootstrapScreen() {
     return (
         <>
             <Stack.Screen options={{ headerShown: false }} />
+            <StatusBar style={BOOTSTRAP_APPEARANCE.statusBarStyle} />
             <View style={styles.container}>
-                <ActivityIndicator size="large" color={BOOTSTRAP_LOADING_COLORS.indicator} />
+                <ActivityIndicator size="large" color={BOOTSTRAP_APPEARANCE.indicatorColor} />
             </View>
             {status === 'error' && (
                 <NetworkErrorScreen
@@ -133,7 +137,7 @@ export default function BootstrapScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: BOOTSTRAP_LOADING_COLORS.background,
+        backgroundColor: BOOTSTRAP_APPEARANCE.backgroundColor,
         justifyContent: 'center',
         alignItems: 'center',
     },

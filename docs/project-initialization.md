@@ -42,9 +42,9 @@ src/app/example/index.jsx
 
 基础框架不包含 `(main)/`，该目录及其 layout 由下游项目按业务导航结构创建和维护。根布局 `src/app/_layout.jsx` 只显式注册 `index` 与 `webview`；业务路由由 Expo Router 自动发现，呈现参数在业务 layout 或页面中导出 `options`，不要改共享根布局。
 
-### 启动 Loading 配色
+### 启动页配色
 
-按项目启动页设计修改 `BOOTSTRAP_LOADING_COLORS.indicator` 和 `BOOTSTRAP_LOADING_COLORS.background`。
+按项目启动页设计修改 `BOOTSTRAP_APPEARANCE.indicatorColor`、`BOOTSTRAP_APPEARANCE.backgroundColor` 和 `BOOTSTRAP_APPEARANCE.statusBarStyle`。
 
 ### 可选 AB Test 示例模块
 
