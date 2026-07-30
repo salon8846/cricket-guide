@@ -121,7 +121,6 @@ const normalizeDebugTapArea = (tapArea) => {
     if (!tapArea || typeof tapArea !== 'object' || Array.isArray(tapArea)) {
         return DEFAULT_DEBUG_TAP_AREA;
     }
-    console.warn(safelyParseDebugTapArea(tapArea))
     return safelyParseDebugTapArea(tapArea);
 };
 
