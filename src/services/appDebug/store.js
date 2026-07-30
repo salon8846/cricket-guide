@@ -18,6 +18,10 @@ import {
 
 const APP_DEBUG_RUNTIME_STORE_KEY = '__APP_DEBUG_RUNTIME_STORE__';
 
+const createDefaultDebugRequestHeaders = () => ({
+    'X-App-Debug': '0',
+});
+
 const emptySnapshot = {
     allowed: false,
     enabled: false,
@@ -26,6 +30,7 @@ const emptySnapshot = {
     sessionId: '',
     installId: '',
     serverDebugConfig: null,
+    debugRequestHeaders: createDefaultDebugRequestHeaders(),
     tapArea: DEFAULT_DEBUG_TAP_AREA,
     webViewDebugPanel: DEFAULT_WEB_VIEW_PANEL,
 };
@@ -116,13 +121,45 @@ const normalizeDebugTapArea = (tapArea) => {
     if (!tapArea || typeof tapArea !== 'object' || Array.isArray(tapArea)) {
         return DEFAULT_DEBUG_TAP_AREA;
     }
+    console.warn(safelyParseDebugTapArea(tapArea))
     return safelyParseDebugTapArea(tapArea);
+};
+
+const normalizeDebugRequestHeaders = (requestHeaders) => {
+    const normalizedHeaders = createDefaultDebugRequestHeaders();
+
+    if (!requestHeaders || typeof requestHeaders !== 'object' || Array.isArray(requestHeaders)) {
+        return normalizedHeaders;
+    }
+
+    Object.entries(requestHeaders).forEach(([name, value]) => {
+        const headerName = name.trim();
+        const normalizedHeaderName = headerName.toLowerCase();
+
+        if (!headerName || normalizedHeaderName === 'x-app-debug-session') {
+            return;
+        }
+
+        if (typeof value !== 'string' && typeof value !== 'number') {
+            return;
+        }
+
+        if (normalizedHeaderName === 'x-app-debug') {
+            normalizedHeaders['X-App-Debug'] = String(value);
+            return;
+        }
+
+        normalizedHeaders[headerName] = String(value);
+    });
+
+    return normalizedHeaders;
 };
 
 const normalizeDebugConfig = (debugConfig) => {
     if (!debugConfig || typeof debugConfig !== 'object' || Array.isArray(debugConfig)) {
         return {
             serverDebugConfig: debugConfig ?? null,
+            debugRequestHeaders: createDefaultDebugRequestHeaders(),
             tapArea: DEFAULT_DEBUG_TAP_AREA,
             webViewDebugPanel: DEFAULT_WEB_VIEW_PANEL,
         };
@@ -130,6 +167,7 @@ const normalizeDebugConfig = (debugConfig) => {
 
     return {
         serverDebugConfig: debugConfig,
+        debugRequestHeaders: normalizeDebugRequestHeaders(debugConfig.requestHeaders),
         tapArea: normalizeDebugTapArea(debugConfig.tapArea),
         webViewDebugPanel: normalizeWebViewPanel(debugConfig.webViewDebugPanel),
     };
@@ -182,6 +220,7 @@ export const configureAppDebugFromInit = async (initData, storedState) => {
         sessionId: storedState.sessionId,
         installId: storedState.installId,
         serverDebugConfig: debugConfig.serverDebugConfig,
+        debugRequestHeaders: debugConfig.debugRequestHeaders,
         tapArea: debugConfig.tapArea,
         webViewDebugPanel: debugConfig.webViewDebugPanel,
     });

@@ -4,7 +4,7 @@ export const DEBUG_TAP_WINDOW_MS = 1500;
 export const DEFAULT_DEBUG_TAP_AREA = {
     width: 30,
     height: 30,
-    top: null,
+    top: 0,
     right: null,
     bottom: null,
     left: 0,
@@ -32,6 +32,7 @@ function parseDebugTapAreaValue(key, value) {
         return parseTapAreaNumber(value, 1, 240);
     }
     if (['top', 'right', 'bottom', 'left'].includes(key)) {
+        if (value === null) return null;
         return parseTapAreaNumber(value, 0, 2000);
     }
     if (typeof value === 'string' && value.length > 120) return undefined;

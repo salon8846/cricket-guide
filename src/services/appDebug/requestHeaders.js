@@ -8,7 +8,7 @@ export const getAppDebugRequestHeaderValues = () => {
     }
 
     return {
-        'X-App-Debug': '1',
+        ...currentSnapshot.debugRequestHeaders,
         'X-App-Debug-Session': currentSnapshot.sessionId,
     };
 };

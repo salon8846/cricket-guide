@@ -33,6 +33,9 @@
 {
   "data": {
     "debug": {
+      "requestHeaders": {
+        "X-App-Debug": 1
+      },
       "tapArea": {
         "width": 30,
         "height": 30,
@@ -53,6 +56,7 @@
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `debug` | `object \| null` | 无字段 | 字段存在表示后端允许本机 debug；无字段表示不允许，并清理本地 debug 状态。 |
+| `debug.requestHeaders` | `object` | `{ "X-App-Debug": 0 }` | 本机 Debug 开启时附加的自定义请求头。键为请求头名称，值支持字符串或数字。 |
 | `debug.tapArea` | `object` | 见下方默认值 | 全局连续点击 10 次的透明区域。 |
 | `debug.webViewDebugPanel` | `object` | 见下方默认值 | WebView/H5 调试面板配置。 |
 | `debug.webViewDebugPanel.type` | `string` | `"eruda"` | 支持 `"eruda"`、`"vconsole"`；其他值按 `"eruda"` 处理。 |
@@ -64,7 +68,7 @@
 {
   "width": 30,
   "height": 30,
-  "top": null,
+  "top": 0,
   "right": null,
   "bottom": null,
   "left": 0,
@@ -139,26 +143,18 @@ Expo Go / 纯 JS 侧不能可靠模拟 native 进程崩溃。需要验证真实 
 X-App-Client: <installId uuid-v4>
 ```
 
-本机 debug 开启后，原生 API 请求会额外增加：
+本机 Debug 开启后，原生 API 请求会额外增加：
 
 ```http
 X-App-Debug: 1
 X-App-Debug-Session: dbg_xxx
 ```
 
-`X-App-Debug-Session` 表示本轮 Debug 开启周期；关闭 Debug 会清除 session，下次开启重新生成。
+`X-App-Debug-Session` 表示本轮 Debug 开启周期；关闭 Debug 会清除 session，下次开启重新生成。`X-App-Debug` 从 `debug.requestHeaders` 读取；字段缺失时默认传 `0`。
+
+`debug.requestHeaders` 中的其他字段也会作为请求头传递。`X-App-Debug-Session` 始终使用当前本机 Debug 会话，配置中的同名字段不会生效。
 
 `X-App-Client` 使用当前 App 安装实例的 `installId`，格式为 UUID v4；`installId` 在 App 启动链路中确认，可复用于后续崩溃日志、问题排查等场景，不表示物理设备 ID。
-
-后端验证 debug 请求时建议同时判断：
-
-```text
-现有 Verify-Time / Verify-Encrypt 有效
-+ 当前 App 后台 debug 开关仍然开启
-+ 请求带 X-App-Debug: 1
-+ 请求带有效 X-App-Debug-Session
-= 使用测试配置
-```
 
 ## 后台配置示例
 
@@ -166,6 +162,10 @@ X-App-Debug-Session: dbg_xxx
 
 ```json
 {
+  "requestHeaders": {
+    "X-App-Debug": 1,
+    "X-Debug-Feature": "example"
+  },
   "tapArea": {
     "width": 30,
     "height": 30,
@@ -201,7 +201,6 @@ X-App-Debug-Session: dbg_xxx
 
 ## 注意事项
 
-- `X-App-Debug` 不是安全凭证，后端仍应以后台当前 App debug 开关作为最终判断。
 - 本次只处理 App 原生侧 axios 请求头，不处理 WebView 内 H5 自己发出的 `fetch` / `XMLHttpRequest`。
 - 如果后台关闭 debug，应直接不返回 `debug` 字段；不要返回空对象来表示关闭。
 - 生产环境只应给测试设备、测试账号或灰度条件返回 `debug` 字段；普通正式用户不应收到该字段，否则左上角默认透明点击区会占用一小块触摸区域。

@@ -98,7 +98,7 @@ export function buildAppDebugDiagnostics(appDebug, capturedAt = new Date().toISO
         },
         headers: {
             'X-App-Client': appDebug.installId,
-            'X-App-Debug': appDebug.enabled ? '1' : '-',
+            'X-App-Debug': appDebug.enabled ? appDebug.debugRequestHeaders['X-App-Debug'] : '-',
             'X-App-Debug-Session': appDebug.enabled ? appDebug.sessionId : '-',
         },
     };
