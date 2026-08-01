@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "baseApp",
-    "slug": "baseApp",
-    "version": "1.0.0",
-    "scheme": "baseapp",
+    "name": "Cricket Guide",
+    "slug": "cricket-guide",
+    "version": "1.0.5",
+    "scheme": "cricketguide",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -14,16 +14,18 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.yourcompany.baseapp",
+      "bundleIdentifier": "com.cricketGuide.cricketGuide0044",
+      "buildNumber": "4",
       "associatedDomains": [
-        "applinks:example.onelink.me"
+        "applinks:vpbet2.onelink.me"
       ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "com.yourcompany.baseapp",
+      "package": "com.cricketGuide.cricketGuide0044",
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
@@ -40,7 +42,7 @@
           "data": [
             {
               "scheme": "https",
-              "host": "example.onelink.me"
+              "host": "vpbet2.onelink.me"
             }
           ],
           "category": [

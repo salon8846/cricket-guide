@@ -1,6 +1,6 @@
 {
-  "name": "baseapp",
-  "version": "1.0.0",
+  "name": "cricket-guide",
+  "version": "1.0.4",
   "main": "expo-router/entry",
   "private": true,
   "scripts": {

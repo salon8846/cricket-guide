@@ -1,1 +1,450 @@
-{}
+{
+  "Cricket Guide": {
+    "zh": "板球世界",
+    "en": "Cricket Guide"
+  },
+  "add_run": {
+    "zh": "加{run}分",
+    "en": "Add Run {run}"
+  },
+  "add_wicket": {
+    "zh": "加三柱门",
+    "en": "Add Wicket"
+  },
+  "cancel": {
+    "zh": "取消",
+    "en": "Cancel"
+  },
+  "cricket_feature": {
+    "zh": "板球计分",
+    "en": "Cricket Feature"
+  },
+  "cricket_history_content": {
+    "zh": "板球的历史可以追溯到16世纪的英格兰东南部。它在18世纪成为一项成熟的运动，并从此发展成为一项全球性的运动。第一场国际比赛于1844年举行，自1788年以来，板球规则一直由马里波恩板球俱乐部（MCC）管辖。",
+    "en": "The history of cricket can be traced back to the 16th century in South-East England. It became an established sport in the 18th century and has since grown to be a global sport. The first international match was played in 1844, and the laws of cricket have been governed by the Marylebone Cricket Club (MCC) since 1788."
+  },
+  "cricket_history_title": {
+    "zh": "板球历史",
+    "en": "History of Cricket"
+  },
+  "cricket_introduction_content": {
+    "zh": "板球是一项由两队十一名球员在球场上进行的击球游戏，球场中央是一个22码（20米）的球道，两端各有一个三柱门，每个三柱门由三个门柱和两个横木组成。击球方通过用球棒击打投向三柱门的球来得分（并在三柱门之间跑动），而投球和守备方则试图阻止这种情况（通过阻止球离开场地，并将球送到任一三柱门）并使每个击球手出局（所以他们‘出局’了）。",
+    "en": "Cricket is a bat-and-ball game played between two teams of eleven players on a field at the centre of which is a 22-yard (20-metre) pitch with a wicket at each end, each comprising two bails balanced on three stumps. The batting side scores runs by striking the ball bowled at the wicket with the bat (and running between the wickets), while the bowling and fielding side tries to prevent this (by preventing the ball from leaving the field, and getting the ball to either wicket) and dismiss each batter (so they are 'out')."
+  },
+  "cricket_introduction_title": {
+    "zh": "板球简介",
+    "en": "Introduction to Cricket"
+  },
+  "cricket_rule_10_content": {
+    "zh": "除非法规规定或在投币前达成协议，否则在比赛期间不得完全覆盖球道。",
+    "en": "The pitch shall not be completely covered during the match unless provided for by regulations or by agreement before the toss."
+  },
+  "cricket_rule_10_title": {
+    "zh": "规则10：覆盖球道",
+    "en": "Rule 10: Covering the Pitch"
+  },
+  "cricket_rule_11_content": {
+    "zh": "应有餐间、局间和饮水间歇。",
+    "en": "There shall be intervals for meals, between innings and for drinks."
+  },
+  "cricket_rule_11_title": {
+    "zh": "规则11：间歇",
+    "en": "Rule 11: Intervals"
+  },
+  "cricket_rule_12_content": {
+    "zh": "裁判应在比赛开始时和任何间歇或中断后恢复比赛时宣布‘比赛开始’。",
+    "en": "The umpires shall call ‘Play’ at the start of the match and on the resumption of play after any interval or interruption."
+  },
+  "cricket_rule_12_title": {
+    "zh": "规则12：比赛开始；比赛停止",
+    "en": "Rule 12: Start of Play; Cessation of Play"
+  },
+  "cricket_rule_13_content": {
+    "zh": "根据比赛前达成的协议，一场比赛可以为每队一局或两局。",
+    "en": "A match may be of one or two innings for each side according to agreement reached before the match."
+  },
+  "cricket_rule_13_title": {
+    "zh": "规则13：局",
+    "en": "Rule 13: Innings"
+  },
+  "cricket_rule_14_content": {
+    "zh": "在两局比赛中，先击球并领先一定分数的球队可以要求另一队跟进其局。",
+    "en": "In a two-innings match, the side which bats first and leads by a certain number of runs may require the other side to follow their innings."
+  },
+  "cricket_rule_14_title": {
+    "zh": "规则14：跟进",
+    "en": "Rule 14: The Follow-on"
+  },
+  "cricket_rule_15_content": {
+    "zh": "击球方队长可以在球死球时，在局中的任何时候宣布一局结束。队长可以在该局开始前的任何时候放弃一局。",
+    "en": "The captain of the batting side may declare an innings closed, when the ball is dead, at any time during the innings. A captain may forfeit an innings at any time before the commencement of that innings."
+  },
+  "cricket_rule_15_title": {
+    "zh": "规则15：宣布结束和放弃",
+    "en": "Rule 15: Declaration and Forfeiture"
+  },
+  "cricket_rule_16_content": {
+    "zh": "只有在双方都完成其局，或者一方被淘汰而另一方得分更多时，才能得出结果。得分最多的一方赢得比赛。",
+    "en": "A result can be achieved only if both sides have completed their innings, or if one side has been bowled out and the other has scored more runs. The side scoring the most runs wins the match."
+  },
+  "cricket_rule_16_title": {
+    "zh": "规则16：结果",
+    "en": "Rule 16: The Result"
+  },
+  "cricket_rule_17_content": {
+    "zh": "球应从两端交替投球，每轮6球。",
+    "en": "The ball shall be bowled from each end alternately in overs of 6 balls."
+  },
+  "cricket_rule_17_title": {
+    "zh": "规则17：轮",
+    "en": "Rule 17: The Over"
+  },
+  "cricket_rule_18_content": {
+    "zh": "分数应以跑分计算。当两名击球手交叉并从一端到另一端站稳脚跟时，就得一分。",
+    "en": "The score shall be reckoned by runs. A run is scored when the two batsmen cross and make good their ground from end to end."
+  },
+  "cricket_rule_18_title": {
+    "zh": "规则18：得分",
+    "en": "Rule 18: Scoring Runs"
+  },
+  "cricket_rule_19_content": {
+    "zh": "边界是四分或六分的得分。如果球击中地面然后接触或越过边界线，则为四分；如果球未击中地面而越过边界线，则为六分。",
+    "en": "A boundary is a score of four or six runs. It is a four if the ball hits the ground and then touches or crosses the boundary line, and a six if the ball crosses the boundary line without hitting the ground."
+  },
+  "cricket_rule_19_title": {
+    "zh": "规则19：边界",
+    "en": "Rule 19: Boundaries"
+  },
+  "cricket_rule_1_content": {
+    "zh": "一场比赛在两队之间进行，每队十一人，其中一人为队长。",
+    "en": "A match is played between two sides, each of eleven players, one of whom shall be captain."
+  },
+  "cricket_rule_1_title": {
+    "zh": "规则1：球员",
+    "en": "Rule 1: The Players"
+  },
+  "cricket_rule_20_content": {
+    "zh": "当球最终稳定在守门员或投球手手中时，球变为死球。",
+    "en": "The ball becomes dead when it is finally settled in the hands of the wicket-keeper or of the bowler."
+  },
+  "cricket_rule_20_title": {
+    "zh": "规则20：死球",
+    "en": "Rule 20: Dead Ball"
+  },
+  "cricket_rule_21_content": {
+    "zh": "如果投球手投出废球，击球方应得一分。废球不计为一轮六球中的一球。",
+    "en": "If the bowler bowls a No ball, the batting side shall be awarded one run. A No ball does not count as one of the six balls in an over."
+  },
+  "cricket_rule_21_title": {
+    "zh": "规则21：废球",
+    "en": "Rule 21: No Ball"
+  },
+  "cricket_rule_22_content": {
+    "zh": "如果投球手投出歪球，击球方应得一分。歪球不计为一轮六球中的一球。",
+    "en": "If the bowler bowls a Wide ball, the batting side shall be awarded one run. A Wide ball does not count as one of the six balls in an over."
+  },
+  "cricket_rule_22_title": {
+    "zh": "规则22：歪球",
+    "en": "Rule 22: Wide Ball"
+  },
+  "cricket_rule_23_content": {
+    "zh": "如果投球手投出的球既不是废球也不是歪球，经过击球手而未触及其球棒或身体，则击球手完成的任何跑分应记为触身穿越球。如果球触及击球手身体除手持球棒的手以外的任何部分，则完成的任何跑分应记为触身球。",
+    "en": "If the ball, delivered by the bowler, not being a No ball or a Wide, passes the striker without touching his bat or person, any runs completed by the batsmen shall be credited as Byes. If the ball touches any part of the striker’s person other than his hand holding the bat, any runs completed shall be credited as Leg byes."
+  },
+  "cricket_rule_23_title": {
+    "zh": "规则23：触身穿越球和触身球",
+    "en": "Rule 23: Bye and Leg Bye"
+  },
+  "cricket_rule_24_content": {
+    "zh": "如果击球手的三柱门被投球手投出的球（非废球）击倒，即使球先触及其球棒或身体，他也出局。",
+    "en": "The striker is out Bowled if his wicket is put down by a ball delivered by the bowler, not being a No ball, even if it first touches his bat or person."
+  },
+  "cricket_rule_24_title": {
+    "zh": "规则24：投杀",
+    "en": "Rule 24: Bowled"
+  },
+  "cricket_rule_25_content": {
+    "zh": "如果投球手投出的球（非废球）触及击球手的球棒或手持球棒的手，并在触地前被守场员合法接住，则击球手出局。",
+    "en": "The striker is out Caught if a ball delivered by the bowler, not being a No ball, touches his bat or the hand holding the bat and is subsequently held by a fielder as a fair catch before it touches the ground."
+  },
+  "cricket_rule_25_title": {
+    "zh": "规则25：接杀",
+    "en": "Rule 25: Caught"
+  },
+  "cricket_rule_26_content": {
+    "zh": "如果任一击球手在比赛进行中故意用未持球棒的手触球，除非征得对方同意，否则他出局。",
+    "en": "Either batsman is out Handled the ball if he wilfully touches the ball while in play with a hand not holding the bat, unless he does so with the consent of the opposing side."
+  },
+  "cricket_rule_26_title": {
+    "zh": "规则26：手球",
+    "en": "Rule 26: Handled the Ball"
+  },
+  "cricket_rule_27_content": {
+    "zh": "如果击球手在比赛进行中，球击中其身体任何部位或被其球棒击中，并且在球被守场员触及之前，他故意用球棒或身体（非手持球棒的手）再次击球，除非唯一目的是保护其三柱门，否则他出局。",
+    "en": "The striker is out Hit the ball twice if, while the ball is in play, it strikes any part of his person or is struck by his bat and, before the ball has been touched by a fielder, he wilfully strikes it again with his bat or person, other than a hand not holding the bat, except for the sole purpose of guarding his wicket."
+  },
+  "cricket_rule_27_title": {
+    "zh": "规则27：二次击球",
+    "en": "Rule 27: Hit the Ball Twice"
+  },
+  "cricket_rule_28_content": {
+    "zh": "如果投球手进入投球步幅后，在比赛进行中，击球手的三柱门被其球棒或身体击倒，则他出局。",
+    "en": "The striker is out Hit wicket if, after the bowler has entered his delivery stride and while the ball is in play, his wicket is put down by his bat or his person."
+  },
+  "cricket_rule_28_title": {
+    "zh": "规则28：碰柱",
+    "en": "Rule 28: Hit Wicket"
+  },
+  "cricket_rule_29_content": {
+    "zh": "如果球（非废球）在三柱门之间或击球手三柱门的外侧直线投出，并且在裁判看来会击中三柱门，但被击球手身体的任何部分拦截，则击球手出局。",
+    "en": "The striker is out LBW if the ball, not being a No ball, pitches in a straight line between wicket and wicket or on the off side of the striker’s wicket and, in the opinion of the umpire, would have hit the wicket, but is intercepted by any part of the striker’s person."
+  },
+  "cricket_rule_29_title": {
+    "zh": "规则29：腿截球（LBW）",
+    "en": "Rule 29: Leg Before Wicket (LBW)"
+  },
+  "cricket_rule_2_content": {
+    "zh": "每场比赛应任命两名裁判，他们应根据法律要求，以绝对公正的方式控制比赛。",
+    "en": "Two umpires shall be appointed for each match, who shall control the game as required by the Laws, with absolute impartiality."
+  },
+  "cricket_rule_2_title": {
+    "zh": "规则2：裁判",
+    "en": "Rule 2: The Umpires"
+  },
+  "cricket_rule_30_content": {
+    "zh": "如果任一击球手故意用言语或行动妨碍或分散对方注意力，则他出局。",
+    "en": "Either batsman is out Obstructing the field if he wilfully obstructs or distracts the opposing side by word or action."
+  },
+  "cricket_rule_30_title": {
+    "zh": "规则30：妨碍赛场",
+    "en": "Rule 30: Obstructing the Field"
+  },
+  "cricket_rule_31_content": {
+    "zh": "如果在比赛进行中的任何时候，任一击球手离开其地盘，并且其三柱门被对方击倒，则他出局。",
+    "en": "Either batsman is out Run out if, at any time while the ball is in play, he is out of his ground and his wicket is put down by the opposing side."
+  },
+  "cricket_rule_31_title": {
+    "zh": "规则31：跑杀",
+    "en": "Rule 31: Run Out"
+  },
+  "cricket_rule_32_content": {
+    "zh": "如果投出的球不是废球，击球手离开其地盘（非试图跑分），并且三柱门被守门员在没有其他守场员干预的情况下击倒，则击球手出局。",
+    "en": "The striker is out Stumped if, a ball which is not a No ball is delivered, he is out of his ground, other than attempting a run, and the wicket is put down by the wicket-keeper without the intervention of another fielder."
+  },
+  "cricket_rule_32_title": {
+    "zh": "规则32：踩线",
+    "en": "Rule 32: Stumped"
+  },
+  "cricket_rule_33_content": {
+    "zh": "新上场的击球手必须在前一门倒下后3分钟内就位准备接球或让其搭档准备好接下一球。如果新上场的击球手未能做到，则他超时出局。",
+    "en": "An incoming batsman must be in position to take guard or for his partner to be ready to receive the next ball within 3 minutes of the fall of the previous wicket. The incoming batsman is out Timed out if he fails to do so."
+  },
+  "cricket_rule_33_title": {
+    "zh": "规则33：超时",
+    "en": "Rule 33: Timed Out"
+  },
+  "cricket_rule_34_content": {
+    "zh": "如果横木完全从门柱顶部移开，或者门柱被从地面上打出，则三柱门倒下。",
+    "en": "The wicket is down if a bail is completely removed from the top of the stumps, or a stump is struck out of the ground."
+  },
+  "cricket_rule_34_title": {
+    "zh": "规则34：三柱门倒下",
+    "en": "Rule 34: The Wicket is Down"
+  },
+  "cricket_rule_35_content": {
+    "zh": "当击球手出局、退场或其队的局结束或完成时，其局应被视为结束。",
+    "en": "A batsman’s innings shall be considered to be at an end when he is out, or he retires, or the innings of his side is closed or completed."
+  },
+  "cricket_rule_35_title": {
+    "zh": "规则35：击球手的局",
+    "en": "Rule 35: Batsman's Innings"
+  },
+  "cricket_rule_36_content": {
+    "zh": "击球手可以在其局中的任何时候退场。如果他退场并且没有征得对方队长同意恢复其局，则他出局。",
+    "en": "A batsman may retire at any time during his innings. If he retires and does not have the consent of the opposing captain to resume his innings, he is out."
+  },
+  "cricket_rule_36_title": {
+    "zh": "规则36：击球手退场",
+    "en": "Rule 36: Batsman Retiring"
+  },
+  "cricket_rule_37_content": {
+    "zh": "如果因守场员的越位或故意行为而获得边界，则得分应为判给任一方的任何罚分、边界的允许分以及击球手完成的跑分，以及如果在投掷或行为瞬间他们已经交叉的进行中的跑分。",
+    "en": "If a boundary is scored from an overthrow or wilful act of a fielder, the runs scored shall be any runs for penalties awarded to either side, and the allowance for the boundary, and the runs completed by the batsmen, together with the run in progress if they had already crossed at the instant of the throw or act."
+  },
+  "cricket_rule_37_title": {
+    "zh": "规则37：越位",
+    "en": "Rule 37: Overthrow"
+  },
+  "cricket_rule_38_content": {
+    "zh": "裁判应是公平和不公平比赛的唯一评判者。",
+    "en": "The umpires shall be the sole judges of fair and unfair play."
+  },
+  "cricket_rule_38_title": {
+    "zh": "规则38：不公平比赛",
+    "en": "Rule 38: Unfair Play"
+  },
+  "cricket_rule_39_content": {
+    "zh": "队长在任何时候都有责任确保比赛在板球精神和法律范围内进行。",
+    "en": "The captains are responsible at all times for ensuring that play is conducted within the Spirit of Cricket as well as within the Laws."
+  },
+  "cricket_rule_39_title": {
+    "zh": "规则39：球员行为",
+    "en": "Rule 39: Conduct of Players"
+  },
+  "cricket_rule_3_content": {
+    "zh": "应任命两名记分员，记录所有得分、所有出局的门数，以及在适当情况下，投球的轮数。",
+    "en": "Two scorers shall be appointed to record all runs scored, all wickets taken and, where appropriate, the number of overs bowled."
+  },
+  "cricket_rule_3_title": {
+    "zh": "规则3：记分员",
+    "en": "Rule 3: The Scorers"
+  },
+  "cricket_rule_4_content": {
+    "zh": "新球的重量不得低于5.5盎司/155.9克，不得超过5.75盎司/163克，周长不得小于8.81英寸/22.4厘米，不得超过9英寸/22.9厘米。",
+    "en": "The ball, when new, shall weigh not less than 5.5 ounces/155.9g, nor more than 5.75 ounces/163g, and shall measure not less than 8.81 in/22.4cm, nor more than 9 in/22.9cm in circumference."
+  },
+  "cricket_rule_4_title": {
+    "zh": "规则4：球",
+    "en": "Rule 4: The Ball"
+  },
+  "cricket_rule_5_content": {
+    "zh": "球棒的长度不得超过38英寸/96.5厘米，宽度不得超过4.25英寸/10.8厘米，深度不得超过2.64英寸/6.7厘米，边缘不得超过1.56英寸/4.0厘米。",
+    "en": "The bat shall not exceed 38 in/96.5cm in length, 4.25 in/10.8cm in width, 2.64 in/6.7cm in depth or 1.56 in/4.0cm in edge."
+  },
+  "cricket_rule_5_title": {
+    "zh": "规则5：球棒",
+    "en": "Rule 5: The Bat"
+  },
+  "cricket_rule_6_content": {
+    "zh": "球道是地面上一个长22码/20.12米，宽10英尺/3.05米的矩形区域。",
+    "en": "The pitch is a rectangular area of the ground 22 yards/20.12m in length and 10ft/3.05m in width."
+  },
+  "cricket_rule_6_title": {
+    "zh": "规则6：球道",
+    "en": "Rule 6: The Pitch"
+  },
+  "cricket_rule_7_content": {
+    "zh": "在球道的每一端都应标出一条投球线、一条击球线和两条回归线。",
+    "en": "A bowling crease, a popping crease and two return creases shall be marked in white at each end of the pitch."
+  },
+  "cricket_rule_7_title": {
+    "zh": "规则7：折痕",
+    "en": "Rule 7: The Creases"
+  },
+  "cricket_rule_8_content": {
+    "zh": "两套三柱门，每套高28英寸/71.1厘米，宽9英寸/22.86厘米，应在相距22码/20.12米处相对且平行地设置。",
+    "en": "Two sets of wickets, each 28 in/71.1cm high and 9 in/22.86cm wide, shall be pitched opposite and parallel to each other at a distance of 22 yards/20.12m."
+  },
+  "cricket_rule_8_title": {
+    "zh": "规则8：三柱门",
+    "en": "Rule 8: The Wickets"
+  },
+  "cricket_rule_9_content": {
+    "zh": "应准备和维护场地，以确保其适合比赛。",
+    "en": "The ground shall be prepared and maintained to ensure that it is fit for play."
+  },
+  "cricket_rule_9_title": {
+    "zh": "规则9：比赛区域的准备和维护",
+    "en": "Rule 9: Preparation and Maintenance of the Playing Area"
+  },
+  "cricket_rules_1_39_content": {
+    "zh": "详细的板球规则，从1到39条，涵盖了比赛的各个方面。",
+    "en": "The detailed rules of cricket, from 1 to 39, covering all aspects of the game."
+  },
+  "cricket_rules_1_39_title": {
+    "zh": "板球规则 1-39",
+    "en": "Cricket Rules 1-39"
+  },
+  "cricket_rules_content": {
+    "zh": "板球的规则很复杂，但基本规则如下：一场比赛分为几局。在一局中，一队击球，另一队守备。击球方试图获得尽可能多的分数。守备方试图让击球手出局。一旦击球手出局，下一个击球手就会上场。当十一名击球手中的十名出局，或者投球数达到规定数量时，一局就结束了。比赛结束时得分最多的球队获胜。",
+    "en": "The rules of cricket are complex but the basics are as follows: A match is divided into innings. During an innings, one team bats and the other fields. The batting team tries to score as many runs as possible. The fielding team tries to get the batsmen out. Once a batsman is out, the next batsman comes in. An innings is over when ten of the eleven batsmen are out, or a set number of overs have been bowled. The team with the most runs at the end of the match wins."
+  },
+  "cricket_rules_dismissal_mechanisms_title": {
+    "zh": "出局机制",
+    "en": "Dismissal Mechanisms"
+  },
+  "cricket_rules_equipment_pitch_title": {
+    "zh": "设备与场地",
+    "en": "Equipment & Pitch"
+  },
+  "cricket_rules_match_progress_title": {
+    "zh": "比赛进程",
+    "en": "Match Progress"
+  },
+  "cricket_rules_players_staff_title": {
+    "zh": "球员与工作人员",
+    "en": "Players & Officials"
+  },
+  "cricket_rules_scoring_winning_title": {
+    "zh": "得分与获胜",
+    "en": "Scoring & Winning"
+  },
+  "cricket_rules_title": {
+    "zh": "板球规则",
+    "en": "Rules of Cricket"
+  },
+  "disclaimer": {
+    "zh": null,
+    "en": "The materials provided in this application are for reference only. For official and detailed rules, please consult the official documentation."
+  },
+  "end_game": {
+    "zh": "结束游戏",
+    "en": "End Game"
+  },
+  "enter_new_name": {
+    "zh": "输入新名称",
+    "en": "Enter new name"
+  },
+  "game_ended": {
+    "zh": "游戏结束",
+    "en": "Game ended"
+  },
+  "game_not_started": {
+    "zh": "游戏未开始",
+    "en": "Game not started"
+  },
+  "home_title": {
+    "zh": "板球记分牌",
+    "en": "Cricket Scoreboard"
+  },
+  "rename_team": {
+    "zh": "重命名队伍",
+    "en": "Rename Team"
+  },
+  "reset_game": {
+    "zh": "重置游戏",
+    "en": "Reset Game"
+  },
+  "save": {
+    "zh": "保存",
+    "en": "Save"
+  },
+  "start_game": {
+    "zh": "开始游戏",
+    "en": "Start Game"
+  },
+  "switch_team": {
+    "zh": "交换队伍",
+    "en": "Switch Team"
+  },
+  "team_1": {
+    "zh": "队伍1",
+    "en": "Team 1"
+  },
+  "team_2": {
+    "zh": "队伍2",
+    "en": "Team 2"
+  },
+  "time_remaining": {
+    "zh": "剩余时间: {time}",
+    "en": "Time Remaining: {time}"
+  },
+  "two_player_scorer": {
+    "zh": "两人记分器",
+    "en": "Two Player Scorer"
+  },
+  "home_disclaimer": {
+    "zh": "This app only disseminates knowledge and common sense to help users understand the facts and avoid falling into the trap of gambling addiction. It does not constitute any gambling advice.",
+    "en": "This app only disseminates knowledge and common sense to help users understand the facts and avoid falling into the trap of gambling addiction. It does not constitute any gambling advice."
+  }
+}
