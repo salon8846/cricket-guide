@@ -1,6 +1,6 @@
 import { ActivityIndicator, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Globe from 'lucide-react-native/icons/globe';
+import { Globe } from 'lucide-react-native';
 
 export default function NetworkErrorScreen({
     title = '请求失败，请重试!',
