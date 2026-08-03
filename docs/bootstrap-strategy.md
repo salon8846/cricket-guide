@@ -15,6 +15,31 @@
 
 启动服务统一放在 `src/services/bootstrap/`。
 
+## AppsFlyer 启动等待配置
+
+AppsFlyer 的事件上报与启动阶段的深链结果读取互不绑定。`/system/init` 可在
+`data.attribution.config` 下配置 `openUrlDeepLinkWaitMs`：
+
+```json
+{
+  "provider": "appsFlyer",
+  "config": {
+    "enabled": true,
+    "devKey": "<AppsFlyer Dev Key>",
+    "iosAppId": "<App Store ID>",
+    "openUrlDeepLinkWaitMs": 0
+  }
+}
+```
+
+- 字段缺失时为 `5000`，作为深链/延迟深链识别等待窗口。
+- 设为 `0` 时，不等待 AppsFlyer 深链回调，立即继续 `/system/getOpenUrl`；AppsFlyer SDK 仍会初始化、监听回调并上报事件。
+- 仅接受非负整数毫秒值；字段缺失或值无效时统一使用 `5000`。
+
+系统初始 URL 继续异步采集并记录，不参与启动等待决策。已确认恢复本地安装身份时，AppsFlyer 只要返回明确的未命中深链结果便结束等待；首次安装或本地身份状态无法确认时，仍保留安装归因回调等待流程。
+
+`allowDeepLinkOverride=true` 时，启动会无条件执行一次 AF 深链读取，再用本次有效结果覆盖缓存。该启动决策只使用一个 `openUrlDeepLinkWaitMs` 等待窗口；读取无结果时保留旧缓存，后续 `/system/getOpenUrl` 直接复用本次结果或旧缓存，不再重复等待第二个窗口。
+
 ## 职责边界
 
 这里的“启动策略”不是纯前端策略。后端负责业务策略判断，例如 IP、地区、后台配置、是否打开、跳转地址、跳转类型和 A/B 模块；前端不复刻这些规则。

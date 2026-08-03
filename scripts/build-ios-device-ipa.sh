@@ -166,6 +166,11 @@ case "$CONFIGURATION" in
     ;;
 esac
 
+POSTPROCESSING_BUILD_SETTINGS=
+if [ "$CONFIGURATION" = "Release" ]; then
+  POSTPROCESSING_BUILD_SETTINGS='DEPLOYMENT_POSTPROCESSING=YES STRIP_INSTALLED_PRODUCT=YES COPY_PHASE_STRIP=YES'
+fi
+
 if [ ! -d "$ROOT_DIR/node_modules" ] || [ "${FORCE_INSTALL:-0}" = "1" ]; then
   install_js_dependencies
 fi
@@ -228,6 +233,7 @@ xcodebuild \
   CODE_SIGN_IDENTITY="" \
   CODE_SIGNING_REQUIRED=NO \
   CODE_SIGNING_ALLOWED=NO \
+  $POSTPROCESSING_BUILD_SETTINGS \
   build
 
 APP_PATH=$(find "$PRODUCTS_DIR" -maxdepth 1 -type d -name '*.app' | sort | head -n 1)
