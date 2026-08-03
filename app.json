@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "Cricket Guide",
+    "name": "FP777",
     "slug": "cricket-guide",
-    "version": "1.0.5",
-    "scheme": "cricketguide",
+    "version": "1.0.6",
+    "scheme": "fp777",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,7 +15,6 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.cricketGuide.cricketGuide0044",
-      "buildNumber": "4",
       "associatedDomains": [
         "applinks:vpbet2.onelink.me"
       ],
@@ -25,7 +24,6 @@
     },
     "android": {
       "package": "com.cricketGuide.cricketGuide0044",
-      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
