@@ -1,7 +1,7 @@
 import { initDomain } from '@/services/domainSelector';
 import { systemApi } from '@/services/api/system';
 import { configureAppDebugFromInit, loadStoredAppDebugState } from '@/services/appDebug/store';
-import { ensureInstallId } from '@/services/installIdentity';
+import { initializeInstallIdentity } from '@/services/installIdentity';
 import { flushClientErrorReportsWhenDue } from '@/services/logging/clientErrors/uploadSchedule';
 import { recordBreadcrumb } from '@/services/logging/breadcrumbs';
 import {
@@ -51,7 +51,11 @@ export const prepareBootstrapContext = async ({
 
     // 本地状态是后续 init 与内部入口分流的前置条件，失败交给启动页错误态处理。
     logger.info('bootstrap: init local state');
-    await Promise.all([initUser(), initLang(), ensureInstallId()]);
+    const [installIdentity] = await Promise.all([
+        initializeInstallIdentity(),
+        initUser(),
+        initLang(),
+    ]);
     logger.info('bootstrap: init local state done');
     recordBreadcrumb({
         category: 'bootstrap',
@@ -76,7 +80,10 @@ export const prepareBootstrapContext = async ({
 
     await configureAppDebugFromInit(initData, storedAppDebugState);
     configureAttributionReporter(attributionConfig);
-    beginAttributionOpenUrlDecision('bootstrap');
+    beginAttributionOpenUrlDecision({
+        reason: 'bootstrap',
+        waitForInstallConversion: !installIdentity.restoredInstallIdentity,
+    });
     startAttributionReporter();
     logger.info('bootstrap: api.init done', {
         checkTime: base.checkTime,

@@ -192,8 +192,11 @@ export const startAttributionReporter = () => {
     );
 };
 
-export const beginAttributionOpenUrlDecision = (reason) => {
-    attributionRuntimeConfig.provider?.beginOpenUrlDecision?.({ reason });
+export const beginAttributionOpenUrlDecision = ({ reason, waitForInstallConversion }) => {
+    attributionRuntimeConfig.provider?.beginOpenUrlDecision?.({
+        reason,
+        waitForInstallConversion,
+    });
 };
 
 export const readAttributionSnapshot = async () => {

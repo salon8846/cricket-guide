@@ -11,7 +11,8 @@ const installIdState = (() => {
     if (!globalThis[INSTALL_ID_STATE_KEY]) {
         globalThis[INSTALL_ID_STATE_KEY] = {
             cachedInstallId: '',
-            pendingInstallId: null,
+            restoredInstallIdentity: false,
+            pendingInstallIdentity: null,
         };
     }
 
@@ -31,6 +32,7 @@ export const readInstallId = async () => {
         const installId = await readStoredInstallIdOrThrow();
         if (installId) {
             installIdState.cachedInstallId = installId;
+            installIdState.restoredInstallIdentity = true;
         }
         return installId;
     } catch (error) {
@@ -39,48 +41,71 @@ export const readInstallId = async () => {
     }
 };
 
-export const ensureInstallId = async () => {
+export const initializeInstallIdentity = async () => {
     if (installIdState.cachedInstallId) {
-        return installIdState.cachedInstallId;
+        return {
+            installId: installIdState.cachedInstallId,
+            restoredInstallIdentity: installIdState.restoredInstallIdentity,
+        };
     }
 
-    if (installIdState.pendingInstallId) {
-        return await installIdState.pendingInstallId;
+    if (installIdState.pendingInstallIdentity) {
+        return await installIdState.pendingInstallIdentity;
     }
 
-    installIdState.pendingInstallId = (async () => {
+    installIdState.pendingInstallIdentity = (async () => {
         let savedInstallId = '';
         try {
             savedInstallId = await readStoredInstallIdOrThrow();
         } catch (error) {
             logger.warn('installId read failed', { error });
-            return '';
+            return {
+                installId: '',
+                restoredInstallIdentity: false,
+            };
         }
 
         if (savedInstallId) {
             installIdState.cachedInstallId = savedInstallId;
-            return savedInstallId;
+            installIdState.restoredInstallIdentity = true;
+            return {
+                installId: savedInstallId,
+                restoredInstallIdentity: true,
+            };
         }
 
         const installId = createUuidV4();
         try {
             await setItemOrThrow(APP_STORAGE_KEYS.identity.installId, installId);
             installIdState.cachedInstallId = installId;
-            return installId;
+            installIdState.restoredInstallIdentity = false;
+            return {
+                installId,
+                restoredInstallIdentity: false,
+            };
         } catch (error) {
             logger.warn('installId persist failed', { error });
-            return '';
+            return {
+                installId: '',
+                restoredInstallIdentity: false,
+            };
         }
     })();
 
     try {
-        return await installIdState.pendingInstallId;
+        return await installIdState.pendingInstallIdentity;
     } finally {
-        installIdState.pendingInstallId = null;
+        installIdState.pendingInstallIdentity = null;
     }
+};
+
+export const ensureInstallId = async () => {
+    const installIdentity = await initializeInstallIdentity();
+    return installIdentity.installId;
 };
 
 export const clearInstallIdMemoryCache = () => {
     installIdState.cachedInstallId = '';
-    installIdState.pendingInstallId = null;
+    installIdState.restoredInstallIdentity = false;
+    installIdState.pendingInstallIdentity = null;
 };
