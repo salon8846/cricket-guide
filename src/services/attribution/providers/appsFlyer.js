@@ -4,7 +4,7 @@ import { normalizeAttributionDeepLinkParams } from '@/services/attribution/deepL
 import { createDebugLogger } from '@/utils/logger';
 
 const appsFlyerLogger = createDebugLogger('AttributionAppsFlyer');
-const DEFAULT_OPEN_URL_DEEP_LINK_WAIT_MS = 3000;
+const DEFAULT_OPEN_URL_DEEP_LINK_WAIT_MS = 5000;
 const OPEN_URL_POLL_MS = 250;
 const EVENT_LOG_TIMEOUT_MS = 8000;
 
